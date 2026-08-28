@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- 背景渐变：深空废土 -->
+    <radialGradient id="bgGrad" cx="50%" cy="48%" r="60%">
+      <stop offset="0%" stop-color="#1a2018"/>
+      <stop offset="60%" stop-color="#0c0e0d"/>
+      <stop offset="100%" stop-color="#050706"/>
+    </radialGradient>
+
+    <!-- 瓶盖金属质感：琥珀金 -->
+    <linearGradient id="capMetal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e8c840"/>
+      <stop offset="35%" stop-color="#c9a227"/>
+      <stop offset="65%" stop-color="#8a6f1a"/>
+      <stop offset="100%" stop-color="#5a4a12"/>
+    </linearGradient>
+
+    <!-- 瓶盖内圈阴影 -->
+    <radialGradient id="capInner" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#1a1a14"/>
+      <stop offset="70%" stop-color="#0f0f0c"/>
+      <stop offset="100%" stop-color="#070706"/>
+    </radialGradient>
+
+    <!-- 磷光绿辐射符号 -->
+    <radialGradient id="radGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7fae6e" stop-opacity="0.6"/>
+      <stop offset="60%" stop-color="#7fae6e" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#7fae6e" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- 锈蚀纹理 -->
+    <linearGradient id="rust" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b5651d"/>
+      <stop offset="50%" stop-color="#8a4a12"/>
+      <stop offset="100%" stop-color="#5a2e0a"/>
+    </linearGradient>
+
+    <!-- 扫描线滤镜 -->
+    <filter id="scanlines">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.04"/></feComponentTransfer>
+      <feComposite operator="over" in2="SourceGraphic"/>
+    </filter>
+
+    <!-- 外发光 -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- 强发光（辐射符号用） -->
+    <filter id="strongGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- 内阴影 -->
+    <filter id="innerShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/>
+      <feOffset dx="2" dy="3"/>
+      <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1"/>
+      <feFlood flood-color="#000" flood-opacity="0.6"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+      <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode/></feMerge>
+    </filter>
+
+    <!-- 噪点纹理 -->
+    <filter id="noise">
+      <feTurbulence type="fractalNoise" baseFrequency="1.2" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.08"/></feComponentTransfer>
+      <feComposite operator="over" in2="SourceGraphic"/>
+    </filter>
+
+    <!-- 裁剪：瓶盖内圆 -->
+    <clipPath id="capClip">
+      <circle cx="256" cy="256" r="170"/>
+    </clipPath>
+  </defs>
+
+  <!-- ===== 背景 ===== -->
+  <rect width="512" height="512" fill="url(#bgGrad)"/>
+  <!-- 背景扫描线 -->
+  <rect width="512" height="512" fill="url(#bgGrad)" filter="url(#scanlines)" opacity="0.5"/>
+
+
+  <!-- ===== 瓶盖主体 ===== -->
+  <!-- 瓶盖外圈锯齿边缘 -->
+  <g transform="translate(256,256)">
+    <!-- 锯齿外圈 -->
+    <path d="M0,-200 
+             a200,200 0 0,1 400,0 
+             a200,200 0 0,1 -400,0 Z
+             M0,-185 
+             a185,185 0 0,0 370,0 
+             a185,185 0 0,0 -370,0 Z"
+          fill="url(#capMetal)"/>
+    <!-- 锯齿细节 -->
+    <g fill="#8a6f1a">
+      <path d="M-200,0 L-212,-8 L-212,8 Z"/>
+      <path d="M200,0 L212,-8 L212,8 Z"/>
+      <path d="M0,-200 L-8,-212 L8,-212 Z"/>
+      <path d="M0,200 L-8,212 L8,212 Z"/>
+      <path d="M141,-141 L150,-148 L148,-138 Z" transform="rotate(0)"/>
+      <path d="M141,141 L150,148 L148,138 Z"/>
+      <path d="M-141,-141 L-150,-148 L-148,-138 Z"/>
+      <path d="M-141,141 L-150,148 L-148,138 Z"/>
+    </g>
+  </g>
+
+  <!-- 瓶盖内圈平面 -->
+  <circle cx="256" cy="256" r="185" fill="url(#capInner)"/>
+  <circle cx="256" cy="256" r="185" fill="none" stroke="#5a4a12" stroke-width="2"/>
+
+  <!-- 瓶盖内圈高光 -->
+  <ellipse cx="256" cy="220" rx="160" ry="30" fill="#c9a227" opacity="0.06"/>
+
+  <!-- ===== 瓶盖内部场景 ===== -->
+  <g clip-path="url(#capClip)">
+
+    <!-- 辐射光晕背景 -->
+    <circle cx="256" cy="240" r="120" fill="url(#radGlow)"/>
+
+    <!-- 地平线 -->
+    <rect x="86" y="300" width="340" height="2" fill="#2a3133" opacity="0.5"/>
+
+    <!-- 废墟城市剪影 -->
+    <g fill="#1a1a14" stroke="#2a2a20" stroke-width="1">
+      <!-- 左侧建筑1：断裂高楼 -->
+      <polygon points="130,300 130,200 145,195 150,180 155,195 170,200 170,300"/>
+      <!-- 窗户 -->
+      <rect x="138" y="215" width="6" height="8" fill="#c9a227" opacity="0.15"/>
+      <rect x="150" y="225" width="6" height="8" fill="#c9a227" opacity="0.1"/>
+      <rect x="138" y="240" width="6" height="8" fill="#c9a227" opacity="0.12"/>
+      <rect x="150" y="250" width="6" height="8" fill="#c9a227" opacity="0.08"/>
+
+      <!-- 中间建筑2：最高的主楼 -->
+      <polygon points="200,300 200,160 220,155 230,140 240,155 260,160 260,300"/>
+      <!-- 顶部天线 -->
+      <line x1="230" y1="140" x2="230" y2="120" stroke="#3a3a30" stroke-width="2"/>
+      <circle cx="230" cy="118" r="2" fill="#b5651d" opacity="0.6"/>
+      <!-- 窗户 -->
+      <rect x="210" y="175" width="8" height="10" fill="#c9a227" opacity="0.18"/>
+      <rect x="225" y="180" width="8" height="10" fill="#c9a227" opacity="0.12"/>
+      <rect x="240" y="175" width="8" height="10" fill="#c9a227" opacity="0.15"/>
+      <rect x="210" y="200" width="8" height="10" fill="#c9a227" opacity="0.1"/>
+      <rect x="240" y="200" width="8" height="10" fill="#c9a227" opacity="0.08"/>
+      <rect x="210" y="230" width="8" height="10" fill="#c9a227" opacity="0.12"/>
+      <rect x="225" y="235" width="8" height="10" fill="#c9a227" opacity="0.1"/>
+      <rect x="240" y="230" width="8" height="10" fill="#c9a227" opacity="0.06"/>
+
+      <!-- 右侧建筑3：矮废墟 -->
+      <polygon points="300,300 300,240 315,235 325,220 335,235 350,240 350,300"/>
+      <!-- 窗户 -->
+      <rect x="310" y="255" width="8" height="10" fill="#c9a227" opacity="0.1"/>
+      <rect x="328" y="250" width="8" height="10" fill="#c9a227" opacity="0.15"/>
+      <rect x="310" y="275" width="8" height="10" fill="#c9a227" opacity="0.08"/>
+
+      <!-- 地面碎片 -->
+      <rect x="175" y="295" width="20" height="5" rx="1" fill="#222"/>
+      <rect x="270" y="293" width="15" height="7" rx="1" fill="#1e1e18"/>
+      <rect x="180" y="290" width="10" height="10" rx="1" fill="#1c1c16"/>
+    </g>
+
+    <!-- 辐射符号 ☢ -->
+    <g transform="translate(256,240)" filter="url(#strongGlow)">
+      <!-- 外圈 -->
+      <circle cx="0" cy="0" r="32" fill="none" stroke="#7fae6e" stroke-width="3" opacity="0.7"/>
+      <!-- 三个扇叶 -->
+      <path d="M0,0 L0,-28 A28,28 0 0,1 24.2,14 Z" fill="#7fae6e" opacity="0.5"/>
+      <path d="M0,0 L24.2,14 A28,28 0 0,1 -24.2,14 Z" fill="#7fae6e" opacity="0.5"/>
+      <path d="M0,0 L-24.2,14 A28,28 0 0,1 0,-28 Z" fill="#7fae6e" opacity="0.35"/>
+      <!-- 中心圆 -->
+      <circle cx="0" cy="0" r="8" fill="#7fae6e" opacity="0.7"/>
+      <circle cx="0" cy="0" r="4" fill="#0c0e0d"/>
+    </g>
+
+    <!-- 远处微弱光点（营地灯火） -->
+    <circle cx="160" cy="290" r="2" fill="#c9a227" opacity="0.4"/>
+    <circle cx="340" cy="285" r="1.5" fill="#c9a227" opacity="0.3"/>
+    <circle cx="380" cy="292" r="1" fill="#7fae6e" opacity="0.25"/>
+    <circle cx="120" cy="288" r="1.5" fill="#c9a227" opacity="0.2"/>
+
+  </g>
+
+  <!-- ===== 瓶盖表面磨损/锈蚀细节 ===== -->
+  <g clip-path="url(#capClip)" opacity="0.3">
+    <!-- 划痕 -->
+    <line x1="150" y1="180" x2="180" y2="200" stroke="#5a4a12" stroke-width="1.5"/>
+    <line x1="320" y1="190" x2="340" y2="210" stroke="#5a4a12" stroke-width="1"/>
+    <line x1="200" y1="320" x2="230" y2="330" stroke="#5a4a12" stroke-width="1"/>
+    <!-- 锈斑 -->
+    <circle cx="340" cy="320" r="8" fill="url(#rust)" opacity="0.3"/>
+    <circle cx="160" cy="310" r="5" fill="url(#rust)" opacity="0.2"/>
+    <circle cx="350" cy="180" r="6" fill="url(#rust)" opacity="0.15"/>
+  </g>
+
+  <!-- 瓶盖内圈边缘高光 -->
+  <circle cx="256" cy="256" r="185" fill="none" stroke="#c9a227" stroke-width="1" opacity="0.15"/>
+
+  <!-- ===== 顶部文字弧线 ===== -->
+  <g transform="translate(256,256)">
+    <!-- 上方弧线文字路径 -->
+    <defs>
+      <path id="topArc" d="M -150,0 A 150,150 0 0,1 150,0"/>
+      <path id="bottomArc" d="M 150,0 A 150,150 0 0,1 -150,0"/>
+    </defs>
+    <!-- 上方文字 -->
+    <text font-family="Courier New, monospace" font-size="16" font-weight="bold" fill="#c9a227" letter-spacing="6" opacity="0.8">
+      <textPath href="#topArc" startOffset="50%" text-anchor="middle">WASTELAND TYCOON</textPath>
+    </text>
+    <!-- 下方文字 -->
+    <text font-family="Courier New, monospace" font-size="11" fill="#7fae6e" letter-spacing="4" opacity="0.6">
+      <textPath href="#bottomArc" startOffset="50%" text-anchor="middle">末世大富翁 · SURVIVAL ECONOMY</textPath>
+    </text>
+  </g>
+
+  <!-- ===== 角落装饰 ===== -->
+
+  <!-- ===== 外边框 ===== -->
+  <rect x="6" y="6" width="500" height="500" rx="20" fill="none" stroke="#2a3133" stroke-width="1.5"/>
+  <rect x="12" y="12" width="488" height="488" rx="16" fill="none" stroke="#c9a227" stroke-width="0.5" opacity="0.3"/>
+
+</svg>

@@ -1,0 +1,31 @@
+{
+  "name": "wasteland-tycoon",
+  "version": "1.0.0",
+  "description": "废土大亨：末世大富翁 · 2D大富翁游戏（ES Module + PWA）",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prestart": "node scripts/sync-www.mjs",
+    "start": "node scripts/start.mjs",
+    "pretest": "node scripts/sync-www.mjs",
+    "test": "node smoke.test.mjs",
+    "sync:www": "node scripts/sync-www.mjs",
+    "icon:android": "node scripts/export-android-icon.mjs",
+    "precap:sync": "node scripts/sync-www.mjs",
+    "cap:sync": "npx cap sync android",
+    "cap:open": "npx cap open android",
+    "cap:deploy": "node scripts/android-deploy.mjs",
+    "cap:deploy:fast": "node scripts/android-deploy.mjs --skip-sync"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/haptics": "^6.0.1",
+    "@resvg/resvg-js": "^2.6.2",
+    "sharp": "^0.34.5"
+  },
+  "dependencies": {
+    "@capacitor-community/text-to-speech": "^5.1.0"
+  }
+}

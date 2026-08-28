@@ -1,0 +1,15 @@
+{
+  "name": "废土大亨：末世大富翁",
+  "short_name": "末世大富翁",
+  "description": "废土末世风大富翁 · 阿帕拉契亚地形 · 遗产/肉鸽/叙事传承",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0c0e0d",
+  "theme_color": "#c9a227",
+  "icons": [
+    { "src": "logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

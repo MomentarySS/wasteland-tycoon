@@ -1,0 +1,208 @@
+// 弹窗：任务、黑市、胜利、章节叙事
+import { render, log } from './view-core.js';
+import { eventArtHtml, flashLightning, nukeArtHtml } from './assets-art.js';
+import { applyMissionEffects, blackMarketSteal, blackMarketCard } from './rules.js';
+import { afterHumanAction, resolveTile, launchNuke } from './game.js';
+import { canLaunchNuke } from './nuke.js';
+import { G } from './state.js';
+import { TILES } from './data.js';
+import { sfx } from './audio.js';
+import { flashScreen, screenShake, haptic, coinRain } from './fx.js';
+import { playEventIntro, showChoiceResult, formatChoiceResult } from './fx-events.js';
+import { ttsSpeak } from './tts.js';
+import { escapeHtml } from './view-util.js';
+import { getChapterIntro, getCampaignEnding } from './campaign.js';
+import { isChainMission, isFactionMission, isNukeMission } from './missions.js';
+import { radiationMine, bunkerRest, bunkerFortify } from './rules.js';
+
+let modal, modalBox, winEl;
+
+export function initModalRefs() {
+  modal = document.getElementById('modal');
+  modalBox = document.getElementById('modalBox');
+  winEl = document.getElementById('win');
+}
+
+export function openModal(html, opts) {
+  const o = opts || {};
+  modalBox.innerHTML = html; modal.style.display = 'flex';
+  modal.classList.add('open');
+  modalBox.classList.remove('in', 'flip', 'badEvt');
+  void modalBox.offsetWidth;
+  modalBox.classList.add(o.flip ? 'flip' : 'in');
+  if (o.bad) modalBox.classList.add('badEvt');
+}
+
+export function closeModal() { modal.style.display = 'none'; }
+
+export function showWin(name, sub) {
+  const box = winEl ? winEl.querySelector('.box') : null;
+  if (box) box.classList.remove('win-nuke');
+  document.getElementById('winText').textContent = '🏆 ' + name + (sub ? ' · ' + sub : ' 称霸废土');
+  winEl.style.display = 'flex';
+  coinRain();
+}
+
+export function showNukeWin(name) {
+  const box = winEl ? winEl.querySelector('.box') : null;
+  if (box) box.classList.add('win-nuke');
+  document.getElementById('winText').innerHTML =
+    `<div class="nukeWinArt has-img">${nukeArtHtml('strike')}</div>` +
+    `<div class="nukeWinTitle">${escapeHtml(name)}</div>` +
+    `<div class="nukeWinSub">核平阿帕拉契亚 · 隐藏结局</div>`;
+  winEl.style.display = 'flex';
+  flashScreen('rgba(255,200,100,.35)');
+  haptic('heavy');
+}
+
+/** 发射确认弹窗（替代原生 confirm） */
+export function showNukeLaunchConfirm(p, onCancel) {
+  const html = `<div class="deckTag" style="color:#ff6b00">☢ 三井待发</div>
+    <h2 style="color:#ff6b00;text-align:center">发射核弹</h2>
+    <div class="evtArt has-img nukeLaunchArt" style="border-color:#ff6b00">${nukeArtHtml('launch')}</div>
+    <div class="evtText">阿尔法、布拉沃、查理三井密钥已对齐，靶场锁定棋盘中央。发射后棋盘将被核平，<strong>无论当前战局输赢，你都将获得绝对胜利</strong>。</div>
+    <div class="moralHint">⚠ 此操作不可撤销</div>
+    <div id="actions" style="margin-top:14px">
+      <button class="nuke" id="nukeGo">☢ 确认发射</button>
+      <button class="alt" id="nukeWait">稍后决定</button>
+    </div>`;
+  openModal(html, { bad: true });
+  screenShake(0.5);
+  haptic('medium');
+  document.getElementById('nukeGo').onclick = () => { closeModal(); void launchNuke(p); };
+  document.getElementById('nukeWait').onclick = () => {
+    closeModal();
+    if (onCancel) onCancel();
+  };
+}
+
+export function showMission(m, p) {
+  const col = m.bad ? 'var(--gang)' : 'var(--phos)';
+  const chain = isChainMission(m);
+  const tagLabel = isNukeMission(m) ? '☢ 机密频道' : isFactionMission(m) ? '⚑ 派系密使' : (chain ? '🔗 连锁任务' : escapeHtml(m.deckName));
+  const choices = (m.choices || []).map((c, i) => `<button id='mc${i}'>${escapeHtml(c.text)}</button>`).join('');
+  const html = `<div class='deckTag' style='color:${col}'>${tagLabel} · ${escapeHtml(m.deckTag || '')}</div>
+    <h2 style='color:${col};text-align:center'>${escapeHtml(m.title)}</h2>
+    <div class='evtArt has-img art-${escapeHtml(m.art || 'caps')}' style='color:${col};border-color:${col}'>${eventArtHtml(m)}</div>
+    <div class='evtText'>${escapeHtml(m.story)}</div>
+    ${m.moral ? `<div class='moralHint'>⚖ ${escapeHtml(m.moral)}</div>` : ''}
+    <div id='actions' style='margin-top:14px'>${choices}</div>`;
+  openModal(html, { flip: true, bad: m.bad });
+  playEventIntro(modalBox, m);
+  if (m.bad) { flashLightning(); flashScreen(); screenShake(.8); haptic('heavy'); }
+  else haptic('medium');
+  ttsSpeak(m.title + (m.moral ? '。' + m.moral : ''));
+  (m.choices || []).forEach((c, i) => {
+    const el = document.getElementById('mc' + i);
+    if (el) el.onclick = async () => {
+      const summary = formatChoiceResult(c.effects);
+      await showChoiceResult(modalBox, summary, m.bad, null);
+      closeModal();
+      // 坏事件有闪屏/震动特效，稍作等待避免 modal 与 render() 在同一帧内切换造成闪屏
+      if (m.bad) await new Promise(r => setTimeout(r, 120));
+      applyMissionEffects(p, c.effects, m, c);
+      sfx(m.bad ? 'bad' : 'good');
+      if (canLaunchNuke(p)) {
+        render();
+        showNukeLaunchConfirm(p, () => afterHumanAction(p));
+        return;
+      }
+      if (c.effects && c.effects.warp) {
+        if (G.gameOver) return;
+        if (p.bankrupt) { afterHumanAction(p); return; }
+        resolveTile(p, { afterWarp: true });
+        return;
+      }
+      render();
+      afterHumanAction(p);
+    };
+  });
+}
+
+export function showBlackMarket(p) {
+  const canSteal = p.caps >= 80;
+  const html = `<h2 style='color:var(--amber);text-align:center'>⚑ 黑市交易</h2>
+    <div class='evtText'>你溜进黑市，能捞点什么？</div>
+    <div id='actions' style='margin-top:14px'>
+      <button id='bmSteal' ${canSteal ? '' : 'disabled'}>偷袭 (-80盖，抢对手一块地)</button>
+      <button class='alt' id='bmCard'>搜刮 (免费，50%得通行证)</button>
+      <button class='alt' id='bmLeave'>离开</button>
+    </div>`;
+  openModal(html);
+  haptic('medium');
+  document.getElementById('bmSteal').onclick = () => {
+    closeModal(); blackMarketSteal(p); render();
+    if (canLaunchNuke(p)) showNukeLaunchConfirm(p, () => afterHumanAction(p));
+    else afterHumanAction(p);
+  };
+  document.getElementById('bmCard').onclick = () => {
+    closeModal(); blackMarketCard(p); render();
+    if (canLaunchNuke(p)) showNukeLaunchConfirm(p, () => afterHumanAction(p));
+    else afterHumanAction(p);
+  };
+  document.getElementById('bmLeave').onclick = () => { closeModal(); afterHumanAction(p); };
+}
+
+export function showRadiation(p) {
+  const canDeep = p.caps >= 80;
+  const canShallow = p.caps >= 40;
+  const tileName = (TILES[p.pos] && TILES[p.pos].name) || '莫诺加矿洞';
+  const html = `<h2 style='color:#b8d84a;text-align:center'>☢ ${escapeHtml(tileName)}</h2>
+    <div class='evtText'>盖革计数器狂响。深采回报高，浅采省成本但会污染声誉。</div>
+    <div id='actions' style='margin-top:14px'>
+      <button id='radDeep' ${canDeep ? '' : 'disabled'}>深采 (-80盖，+150盖)</button>
+      <button class='alt' id='radShallow' ${canShallow ? '' : 'disabled'}>浅采 (-40盖，+70盖，道德-1)</button>
+      <button class='alt' id='radLeave'>离开</button>
+    </div>`;
+  openModal(html);
+  haptic('medium');
+  document.getElementById('radDeep').onclick = () => {
+    closeModal(); radiationMine(p, true); render();
+    if (canLaunchNuke(p)) showNukeLaunchConfirm(p, () => afterHumanAction(p));
+    else afterHumanAction(p);
+  };
+  document.getElementById('radShallow').onclick = () => {
+    closeModal(); radiationMine(p, false); render();
+    if (canLaunchNuke(p)) showNukeLaunchConfirm(p, () => afterHumanAction(p));
+    else afterHumanAction(p);
+  };
+  document.getElementById('radLeave').onclick = () => { closeModal(); afterHumanAction(p); };
+}
+
+export function showBunker(p) {
+  const canFort = TILES.some(t => t.type === 'prop' && t.owner === p.id && t.level < 2);
+  const tileName = (TILES[p.pos] && TILES[p.pos].name) || '国会掩体';
+  const html = `<h2 style='color:#9aa3ad;text-align:center'>⛟ ${escapeHtml(tileName)}</h2>
+    <div class='evtText'>厚门后是无菌空气。休整恢复士气，或就地加固一处地产。</div>
+    <div id='actions' style='margin-top:14px'>
+      <button id='bkRest'>休整 (+35盖，道德+1)</button>
+      <button class='alt' id='bkFort' ${canFort ? '' : 'disabled'}>掩体加固 (免费强化一处地产)</button>
+      <button class='alt' id='bkLeave'>离开</button>
+    </div>`;
+  openModal(html);
+  haptic('medium');
+  document.getElementById('bkRest').onclick = () => { closeModal(); bunkerRest(p); render(); afterHumanAction(p); };
+  document.getElementById('bkFort').onclick = () => { closeModal(); bunkerFortify(p); render(); afterHumanAction(p); };
+  document.getElementById('bkLeave').onclick = () => { closeModal(); afterHumanAction(p); };
+}
+
+export function showChapterIntro(chapterIdx, onContinue, moral) {
+  const intro = getChapterIntro(chapterIdx, moral != null ? moral : 0);
+  if (!intro) { if (onContinue) onContinue(); return; }
+  const html = `<div class="deckTag" style="color:var(--amber)">📖 章节叙事</div>
+    <h2 style="color:var(--amber);text-align:center">${escapeHtml(intro.title)}</h2>
+    <div class="evtArt" style="color:var(--amber);border-color:var(--amber)">${intro.art || ''}</div>
+    <div class="evtText campIntro">${escapeHtml(intro.story)}</div>
+    <div id="actions" style="margin-top:14px"><button id="chGo">继续</button></div>`;
+  openModal(html, { flip: true });
+  ttsSpeak(intro.title + '。' + intro.story);
+  document.getElementById('chGo').onclick = () => { closeModal(); if (onContinue) onContinue(); };
+}
+
+export function showCampaignEnding(p) {
+  const ending = getCampaignEnding(p.moral || 0);
+  showWin(p.name, ending.subtitle);
+  log(ending.log, true);
+}
+
+export function hideWin() { if (winEl) winEl.style.display = 'none'; }

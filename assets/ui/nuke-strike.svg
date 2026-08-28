@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="8Ç‘">
+  <defs>
+    <radialGradient id="flash" cx="50%" cy="62%" r="48%">
+      <stop offset="0%" stop-color="#fff8d0"/>
+      <stop offset="22%" stop-color="#ffb347"/>
+      <stop offset="55%" stop-color="#e0574a"/>
+      <stop offset="100%" stop-color="#141917" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="stemG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff8d0"/>
+      <stop offset="40%" stop-color="#ff9800"/>
+      <stop offset="100%" stop-color="#a31515"/>
+    </linearGradient>
+    <linearGradient id="capG" x1="0.3" y1="0.2" x2="0.7" y2="1">
+      <stop offset="0%" stop-color="#fff8e0"/>
+      <stop offset="35%" stop-color="#ff9800"/>
+      <stop offset="100%" stop-color="#6b1010"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="#0c0e0d"/>
+  <!-- ²ûâ¯ -->
+  <circle cx="320" cy="230" r="120" fill="none" stroke="#ffe9a3" stroke-width="3" opacity="0.25"/>
+  <circle cx="320" cy="230" r="180" fill="none" stroke="#ff6b00" stroke-width="2" opacity="0.15"/>
+  <rect width="640" height="360" fill="url(#flash)" opacity="0.75"/>
+  <!-- ËØïÆjq -->
+  <rect x="120" y="268" width="400" height="72" rx="4" fill="#141917" stroke="#2a3538" stroke-width="2" opacity="0.9"/>
+  <path d="M120 304 H520 M200 268 V340 M320 268 V340 M440 268 V340" stroke="#2a3538" stroke-width="1" opacity="0.7"/>
+  <!-- Ç‘ -->
+  <rect x="304" y="170" width="32" height="100" rx="4" fill="url(#stemG)"/>
+  <ellipse cx="320" cy="150" rx="88" ry="52" fill="url(#capG)"/>
+  <ellipse cx="280" cy="132" rx="36" ry="22" fill="#ffe9a3" opacity="0.35"/>
+  <ellipse cx="352" cy="128" rx="42" ry="24" fill="#ffb347" opacity="0.28"/>
+  <!-- &÷ -->
+  <g transform="translate(320 210)" opacity="0.55">
+    <circle r="6" fill="#ffe9a3"/>
+    <path d="M0 -18 L0 -8 M0 8 L0 18 M15.6 -9 L9 -5.2 M-9 5.2 L-15.6 9 M-15.6 -9 L-9 -5.2 M9 5.2 L15.6 9" stroke="#ffe9a3" stroke-width="3" stroke-linecap="round"/>
+    <circle r="16" fill="none" stroke="#ffe9a3" stroke-width="1.5" opacity="0.6"/>
+  </g>
+  <!-- ÞcŽG -->
+  <circle cx="180" cy="120" r="3" fill="#ff9800" opacity="0.6"/>
+  <circle cx="460" cy="95" r="2.5" fill="#ffe9a3" opacity="0.5"/>
+  <circle cx="520" cy="180" r="2" fill="#e0574a" opacity="0.55"/>
+  <circle cx="110" cy="200" r="2.5" fill="#ff6b00" opacity="0.45"/>
+</svg>

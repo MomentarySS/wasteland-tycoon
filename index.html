@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#c9a227">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>废土大亨：末世大富翁 · WASTELAND TYCOON</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="logo.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="logo.svg">
+<link rel="stylesheet" href="css/style.css?v=20260808">
+<link rel="stylesheet" href="css/board-v2.css?v=3">
+</head>
+<body class="board-v2 no-tilt tile-art">
+<div id="ambLayers" aria-hidden="true"><div class="amb-dust"></div><div class="amb-dust amb-dust2"></div><div class="amb-glow"></div><div class="amb-lightning"></div></div>
+<div id="top">
+  <div><h1><img class="brand-mark" src="logo.svg" alt="" width="28" height="28" decoding="async"> 废土大亨：末世大富翁</h1><div class="sub">WASTELAND TYCOON · 末世大富翁 · 2D BOARD</div></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <button class="alt" id="muteBtn">🔊</button>
+    <button class="alt" id="ttsBtn">🗣 播报:开</button>
+    <span id="ttsStatus" style="font-size:12px;color:#9fb0a6;min-width:84px;text-align:left;"></span>
+    <button class="alt" id="testTtsBtn">🔊 测音</button>
+    <button class="alt" id="saveBtn">存档</button>
+    <button class="alt" id="loadBtn">读档</button>
+    <button class="alt" id="restartBtn">重新开始</button>
+  </div>
+</div>
+
+<div id="wrap">
+  <div id="mapFrame">
+    <div class="map-corner tl"></div><div class="map-corner tr"></div>
+    <div class="map-corner bl"></div><div class="map-corner br"></div>
+    <div class="map-title"><img class="brand-mark sm" src="logo.svg" alt="" width="14" height="14" decoding="async"> 末世大富翁 · WASTELAND MAP <span class="coord">SECTOR 7-G</span></div>
+    <div class="map-compass">↟<br>北</div>
+    <div id="boardScroll"><div id="board"><div id="boardInner"><div id="boardCenter"><div class="ambCore" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><div id="tilePreview" class="tilePreview"><div class="tpBody"><img class="tpArt" alt="" hidden decoding="async"><div class="tpIcon"></div><div class="tpName"></div><div class="tpMeta"></div></div></div></div><div id="tiles"></div><div id="tokenLayer"></div></div></div></div>
+    <div class="map-foot">// 数据链同步中 · 末日经济模拟 //</div>
+  </div>
+  <div id="side">
+    <div class="card">
+      <h2>// 回合</h2>
+      <div id="dice">
+        <div id="diceCubes"><div class="die" id="die1"></div><div class="die" id="die2"></div></div>
+        <div id="diceSum">待掷骰</div>
+      </div>
+      <div id="actions"></div>
+    </div>
+    <div class="card" id="campCard" style="display:none">
+      <h2>// 闯关目标</h2>
+      <div id="campObj"></div>
+    </div>
+    <div class="card">
+      <h2>// 幸存者</h2>
+      <div id="players"></div>
+    </div>
+    <div class="card">
+      <h2>// 战报</h2>
+      <div id="log"></div>
+    </div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div id="setup"><!-- 内容由 js/view.js 的 buildSetup() 注入（16:9 矩形布局） --></div>
+</div>
+
+<div id="win"><div class="box"><h2 id="winText"></h2><button id="winRestart">再来一局</button></div></div>
+<div id="modal"><div id="modalBox" class="card"></div></div>
+<div id="debugTts" style="position:fixed;bottom:10px;right:10px;background:#000c;color:#0f0;padding:8px;font-size:11px;z-index:999;display:none;border:1px solid #0f0;font-family:monospace;"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

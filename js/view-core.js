@@ -1,0 +1,475 @@
+// 视图核心：条带式棋盘、中央预览、布局自适应
+import { G } from './state.js';
+import { TILES, positions } from './data.js';
+import { N, CELL, COLORS, GROUPS, TOKEN_SLOT } from './config.js';
+import { playerPortrait, tileIcon, iconColor, buildingSVG } from './icons.js';
+import { netWorth, rentDisplay } from './rules-core.js';
+import { evaluateCampaign, evaluateCampaignCoop, campaignDecayPerTurn } from './campaign.js';
+import { formatFactionRep } from './missions.js';
+import { nukeKeyBadgeHtml } from './nuke.js';
+import { FACTIONS } from './config.js';
+import { initFx, fxMoney, fxResetMoney } from './fx.js';
+import { classifyLogKind, startAmbience } from './fx-events.js';
+import { ttsSpeak } from './tts.js';
+import { escapeHtml } from './view-util.js';
+import { tileArtUrl, zoneTexUrl } from './assets-art.js';
+
+let tilesEl, tokenLayer, logEl, actionsEl, diceEl, previewEl;
+let tileHoverBound = false;
+
+// 全局首次用户交互解锁音频（Android WebView 要求用户手势触发 AudioContext resume）
+function ensureAudioUnlocked() {
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === 'suspended') ac.resume().catch(() => {});
+  } catch (_) { /* ignore */ }
+}
+if (typeof window !== 'undefined') {
+  const unlockEvents = ['pointerdown', 'mousedown', 'touchstart', 'keydown'];
+  const unlockHandler = () => {
+    ensureAudioUnlocked();
+    unlockEvents.forEach(evt => window.removeEventListener(evt, unlockHandler));
+  };
+  unlockEvents.forEach(evt => window.addEventListener(evt, unlockHandler, { once: false }));
+}
+
+/** 棋盘始终平面（2.5D 已移除） */
+export function isBoardTiltEnabled() {
+  return false;
+}
+
+export function setBoardTilt(_on) {
+  applyBoardTilt(false);
+}
+
+export function applyBoardTilt(_on) {
+  if (!document.body || !document.body.classList) return;
+  const cl = document.body.classList;
+  if (typeof cl.add === 'function') cl.add('no-tilt');
+  fitBoard();
+  repositionAllTokens();
+}
+
+/** 顶面贴图：始终开启，不可关闭 */
+export function isTileArtEnabled() {
+  return true;
+}
+
+export function setTileArt(_on) {
+  applyTileArt(true);
+  render();
+}
+
+export function applyTileArt(_on) {
+  if (!document.body || !document.body.classList) return;
+  const cl = document.body.classList;
+  if (typeof cl.add === 'function') cl.add('tile-art');
+}
+
+export const WASTELAND_EMOJI = ['🧟', '☣️', '🤖', '👽', '🔥', '💀', '🛡️', '🥷', '🐺', '🦅', '⚙️', '📻'];
+const slotAvatars = [];
+
+const TYPE_LABEL = {
+  start: '避难所', event: '事件', tax: '税收', quarantine: '隔离区', safe: '安全地带',
+  rail: '哨站', util: '设施', wormhole: '虫洞', blackmarket: '黑市', bounty: '赏金',
+  oasis: '绿洲', radiation: '矿坑', bunker: '掩体',
+};
+
+export function avatarHTML(p) {
+  const av = p.avatar;
+  let inner;
+  if (av && typeof av === 'string' && av.startsWith('data:')) inner = `<img class="avimg" src="${escapeHtml(av)}">`;
+  else if (av) inner = `<span class="avemoji">${escapeHtml(av)}</span>`;
+  else inner = playerPortrait(p.id);
+  return `<span class="pva" style="color:${p.color}">${inner}</span>`;
+}
+
+export function slotAvatarHTML(i) {
+  return avatarHTML({ id: i, color: COLORS[i], avatar: slotAvatars[i] || '' });
+}
+
+export function getSlotAvatars() { return slotAvatars; }
+export function getSlotAvatarStore() { return slotAvatars; }
+
+export function getDomRefs() {
+  return { tilesEl, tokenLayer, logEl, actionsEl, diceEl };
+}
+
+function tileDisplayName(t) {
+  if (t.name) return t.name;
+  return TYPE_LABEL[t.type] || t.type;
+}
+
+function tileMetaLine(t) {
+  if (t.type === 'prop' || t.type === 'rail' || t.type === 'util') {
+    return `${t.price}盖 · 租${rentDisplay(t)}${t.level > 0 ? ' · Lv' + t.level : ''}`;
+  }
+  if (t.type === 'tax') return `-${t.tax}盖`;
+  if (t.type === 'start') return `+${G.SALARY}盖`;
+  if (t.type === 'wormhole') return '随机传送';
+  if (t.type === 'blackmarket') return '黑市交易';
+  if (t.type === 'bounty') return '赏金任务';
+  if (t.type === 'oasis') return '补给恢复';
+  if (t.type === 'radiation') return '辐射采矿';
+  if (t.type === 'bunker') return '国会掩体';
+  if (t.type === 'event') return '废土事件';
+  if (t.type === 'quarantine') return '隔离区';
+  if (t.type === 'safe') return '安全地带';
+  return '';
+}
+
+function tileTip(t) {
+  let tip = tileDisplayName(t);
+  const meta = tileMetaLine(t);
+  if (meta) tip += ' · ' + meta;
+  if (t.type === 'prop' && t.group && GROUPS[t.group]) tip += ' · ' + GROUPS[t.group].name;
+  if (t.owner != null && G.players[t.owner] && !G.players[t.owner].bankrupt) tip += ' · ' + G.players[t.owner].name;
+  if (t.mortgaged) tip += ' · [押当]';
+  return tip;
+}
+
+function buildStripTileHTML(t) {
+  const name = tileDisplayName(t);
+  const plainLen = name.replace(/\s/g, '').length;
+  const longName = plainLen >= 5;
+  let html = `<div class="tileSimple${longName ? ' long-name' : ''}">`;
+  if (!longName) {
+    html += `<div class="ticon" style="color:${iconColor(t)}">${tileIcon(t)}</div>`;
+  }
+  html += `<span class="tname">${escapeHtml(name)}${t.mortgaged ? ' <span class="mort">[押]</span>' : ''}</span>`;
+  html += `</div>`;
+  return html;
+}
+
+export function updateTilePreview(idx, opts = {}) {
+  if (!previewEl) previewEl = document.getElementById('tilePreview');
+  if (!previewEl || typeof previewEl.querySelector !== 'function') return;
+  if (idx == null || idx < 0 || idx >= TILES.length) return;
+  const t = TILES[idx];
+  const nameEl = previewEl.querySelector('.tpName');
+  const metaEl = previewEl.querySelector('.tpMeta');
+  const iconEl = previewEl.querySelector('.tpIcon');
+  const artEl = previewEl.querySelector('.tpArt');
+  if (nameEl) nameEl.textContent = tileDisplayName(t);
+  if (metaEl) {
+    let meta = tileMetaLine(t);
+    if (t.type === 'prop' && t.group && GROUPS[t.group]) meta = GROUPS[t.group].name + (meta ? ' · ' + meta : '');
+    if (t.owner != null && G.players[t.owner] && !G.players[t.owner].bankrupt) meta += (meta ? ' · ' : '') + G.players[t.owner].name;
+    metaEl.textContent = meta || '废土地块';
+  }
+  if (iconEl) {
+    iconEl.style.color = iconColor(t);
+    iconEl.innerHTML = tileIcon(t);
+  }
+  const art = tileArtUrl(t.artIndex ?? idx);
+  if (artEl) {
+    if (art) {
+      artEl.src = art;
+      artEl.hidden = false;
+      previewEl.classList.add('has-art');
+    } else {
+      artEl.removeAttribute('src');
+      artEl.hidden = true;
+      previewEl.classList.remove('has-art');
+    }
+  }
+  previewEl.dataset.type = t.type;
+  if (t.type === 'prop') previewEl.dataset.group = t.group || '';
+  else if (typeof previewEl.removeAttribute === 'function') previewEl.removeAttribute('data-group');
+  if (previewEl.classList) previewEl.classList.add('is-visible');
+  if (opts.pulse && previewEl.classList) {
+    previewEl.classList.remove('tpPulse');
+    void previewEl.offsetWidth;
+    previewEl.classList.add('tpPulse');
+  }
+}
+
+function syncActivePreview() {
+  if (!G.players || G.gameOver) return;
+  const cur = G.players[G.current];
+  if (cur && cur.pos != null) updateTilePreview(cur.pos, { pulse: true });
+}
+
+function bindTileHover() {
+  if (tileHoverBound || !tilesEl) return;
+  tileHoverBound = true;
+  tilesEl.addEventListener('pointerenter', (e) => {
+    const tile = e.target.closest?.('.tile');
+    if (!tile || !tilesEl.contains(tile)) return;
+    const i = Number(tile.dataset.i);
+    if (!Number.isNaN(i)) updateTilePreview(i);
+  }, true);
+  tilesEl.addEventListener('pointerleave', (e) => {
+    if (!tilesEl.contains(e.relatedTarget)) syncActivePreview();
+  });
+}
+
+export function initView() {
+  tilesEl = document.getElementById('tiles');
+  tokenLayer = document.getElementById('tokenLayer');
+  logEl = document.getElementById('log');
+  actionsEl = document.getElementById('actions');
+  diceEl = document.getElementById('diceSum') || document.getElementById('dice');
+  previewEl = document.getElementById('tilePreview');
+  initFx();
+  startAmbience();
+  applyBoardTilt(false);
+  applyTileArt(true);
+  // 老 WebView（<105 不支持 container-type）降级：格子内部尺寸回退 CSS 变量路径
+  try {
+    if (typeof CSS !== 'undefined' && CSS.supports && !CSS.supports('container-type', 'size')) {
+      document.body.classList.add('no-container');
+    }
+  } catch (_) { /* 部分旧环境 CSS.supports 抛错 */ }
+  bindTileHover();
+  if (window.addEventListener) {
+    let rt;
+    window.addEventListener('resize', () => {
+      clearTimeout(rt);
+      rt = setTimeout(() => { fitBoard(); repositionAllTokens(); invalidateCellMetricsCache(); }, 80);
+    });
+  }
+}
+
+export function fitBoard() {
+  if (typeof window === 'undefined' || !document.getElementById) return;
+  const topEl = document.getElementById('top');
+  const sideEl = document.getElementById('side');
+  const wrapEl = document.getElementById('wrap');
+  const mapEl = document.getElementById('mapFrame');
+  if (!topEl || !sideEl || !wrapEl) return;
+  const root = document.documentElement;
+  const setVar = (k, v) => { try { root && root.style && root.style.setProperty(k, v); } catch (_) { } };
+  const topH = topEl.offsetHeight || 56;
+  setVar('--top-h', topH + 'px');
+  const vw = window.innerWidth || 1280;
+  const vh = window.innerHeight || 720;
+  // 21:9 超宽屏（横屏 ratio > 2）：压缩侧栏，让棋盘优先吃满横向空间
+  const isUltraWide = vw > 0 && vh > 0 && (vw / vh) > 2;
+  // 21:9 竖长屏（竖屏 height > width×2.0）：也压缩侧栏，避免棋盘被挤窄
+  const isTallPill = vw > 0 && vh > 0 && (vh / vw) > 2.0;
+  const baseSideW = vw >= 1400 ? 420 : vw >= 1100 ? 400 : vw >= 860 ? 380 : 320;
+  const sideW = sideEl.offsetWidth || (isUltraWide || isTallPill ? Math.max(160, Math.floor(baseSideW * 0.5)) : baseSideW);
+  setVar('--side-w', sideW + 'px');
+  const PAD = 16, BPAD = 6, BOARD_PAD = 12;
+  const MAP_TOP = 22, MAP_BOT = 16, MAP_SIDE = 8;
+  // 优先用 mapFrame 实测尺寸，棋盘铺满可用区域（上下不留黑边）
+  let availW = vw - sideW - PAD * 2 - BPAD * 2 - MAP_SIDE * 2 - BOARD_PAD;
+  let availH = vh - topH - PAD * 2 - BPAD * 2 - MAP_TOP - MAP_BOT - BOARD_PAD;
+  if (mapEl && mapEl.clientWidth > 120) {
+    availW = mapEl.clientWidth - MAP_SIDE * 2 - BOARD_PAD;
+  }
+  if (mapEl && mapEl.clientHeight > 120) {
+    availH = mapEl.clientHeight - MAP_TOP - MAP_BOT - BOARD_PAD;
+  }
+  const gap = 3;
+  const MIN_CELL_W = 36;
+  const MIN_CELL_H = 22;
+  // 宽高独立计算，填满 mapFrame（不再锁 16:9，避免上下大段空白）
+  let cellW = Math.max(MIN_CELL_W, Math.floor((availW - gap * (N - 1)) / N));
+  let cellH = Math.max(MIN_CELL_H, Math.floor((availH - gap * (N - 1)) / N));
+  const realW = cellW * N + gap * (N - 1);
+  const realH = cellH * N + gap * (N - 1);
+  setVar('--cell-w', cellW + 'px');
+  setVar('--cell-h', cellH + 'px');
+  setVar('--cell', cellW + 'px');
+  setVar('--board-w', realW + 'px');
+  setVar('--board-h', realH + 'px');
+  setVar('--board-min', Math.min(realW, realH) + 'px');
+  const innerN = N - 2;
+  const centerW = innerN * cellW + (innerN - 1) * gap;
+  const centerH = innerN * cellH + (innerN - 1) * gap;
+  setVar('--center-w', centerW + 'px');
+  setVar('--center-h', centerH + 'px');
+  setVar('--center-min', Math.min(centerW, centerH) + 'px');
+  setVar('--center-left', (cellW + gap) + 'px');
+  setVar('--center-top', (cellH + gap) + 'px');
+  setVar('--board-size', realW + 'px');
+  setVar('--gap', gap + 'px');
+}
+
+export function log(msg, opts) {
+  const d = document.createElement('div');
+  d.className = 'logEntry';
+  const kind = classifyLogKind(msg);
+  if (kind) d.classList.add('log-' + kind);
+  d.textContent = msg;
+  if (logEl) logEl.prepend(d);
+  requestAnimationFrame(() => d.classList.add('in'));
+  if (opts === true || (opts && opts.speak)) ttsSpeak(msg);
+}
+
+export function clearLog() { if (logEl) logEl.innerHTML = ''; }
+export function setDice(t) { if (diceEl) diceEl.textContent = t; }
+export function setActionsHTML(html) { if (actionsEl) actionsEl.innerHTML = html; }
+
+export function setActiveTile(idx) {
+  if (!tilesEl || G.gameOver) return;
+  tilesEl.querySelectorAll('.tile.active').forEach(el => el.classList.remove('active'));
+  const cur = G.players && G.players[G.current];
+  if (cur && cur.pos === idx) {
+    const t = tilesEl.querySelector(`.tile[data-i="${idx}"]`);
+    if (t) t.classList.add('active');
+  }
+}
+
+export function renderPlayers() {
+  const pp = document.getElementById('players');
+  if (!pp) return;
+  pp.innerHTML = '';
+  G.players.forEach(p => {
+    const owned = TILES.filter(t => t.owner === p.id).length;
+    const div = document.createElement('div');
+    div.className = 'pl' + (p.id === G.current && !G.gameOver ? ' cur' : '') + (p.bankrupt ? ' bk' : '');
+    const tag = (p.inJail ? ' <span style="color:#d05a4a">⛓</span>' : '') + (p.getOut > 0 ? ` <span style="color:var(--phos)">卡${p.getOut}</span>` : '');
+    const repTag = formatFactionRep(p, FACTIONS);
+    const repHtml = repTag ? ` · <span class="frep" title="派系声望">${escapeHtml(repTag)}</span>` : '';
+    const nukeHtml = nukeKeyBadgeHtml(p);
+    const avHtml = avatarHTML(p);
+    // 调试：检测头像 HTML 是否异常（开发时保留）
+    if (typeof console !== 'undefined' && console.debug) {
+      const avCount = (avHtml.match(/class="pva"/g) || []).length;
+      if (avCount > 1) console.debug('[renderPlayers] 玩家', p.name, '头像重复', avCount, '次:', avHtml);
+    }
+    div.innerHTML = `<span>${avHtml}${escapeHtml(p.name)}${p.isAI ? ' <span class="aiTag">AI</span>' : ''}${tag}${nukeHtml}</span>
+      <span><span class="cap">${Math.max(p.caps, 0)}</span>盖 · <span class="nw">净${netWorth(p)}</span> · 产${owned} · <span class="moral">德${p.moral || 0}</span>${repHtml}</span>`;
+    pp.appendChild(div);
+    p._rowEl = div;
+  });
+}
+
+export function render() {
+  fitBoard();
+  if (!tilesEl) return;
+  tilesEl.innerHTML = '';
+  const tileArtOn = isTileArtEnabled();
+  for (let i = 0; i < TILES.length; i++) {
+    const t = TILES[i]; const [r, c] = positions[i];
+    const d = document.createElement('div');
+    d.className = 'tile tile-v2 ' + t.type + (r === 0 ? ' top' : r === N - 1 ? ' bot' : c === 0 ? ' left' : c === N - 1 ? ' right' : '');
+    if (t.type === 'prop') d.dataset.group = t.group;
+    d.style.gridRow = r + 1; d.style.gridColumn = c + 1;
+    d.dataset.i = String(i);
+    if (t.type === 'prop' && t.group) {
+      const zt = zoneTexUrl(t.group);
+      if (zt) d.style.setProperty('--zone-tex', `url("${zt}")`);
+    }
+    // 顶面贴图模式：把该格的废土插画（artIndex 固定映射）铺成顶面
+    if (tileArtOn) {
+      const art = tileArtUrl(t.artIndex ?? i);
+      if (art) {
+        d.dataset.art = '1';
+        d.style.setProperty('--tile-art', `url("${art}")`);
+      }
+    }
+    d.innerHTML = buildStripTileHTML(t);
+    d.title = tileTip(t);
+    if (!G.gameOver && G.players[G.current] && i === G.players[G.current].pos) d.classList.add('active');
+    tilesEl.appendChild(d);
+  }
+  renderPlayers();
+  const campCard = document.getElementById('campCard');
+  if (campCard) {
+    if (G.mode === 'campaign' || G.mode === 'coop') {
+      campCard.style.display = '';
+      const human = G.players.find(p => !p.isAI);
+      const ally = G.players.find(p => p.isAI);
+      if (human) {
+        const r = G.mode === 'coop'
+          ? evaluateCampaignCoop(human, ally, { TILES, netWorth }, G.campaign)
+          : evaluateCampaign(human, { TILES, netWorth }, G.campaign);
+        const decay = campaignDecayPerTurn(G.campaign);
+        const decayNote = decay > 0 ? `<div class="campDecay">☢ 废土衰减：每回合 -${decay} 盖</div>` : '';
+        const coopNote = G.mode === 'coop' ? `<div class="campCoop">🤝 合作目标（双人共享）</div>` : '';
+        document.getElementById('campObj').innerHTML =
+          `<div class="campName">${escapeHtml(r.name)}</div><div class="campBrief">${escapeHtml(r.brief)}</div>` +
+          coopNote + decayNote +
+          r.objs.map(o => `<div class="campObj ${o.done ? 'done' : ''}">${o.done ? '✔' : '○'} ${escapeHtml(o.text)} <span class="campVal">(${o.value}/${o.goal})</span></div>`).join('');
+      }
+    } else if (G.mode === 'survival') {
+      campCard.style.display = '';
+      const tier = Math.floor((G.turn || 0) / 8);
+      const decay = tier > 0 ? tier * 5 : 0;
+      const nextTierIn = 8 - ((G.turn || 0) % 8);
+      document.getElementById('campObj').innerHTML =
+        `<div class="campName">☢ 生存模式</div><div class="campBrief">在无尽的废土衰减中活下去</div>` +
+        `<div class="campCoop">存活回合：${G.turn || 0}</div>` +
+        `<div class="campDecay">衰减等级 ${tier}：每回合 -${decay} 盖` +
+        (tier > 0 ? `（下阶段 ${nextTierIn} 回合后 +5）` : `（${nextTierIn} 回合后开始衰减）`) +
+        `</div>`;
+    } else campCard.style.display = 'none';
+  }
+  fxMoney(G.players);
+  repositionAllTokens();
+  syncActivePreview();
+}
+
+export function repositionAllTokens() {
+  if (!G.players) return;
+  G.players.forEach((p) => {
+    if (p.tokenEl) placeToken(p, p.pos != null ? p.pos : 0);
+  });
+}
+
+export function buildTokens() {
+  if (!tokenLayer) return;
+  fitBoard();
+  tokenLayer.innerHTML = '';
+  G.players.forEach(p => {
+    const d = document.createElement('div'); d.className = 'token';
+    d.style.background = p.color; d.style.color = '#0c0e0d';
+    d.innerHTML = `<div class="tinner">${avatarHTML(p)}</div>`;
+    tokenLayer.appendChild(d); p.tokenEl = d; placeToken(p, p.pos || 0);
+  });
+  fxResetMoney(G.players);
+  syncActivePreview();
+}
+
+export function placeToken(p, idx, metrics) {
+  if (!p.tokenEl || !positions[idx]) return;
+  const [r, c] = positions[idx];
+  let cellW = CELL, cellH = CELL, gap = 3;
+  if (metrics) {
+    cellW = metrics.cellW; cellH = metrics.cellH; gap = metrics.gap;
+  } else if (typeof getComputedStyle === 'function' && document.documentElement) {
+    const cs = getComputedStyle(document.documentElement);
+    const w = parseFloat(cs.getPropertyValue('--cell-w'));
+    const h = parseFloat(cs.getPropertyValue('--cell-h'));
+    const g = parseFloat(cs.getPropertyValue('--gap'));
+    if (w > 0) cellW = w;
+    if (h > 0) cellH = h;
+    if (g > 0) gap = g;
+  }
+  const slot = TOKEN_SLOT[p.id % TOKEN_SLOT.length] || [0.5, 0.25];
+  const tw = Math.max(10, Math.min(cellW, cellH) * 0.26);
+  const th = Math.max(10, Math.min(cellW, cellH) * 0.26);
+  const liftOff = 4;
+  const x = c * (cellW + gap) + slot[0] * cellW - tw / 2;
+  const y = r * (cellH + gap) + slot[1] * cellH - th / 2 - liftOff;
+  const st = p.tokenEl.style;
+  st.left = x + 'px';
+  st.top = y + 'px';
+  st.width = tw + 'px';
+  st.height = th + 'px';
+  if (p.id === G.current && !G.gameOver) updateTilePreview(idx, { pulse: true });
+}
+
+let _cachedCellMetrics = null;
+export function getCellMetrics() {
+  if (_cachedCellMetrics) return _cachedCellMetrics;
+  if (typeof document === 'undefined' || !document.documentElement) {
+    _cachedCellMetrics = { cellW: CELL, cellH: CELL, gap: 3 };
+    return _cachedCellMetrics;
+  }
+  const cs = getComputedStyle(document.documentElement);
+  const w = parseFloat(cs.getPropertyValue('--cell-w'));
+  const h = parseFloat(cs.getPropertyValue('--cell-h'));
+  const g = parseFloat(cs.getPropertyValue('--gap'));
+  _cachedCellMetrics = {
+    cellW: w > 0 ? w : CELL,
+    cellH: h > 0 ? h : CELL,
+    gap: g > 0 ? g : 3,
+  };
+  return _cachedCellMetrics;
+}
+export function invalidateCellMetricsCache() { _cachedCellMetrics = null; }

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="ü9Ñ">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="80%" r="55%">
+      <stop offset="0%" stop-color="#ffe9a3" stop-opacity="0.9"/>
+      <stop offset="45%" stop-color="#ff6b00" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#141917" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a0e0f"/>
+      <stop offset="100%" stop-color="#1a1210"/>
+    </linearGradient>
+    <linearGradient id="silohatch" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3a4448"/>
+      <stop offset="100%" stop-color="#141917"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="url(#sky)"/>
+  <rect width="640" height="360" fill="url(#glow)"/>
+  <!-- Ÿ0s¿ -->
+  <path d="M0 280 H640" stroke="#2a3538" stroke-width="2"/>
+  <path d="M0 285 Q120 270 220 282 T420 276 T640 284 V360 H0 Z" fill="#141917" opacity="0.85"/>
+  <!-- Ñ• -->
+  <ellipse cx="320" cy="286" rx="72" ry="10" fill="#000" opacity="0.45"/>
+  <rect x="278" y="210" width="84" height="78" rx="4" fill="url(#silohatch)" stroke="#4a5550" stroke-width="2"/>
+  <rect x="292" y="198" width="56" height="18" rx="2" fill="#2a3538" stroke="#7fae6e" stroke-width="1.5"/>
+  <!-- ü9 -->
+  <path d="M320 198 L338 248 L320 292 L302 248 Z" fill="#9aa3ad" stroke="#c9a227" stroke-width="1.5"/>
+  <path d="M320 198 L320 160" stroke="#ffe9a3" stroke-width="3" stroke-linecap="round"/>
+  <!-- >0 -->
+  <path d="M308 292 Q320 330 332 292 Q320 318 308 292" fill="#ff6b00" opacity="0.85"/>
+  <path d="M314 292 Q320 312 326 292" fill="#ffe9a3" opacity="0.9"/>
+  <!-- ßþ -->
+  <ellipse cx="280" cy="250" rx="34" ry="18" fill="#4a5550" opacity="0.35"/>
+  <ellipse cx="360" cy="245" rx="40" ry="20" fill="#4a5550" opacity="0.28"/>
+  <!-- CRT Æ¥b -->
+  <rect x="48" y="48" width="180" height="96" rx="3" fill="#0e1213" stroke="#7fae6e" stroke-width="1.5" opacity="0.92"/>
+  <text x="62" y="72" fill="#7fae6e" font-family="monospace" font-size="11" letter-spacing="2">SILO AUTH</text>
+  <text x="62" y="96" fill="#ffe9a3" font-family="monospace" font-size="14">KEY ± ² ³</text>
+  <text x="62" y="118" fill="#ff6b00" font-family="monospace" font-size="11">TARGET LOCK OK</text>
+  <text x="62" y="136" fill="#7fae6e" font-family="monospace" font-size="10" opacity="0.8">LAUNCH IN 3&2&1</text>
+  <!-- kÏ¿ -->
+  <g opacity="0.12">
+    <line x1="0" y1="40" x2="640" y2="40" stroke="#7fae6e" stroke-width="1"/>
+    <line x1="0" y1="80" x2="640" y2="80" stroke="#7fae6e" stroke-width="1"/>
+    <line x1="0" y1="120" x2="640" y2="120" stroke="#7fae6e" stroke-width="1"/>
+  </g>
+</svg>
