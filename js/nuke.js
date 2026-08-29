@@ -1,5 +1,6 @@
 // 隐藏结局：辐射76 式核弹发射（三密钥 → 核平棋盘 → 绝对胜利）
 
+import { G } from './state.js';
 import { log } from './view-core.js';
 import { addPlayerFlags } from './missions.js';
 
@@ -71,7 +72,8 @@ export function tryGrantNukeKey(p, source) {
   if (!p || p.bankrupt) return false;
   const need = nextNukeKeyNeeded(p);
   if (!need) return false;
-  const chance = NUKE_KEY_CHANCES[source] || 0;
+  // 「核军备竞赛」突变：密钥掉落概率翻倍（AI 集齐后会在其回合自动发射）
+  const chance = (NUKE_KEY_CHANCES[source] || 0) * (G.nukeRace ? 2 : 1);
   if (chance <= 0 || Math.random() >= chance) return false;
   addPlayerFlags(p, [need]);
   const hint = SOURCE_HINT[source] || '废土深处';

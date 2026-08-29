@@ -19,6 +19,17 @@ export const MUTATOR_POOL = [
   { id: 'wormhole_chaos', name: '虫洞紊乱', desc: '虫洞传送距离加倍', icon: '🌀', apply: (G) => { G.warpMult = (G.warpMult || 1) * 2; } },
   { id: 'auction_everywhere', name: '拍卖狂潮', desc: '所有未购地产自动拍卖', icon: '🔨', apply: (G) => { G.auctionAll = true; } },
   { id: 'pacifist', name: '和平主义', desc: '无法收取租金但每回合 +20 盖', icon: '☮', apply: (G) => { G.pacifist = true; } },
+  // ---- v1.4.0 扩充：风险收益 / 互动 / 混沌 ----
+  { id: 'bank_interest', name: '废土银行', desc: '每回合开始现金 +5% 利息（上限 +50 盖）', icon: '🏦', apply: (G) => { G.bankInterest = true; } },
+  { id: 'rent_snowball', name: '连锁垄断', desc: '同组每多一块地，该组租金 +15%', icon: '🧲', apply: (G) => { G.rentSnowball = true; } },
+  { id: 'tax_everything', name: '高税时代', desc: '税收格翻倍，据点补给 +50%', icon: '🧾', apply: (G) => { G.taxMult = (G.taxMult || 1) * 2; G.SALARY_MULT = (G.SALARY_MULT || 1) * 1.5; } },
+  { id: 'land_tax', name: '地产维护费', desc: '每回合每块地 -5 盖', icon: '🏚', apply: (G) => { G.landTax = (G.landTax || 0) + 5; } },
+  { id: 'equal_wealth', name: '均富协议', desc: '每轮结束时全体现金取平均', icon: '⚖', apply: (G) => { G.equalWealth = true; } },
+  { id: 'vendetta', name: '血债血偿', desc: '缴租给某人后，对方下次向你收租 +50%', icon: '🩸', apply: (G) => { G.vendetta = true; } },
+  { id: 'broke_rush', name: '绝境狂奔', desc: '现金不足 200 盖时掷骰 +3 步', icon: '🏃', apply: (G) => { G.brokeRush = true; } },
+  { id: 'speed_die', name: '超频骰', desc: '掷骰后可付 30/60 盖额外 +1/+2 步', icon: '⚡', apply: (G) => { G.speedDie = true; } },
+  { id: 'jackpot', name: '免费停车彩金', desc: '税与租金进入奖池，踩安全格全拿', icon: '🎁', apply: (G) => { G.jackpot = true; } },
+  { id: 'nuke_race', name: '核军备竞赛', desc: '发射密钥掉落概率翻倍，AI 集齐会真的发射', icon: '☢', apply: (G) => { G.nukeRace = true; } },
 ];
 
 /** 随机抽取 N 个突变因子 */
@@ -37,6 +48,11 @@ const MUTATOR_FIELDS = {
   rentMult: 1, noJail: false, badEventBonus: 0, radiationLeak: 0,
   aiBuyAggro: 1, noSafe: false, SALARY_MULT: 1, priceMult: 1,
   moralDrain: 0, luckyDice: 0, warpMult: 1, auctionAll: false, pacifist: false,
+  // v1.4.0
+  bankInterest: false, rentSnowball: false, taxMult: 1, landTax: 0,
+  equalWealth: false, vendetta: false, brokeRush: false, speedDie: false,
+  jackpot: false, jackpotPool: 0, nukeRace: false,
+  _vendettaFrom: null, _vendettaTo: null,
 };
 
 /** 清空所有突变因子写入的字段（保留遗产/叙事侧的 startCaps 等非重叠字段） */

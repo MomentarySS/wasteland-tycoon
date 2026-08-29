@@ -55,6 +55,24 @@ export function showNukeWin(name) {
   haptic('heavy');
 }
 
+/** 「超频骰」突变：掷骰后付费加步的选择弹窗 */
+export function showSpeedDieChoice(caps, onPick) {
+  const html = `<div class="deckTag" style="color:var(--tech)">⚡ 超频骰</div>
+    <h2 style="color:var(--tech);text-align:center">向骰子注入能量</h2>
+    <div class="evtText">消耗瓶盖为本次移动超频：+1 步或 +2 步。</div>
+    <div id="modalActions" style="margin-top:14px">
+      <button id="sd1" ${caps >= 30 ? '' : 'disabled'}>⚡ +1 步 (-30盖)</button>
+      <button id="sd2" ${caps >= 60 ? '' : 'disabled'}>⚡⚡ +2 步 (-60盖)</button>
+      <button class="alt" id="sd0">不用了</button>
+    </div>`;
+  openModal(html);
+  haptic('light');
+  const pick = n => { closeModal(); if (onPick) onPick(n); };
+  document.getElementById('sd1').onclick = () => pick(1);
+  document.getElementById('sd2').onclick = () => pick(2);
+  document.getElementById('sd0').onclick = () => pick(0);
+}
+
 /** 发射确认弹窗（替代原生 confirm） */
 export function showNukeLaunchConfirm(p, onCancel) {
   const html = `<div class="deckTag" style="color:#ff6b00">☢ 三井待发</div>

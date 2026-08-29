@@ -12,7 +12,7 @@ export { renderManage, proposeTrade, applyTrade } from './view-manage.js';
 export { saveGame, loadGame } from './view-save.js';
 export {
   openModal, closeModal, showWin, showNukeWin, showNukeLaunchConfirm,
-  showMission, showBlackMarket,
+  showMission, showBlackMarket, showSpeedDieChoice,
   showRadiation, showBunker,
   showChapterIntro, showCampaignEnding
 } from './view-modal.js';

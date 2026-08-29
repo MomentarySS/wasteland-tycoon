@@ -67,9 +67,24 @@ export function payRent(p, t) {
   if (t.type === 'rail') r = railRent(t);
   else if (t.type === 'util') r = G.lastRoll * utilMult(t);
   else { r = t.rent * (t.level + 1); if (isMonopoly(t)) r *= 2; }
+  // 「连锁垄断」突变：同组每多一块地，该组租金 +15%
+  if (G.rentSnowball && t.type === 'prop') {
+    const ownedInGroup = TILES.filter(x => x.type === 'prop' && x.group === t.group && x.owner === t.owner).length;
+    if (ownedInGroup > 1) r = Math.floor(r * (1 + 0.15 * (ownedInGroup - 1)));
+  }
+  // 「血债血偿」突变：上次向你缴过租的人，本次缴租 +50%（一次性）
+  if (G.vendetta && G._vendettaFrom === p.id && G._vendettaTo === o.id) {
+    r = Math.floor(r * 1.5);
+    log(`🩸 血债血偿：${o.name} 向 ${p.name} 收租 +50%`);
+    G._vendettaFrom = null; G._vendettaTo = null;
+  }
   // 「双倍租金」突变
   r = Math.floor(r * (G.rentMult || 1));
   p.caps -= r; o.caps += r; sfx('rent'); log(`${p.name} 向 ${o.name} 缴租 ${r}盖`, true);
+  // 「免费停车彩金」突变：租金进入奖池
+  if (G.jackpot) G.jackpotPool = (G.jackpotPool || 0) + r;
+  // 「血债血偿」：记下这笔记号，等对方下次踩你的地
+  if (G.vendetta) { G._vendettaFrom = p.id; G._vendettaTo = o.id; }
   if (p.caps < 0) bankrupt(p, o);
   render();
 }

@@ -5,7 +5,7 @@ import { TILES_COUNT, JAIL_FEE, COLORS, SHORT, GAME_TITLE, MAX_TURNS, MAX_TURNS_
 import {
   render, showMission, buildTokens, log, setDice, placeToken,
   setActionsHTML, showSetupScreen, showBlackMarket, getSlotAvatars, WASTELAND_EMOJI,
-  showChapterIntro, showCampaignEnding, showWin, showNukeWin, showNukeLaunchConfirm, renderManage,
+  showChapterIntro, showCampaignEnding, showWin, showNukeWin, showNukeLaunchConfirm, renderManage, showSpeedDieChoice,
   showRadiation, showBunker, setActiveTile, renderPlayers, fitBoard, repositionAllTokens
 } from './view.js';
 import {
@@ -27,6 +27,18 @@ import { canLaunchNuke, tryNukeKeyFromChipFactory } from './nuke.js';
 
 export function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function roll() { return [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)]; }
+
+// 「超频骰」突变：AI 自动决策（现金充裕时 40% 概率加步）
+function aiSpeedDie(p) {
+  return (p.caps > 300 && Math.random() < 0.4) ? (Math.random() < 0.5 ? 1 : 2) : 0;
+}
+// 「超频骰」突变：人类弹窗选择；无交互环境（node 测试）自动跳过
+function askSpeedDie(p) {
+  return new Promise(res => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') { res(0); return; }
+    showSpeedDieChoice(p.caps, n => res(n));
+  });
+}
 
 // 回合链守卫：对局结束、或「再来一局」重建玩家后，旧局遗留的异步链必须立即中止。
 // 另用 turnAt 绑定每条链启动时的回合号：若链恢复时 G.turn 已推进（僵尸链），
@@ -126,6 +138,19 @@ async function handleAfterRoll(p, a, b, isAI, turnAt) {
     steps += G.luckyDice; p.luckyUsed = true;
     log(`🎲 幸运开局：${p.name} 首次掷骰额外 +${G.luckyDice} 步`);
   }
+  // 「超频骰」突变：付盖加步（人类弹窗选择，AI 自动决策）
+  if (G.speedDie && !p.inJail && !p.bankrupt) {
+    const extra = isAI ? aiSpeedDie(p) : await askSpeedDie(p);
+    if (extra > 0 && p.caps >= 30 * extra) {
+      p.caps -= 30 * extra; steps += extra;
+      log(`⚡ 超频骰：${p.name} +${extra} 步（-${30 * extra} 盖）`);
+    }
+  }
+  // 「绝境狂奔」突变：现金告急者跑得更快
+  if (G.brokeRush && p.caps < 200) {
+    steps += 3;
+    log(`🏃 绝境狂奔：${p.name} 现金告急，掷骰 +3 步`);
+  }
   await moveTokenAnim(p, steps);
   if (!aliveInGame(p) || !isCurrentTurn(turnAt)) return;
   const turnEnded = await resolveTile(p, { turnAt });   // 隔离区等分支会在内部结束回合，避免重复 endTurn
@@ -156,6 +181,17 @@ export async function takeTurn() {
   // 每回合突变效果：和平主义补贴 / 道德困境流失
   if (G.pacifist) { p.caps += 20; log(`☮ 和平主义：${p.name} 获得 +20 盖补给`); }
   if (G.moralDrain) { p.moral = (p.moral || 0) - G.moralDrain; log(`😈 道德困境：${p.name} 道德值 -${G.moralDrain}（现 ${p.moral}）`); }
+  // 「废土银行」突变：现金利息（上限 +50 盖）
+  if (G.bankInterest) {
+    const int = Math.min(50, Math.floor((p.caps || 0) * 0.05));
+    if (int > 0) { p.caps += int; log(`🏦 废土银行：${p.name} 获得利息 +${int} 盖`); }
+  }
+  // 「地产维护费」突变：每块地每回合 -5 盖（可能直接压破产）
+  if (G.landTax) {
+    const n = TILES.filter(t => (t.type === 'prop' || t.type === 'rail' || t.type === 'util') && t.owner === p.id).length;
+    if (n > 0) { log(`🏚 地产维护费：${p.name} ${n} 块地`); payCaps(p, n * G.landTax, '地产维护费'); }
+    if (p.bankrupt) { nextPlayer(); return; }
+  }
   if (p.inJail) {
     if (p.isAI) await aiJailTurn(p, turnAt);
     else startJailTurn(p);
@@ -440,6 +476,8 @@ export async function resolveTile(p, opts = {}) {
     tileLandFx(p, 'tax');
     const amount = Math.floor(t.tax * (G.taxMult || 1));
     log(`${p.name} 缴纳${t.name} ${amount}盖`, true); sfx('bad'); payCaps(p, amount, t.name);
+    // 「免费停车彩金」突变：税款进入奖池
+    if (G.jackpot && amount > 0) { G.jackpotPool = (G.jackpotPool || 0) + amount; log(`🎁 彩金池累积至 ${G.jackpotPool} 盖`); }
   } else if (t.type === 'quarantine') {
     tileLandFx(p, 'quarantine');
     enterJail(p); log(`${p.name} 被关进隔离区`, true); sfx('bad');
@@ -451,6 +489,12 @@ export async function resolveTile(p, opts = {}) {
       log(`${p.name} 踩中安全地带，但废土没有免费的安宁（-15 盖）`); sfx('bad');
       payCaps(p, 15, '安全区占用费');
     } else {
+      // 「免费停车彩金」突变：踩安全格卷走奖池
+      if (G.jackpot && (G.jackpotPool || 0) > 0) {
+        p.caps += G.jackpotPool;
+        log(`🎁 免费停车彩金：${p.name} 卷走奖池 ${G.jackpotPool} 盖！`, true);
+        G.jackpotPool = 0;
+      }
       log(`${p.name} 在安全地带休整`); sfx('good');
     }
   } else if (t.type === 'wormhole') {
@@ -657,11 +701,15 @@ function gameDraw() {
 function nextPlayer() {
   let n = G.current;
   let tries = 0;
+  let wrapped = false;
   do {
     n = (n + 1) % G.players.length;
+    if (n === 0) wrapped = true;
     tries++;
     if (tries > G.players.length) { gameDraw(); return; }
   } while (G.players[n].bankrupt);
+  // 「均富协议」突变：一轮结束，全体现金取平均
+  if (wrapped && G.equalWealth) equalizeWealth();
   G.current = n; G.turn = (G.turn || 0) + 1;
   applyWastelandDecay();
   if (G.gameOver) return;
@@ -669,6 +717,16 @@ function nextPlayer() {
   if (G.players.every(p => p.bankrupt)) { gameDraw(); return; }
   if (G.mode === 'survival' && G.players[0].bankrupt) { survivalLose(G.players[0]); return; }
   render(); takeTurn();
+}
+/** 「均富协议」突变：全体现金重新平均分配（致敬大富翁4 均富卡） */
+function equalizeWealth() {
+  const alive = G.players.filter(p => !p.bankrupt);
+  if (alive.length < 2) return;
+  const sum = alive.reduce((s, p) => s + Math.max(p.caps, 0), 0);
+  const avg = Math.floor(sum / alive.length);
+  if (alive.every(p => p.caps === avg)) return;
+  alive.forEach(p => { p.caps = avg; });
+  log(`⚖ 均富协议：本轮结束，全体现金均分为 ${avg} 盖`, true);
 }
 function gameWin(w) {
   G.gameOver = true; setGameEnd('win', w.id); render(); sfx('win');
