@@ -32,7 +32,19 @@ export function rollMutators(count = 3, unlockedIds = null) {
   return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
-/** 应用突变因子到游戏状态 */
+/** 突变因子会写入的全部规则字段（重抽/重置前先清零，避免重复应用时累加） */
+const MUTATOR_FIELDS = {
+  rentMult: 1, noJail: false, badEventBonus: 0, radiationLeak: 0,
+  aiBuyAggro: 1, noSafe: false, SALARY_MULT: 1, priceMult: 1,
+  moralDrain: 0, luckyDice: 0, warpMult: 1, auctionAll: false, pacifist: false,
+};
+
+/** 清空所有突变因子写入的字段（保留遗产/叙事侧的 startCaps 等非重叠字段） */
+export function resetMutatorFields(G) {
+  for (const [k, v] of Object.entries(MUTATOR_FIELDS)) G[k] = v;
+}
+
+/** 应用突变因子到游戏状态（内部先重置字段，可安全重复调用） */
 export function applyMutators(G, mutators) {
   G.activeMutators = mutators;
   for (const m of mutators) {

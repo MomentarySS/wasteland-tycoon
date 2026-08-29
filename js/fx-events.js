@@ -154,6 +154,32 @@ export function playTileBuildFx(tileId, kind = 'buy') {
   setTimeout(() => tileEl.classList.remove('tbuild-buy', 'tbuild-up'), 680);
 }
 
+/** 升级飘字：格子上冒出 +Lv1 / +Lv2 浮动文字 */
+export function floatUpgrade(tileId, level) {
+  if (!ENABLED || !fxLayer()) return;
+  const tileEl = document.querySelector(`.tile[data-i="${tileId}"]`);
+  if (!tileEl) return;
+  const r = rectOf(tileEl);
+  if (!r) return;
+  const d = document.createElement('div');
+  d.className = 'fxFloat';
+  d.style.cssText = `position:fixed;left:${r.left + r.width / 2}px;top:${r.top + r.height / 2}px;color:#c9a227;font-size:13px;font-weight:bold;font-family:"Courier New",monospace;letter-spacing:1px;text-shadow:0 0 8px #c9a227,0 1px 2px #000;white-space:nowrap;pointer-events:none;z-index:85;`;
+  d.textContent = level >= 2 ? '+Lv2' : '+Lv1';
+  fxLayer().appendChild(d);
+  if (d.animate) {
+    const an = d.animate([
+      { transform: 'translate(-50%,-50%) scale(.6)', opacity: 0 },
+      { transform: 'translate(-50%,-50%) scale(1.1)', opacity: 1, offset: .2 },
+      { transform: 'translate(-50%,-50%) translateY(-28px) scale(1)', opacity: 1, offset: .4 },
+      { transform: 'translate(-50%,-50%) translateY(-48px) scale(.85)', opacity: 0 },
+    ], { duration: 1100 * (RM ? .25 : 1), easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' });
+    an.onfinish = () => d.remove();
+  } else {
+    d.animate = null;
+    setTimeout(() => d.remove(), 1150);
+  }
+}
+
 /** 选支后结果条 slide-in，再执行 cb */
 export function showChoiceResult(modalBox, summary, bad, cb) {
   if (!modalBox || RM) { if (cb) cb(); return Promise.resolve(); }
@@ -326,6 +352,31 @@ export async function playNukeStrike() {
     ring.style.top = cy + 'px';
     layer.appendChild(ring);
 
+    // P8: shockwave SVG ring
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const shockwave = document.createElementNS(svgNS, 'svg');
+    shockwave.setAttribute('class', 'fxShockwave');
+    shockwave.setAttribute('viewBox', '0 0 100 100');
+    shockwave.style.left = cx + 'px';
+    shockwave.style.top = cy + 'px';
+    const circle = document.createElementNS(svgNS, 'circle');
+    circle.setAttribute('cx', '50');
+    circle.setAttribute('cy', '50');
+    circle.setAttribute('r', '48');
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke', '#ffe9a3');
+    circle.setAttribute('stroke-dasharray', '12 8');
+    shockwave.appendChild(circle);
+    layer.appendChild(shockwave);
+    if (shockwave.animate) {
+      shockwave.animate(
+        [{ transform: 'translate(-50%,-50%) scale(0)', opacity: 0.9, strokeWidth: 18 },
+         { transform: 'translate(-50%,-50%) scale(4)', opacity: 0.5, strokeWidth: 4, offset: 0.5 },
+         { transform: 'translate(-50%,-50%) scale(22)', opacity: 0, strokeWidth: 0 }],
+        { duration: 1400, easing: 'cubic-bezier(.2,.6,.4,1)', fill: 'forwards' }
+      ).onfinish = () => shockwave.remove();
+    } else setTimeout(() => shockwave.remove(), 1500);
+
     setTimeout(() => { stem.remove(); cap.remove(); ring.remove(); }, 3200);
   }
 
@@ -333,8 +384,8 @@ export async function playNukeStrike() {
   flashScreen('rgba(163,21,21,.45)');
   screenShake(1.4);
   if (board) {
-    board.classList.add('board-nuked');
-    setTimeout(() => board.classList.remove('board-nuked'), 3200);
+    board.classList.add('board-nuked', 'board-chromatic');
+    setTimeout(() => board.classList.remove('board-nuked', 'board-chromatic'), 3200);
   }
   await sleep(1800);
 }

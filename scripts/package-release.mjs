@@ -26,7 +26,7 @@ const ZIP_PATH = `${OUT_DIR}.zip`;
 
 const ROOT_FILES = [
   'index.html', 'manifest.json', 'service-worker.js',
-  'icon-192.png', 'icon-512.png', 'icon.svg',
+  'logo.svg', 'icon-192.png', 'icon-512.png', 'icon.svg',
   '游玩手册.md',
 ];
 

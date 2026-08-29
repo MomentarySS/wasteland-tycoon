@@ -31,9 +31,9 @@ export function renderManage() {
     html += `目标 <select id="trg">${others.map(o => `<option value="${o.id}">${escapeHtml(o.name)}${o.isAI ? ' 🤖' : ''}</option>`).join('')}</select><br>`;
     html += `<div style="margin-top:6px">你给出：<select id="gp"><option value="">（无地块）</option>${owned.map(t => `<option value="${t.id}">${escapeHtml(t.name)}${t.mortgaged ? '(押)' : ''}</option>`).join('')}</select> + <input id="gc" type="number" value="0" style="width:60px">盖</div>`;
     html += `<div style="margin-top:6px">换回：<select id="wp"><option value="">（无地块）</option>${wpOpts}</select> + <input id="wc" type="number" value="0" style="width:60px">盖</div>`;
-    html += `<div id="actions" style="margin-top:10px"><button id="prop">提议</button><button class="alt" id="cls">关闭</button></div></div>`;
+    html += `<div id="modalActions" style="margin-top:10px"><button id="prop">提议</button><button class="alt" id="cls">关闭</button></div></div>`;
   } else {
-    html += `<div id="actions" style="margin-top:10px"><button class="alt" id="cls">关闭</button></div>`;
+    html += `<div id="modalActions" style="margin-top:10px"><button class="alt" id="cls">关闭</button></div>`;
   }
   openModal(html);
   owned.forEach(t => {
@@ -67,7 +67,7 @@ export function proposeTrade() {
       ${escapeHtml(a.name)} 给出：${aProps.map(t => escapeHtml(t.name)).join('、') || '无'}${gc ? (' +' + gc + '盖') : ''}<br>
       ${escapeHtml(b.name)} 给出：${bProps.map(t => escapeHtml(t.name)).join('、') || '无'}${wc ? (' +' + wc + '盖') : ''}
       </div>
-      <div id="actions" style="margin-top:12px"><button id="acc">接受</button><button class="alt" id="rej">拒绝</button></div>`);
+      <div id="modalActions" style="margin-top:12px"><button id="acc">接受</button><button class="alt" id="rej">拒绝</button></div>`);
     document.getElementById('acc').onclick = () => { applyTrade(trade); closeModal(); afterHumanAction(a); };
     document.getElementById('rej').onclick = () => { closeModal(); renderManage(); };
   }

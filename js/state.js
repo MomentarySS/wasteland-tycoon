@@ -39,4 +39,27 @@ export function resetSession() {
   G.aiBuyAggro = 1;
   G.aiBidAggro = 1;
   G.aiUpgradeChance = 0.6;
+  // 遗产 / 突变 / 叙事字段必须逐局重置，否则跨局累加污染新对局
+  // （applyLegacyToGame / applyMutators / applyNarrativeStart 在 resetSession 之后重新写入）
+  G.rentMult = 1;
+  G.noJail = false;
+  G.badEventBonus = 0;
+  G.goodEventBonus = 0;
+  G.radiationLeak = 0;
+  G.noSafe = false;
+  G.priceMult = 1;
+  G.moralDrain = 0;
+  G.luckyDice = 0;
+  G.warpMult = 1;
+  G.auctionAll = false;
+  G.pacifist = false;
+  G.aiCoopBonus = 0;
+  G.startRepPenalty = null;
+  G.randomStart = false;
+  G.SALARY_MULT = 1;
+  G.START_MORAL = 0;
+  G.START_GETOUT = 0;
+  G.MUTATOR_REROLL = 0;
+  G.activeMutators = [];
+  G.narrativeSeed = null;
 }

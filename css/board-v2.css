@@ -380,10 +380,56 @@ body.board-v2 .tile.tile-v2.active {
   transform: translateY(-1px);
 }
 
-body.board-v2 .tile.tile-v2 .towner,
-body.board-v2 .tile.tile-v2 .tbuild,
+/* board-v2: 恢复地块 HUD（等级徽章 + 主人色点）—— 改为右上角绝对定位 */
+body.board-v2 .tile.tile-v2 .tileHud {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
+  top: 1px;
+  bottom: auto;
+  left: auto;
+  right: 1px;
+  padding: 0;
+  pointer-events: none;
+}
+body.board-v2 .tile.tile-v2 .tileRow {
+  flex-direction: row;
+  align-items: center;
+  padding: 0;
+}
+body.board-v2 .tile.tile-v2 .towner {
+  display: block;
+  position: static;
+  width: max(7px, min(calc(var(--cell-h) * 0.28), calc(var(--cell-w) * 0.18)));
+  height: max(7px, min(calc(var(--cell-h) * 0.28), calc(var(--cell-w) * 0.18)));
+  min-width: 6px;
+  min-height: 6px;
+  border-radius: 50%;
+  border: 1px solid #0006;
+  flex: 0 0 auto;
+  margin-left: 2px;
+  box-shadow: 0 0 4px currentColor;
+}
 body.board-v2 .tile.tile-v2 .tlevel {
-  display: none;
+  display: flex;
+  position: static;
+  opacity: 1;
+  width: max(10px, min(calc(var(--cell-h) * 0.34), calc(var(--cell-w) * 0.22)));
+  height: max(10px, min(calc(var(--cell-h) * 0.34), calc(var(--cell-w) * 0.22)));
+  min-width: 10px;
+  min-height: 10px;
+  font-size: max(6px, calc(var(--cell-h) * 0.2));
+  border-radius: 50%;
+  border: 1px solid #0008;
+  flex: 0 0 auto;
+  margin-left: 2px;
+  box-shadow: 0 0 4px #0008;
+}
+/* 等级 2 为深红色（地堡） */
+body.board-v2 .tile.tile-v2 .tlevel[data-lv="2"] {
+  background: var(--gang);
+  color: #fff;
 }
 
 /* 小屏 */
@@ -401,6 +447,57 @@ body.board-v2 .tile.tile-v2 .tlevel {
 body.no-container .tilePreview .tpIcon {
   width: clamp(36px, 12vw, 56px);
   height: clamp(36px, 12vw, 56px);
+}
+
+/* ===== P4: 垄断成套装发光 ===== */
+body.board-v2 .tile.tile-v2.monopoly-set {
+  box-shadow:
+    inset 0 -3px 0 var(--wallc, var(--phos)),
+    0 0 0 1px var(--wallc, var(--phos)),
+    0 0 14px rgba(127, 174, 110, 0.55),
+    0 0 5px rgba(127, 174, 110, 0.35);
+}
+body.board-v2 .tile.tile-v2.monopoly-set::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(127, 174, 110, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+  animation: monopolyPulse 2.2s ease-in-out infinite;
+}
+@keyframes monopolyPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ===== P5: 建造图标（升级后显示在 HUD 右侧） ===== */
+body.board-v2 .tile.tile-v2 .tileHud .tileRow .tbuild {
+  display: flex;
+  width: max(10px, min(calc(var(--cell-h) * 0.30), calc(var(--cell-w) * 0.20)));
+  height: max(10px, min(calc(var(--cell-h) * 0.30), calc(var(--cell-w) * 0.20)));
+  min-width: 9px;
+  min-height: 9px;
+  flex: 0 0 auto;
+  margin-left: 2px;
+  color: var(--amber);
+  filter: drop-shadow(0 0 3px #c9a22788);
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(.34, 1.42, .64, 1);
+}
+/* Level 1: show hut icon */
+body.board-v2 .tile.tile-v2.level-1 .tileHud .tileRow .tbuild {
+  opacity: 1;
+  transform: scale(1);
+  color: var(--rust);
+  filter: drop-shadow(0 0 4px #b5651d88);
+}
+/* Level 2: show bunker icon */
+body.board-v2 .tile.tile-v2.level-2 .tileHud .tileRow .tbuild {
+  opacity: 1;
+  transform: scale(1);
+  color: var(--gang);
+  filter: drop-shadow(0 0 5px #a3151566);
 }
 body.no-container .tilePreview .tpName { font-size: 13px; }
 body.no-container .tilePreview .tpMeta { font-size: 11px; }

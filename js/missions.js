@@ -32,11 +32,12 @@ export function missionEligible(m, player) {
   return true;
 }
 
-/** 从牌堆中按 flags / rep / once 筛选；连锁任务权重更高 */
+/** 从牌堆中按 flags / rep / once 筛选；连锁任务权重更高。
+ *  牌堆全部为 once 且已完成时返回 null（调用方按「空频道」处理，绝不重放已完成任务重复结算） */
 export function pickMission(pile, player) {
   const eligible = pile.filter((m) => missionEligible(m, player));
   const pool = eligible.length ? eligible : pile.filter((m) => !m.once || !(player.missionDone || []).includes(m.id));
-  if (!pool.length) return pile[Math.floor(Math.random() * pile.length)];
+  if (!pool.length) return null;
 
   const weighted = [];
   for (const m of pool) {

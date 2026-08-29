@@ -47,5 +47,10 @@ function registerSW() {
 main().catch((e) => {
   console.error('[废土大亨] 启动失败', e);
   const el = document.getElementById('setup');
-  if (el) el.innerHTML = '<p style="color:#f88;padding:20px">加载失败：' + (e.message || e) + '</p>';
+  const msg = escapeHtml(String((e && e.message) || e));
+  if (el) el.innerHTML = '<p style="color:#f88;padding:20px">加载失败：' + msg + '</p>';
 });
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}

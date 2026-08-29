@@ -17,7 +17,7 @@
                    { "text": "救下同伴（-100盖，道德+1）", "effects": { "caps": -100, "moral": 1 }, "result": "你拽回同伴，他欠你一条命。" } ] },
     { "id": "r4", "art": "rad", "title": "辐射病发作", "story": "皮肤开始溃烂，你发着高烧，眼前发黑。", "moral": "硬扛，还是隔离？",
       "choices": [ { "text": "自行隔离（跳过下回合）", "effects": { "skip": true }, "result": "你在地窖里昏睡了一整天。" },
-                   { "text": "吞药硬扛（-50盖，道德-1）", "effects": { "caps": -50, "moral": -1 }, "result": "你强撑上路，却抛下了 sick 的同伴。" } ] },
+                   { "text": "吞药硬扛（-50盖，道德-1）", "effects": { "caps": -50, "moral": -1 }, "result": "你强撑上路，却抛下了病重的同伴。" } ] },
     { "id": "r5", "art": "storm", "title": "沙暴卷来", "story": "地平线腾起黄墙，能见度瞬间归零。", "moral": "护车，还是弃货？",
       "choices": [ { "text": "护住载具（-70盖）", "effects": { "caps": -70 }, "result": "你裹紧篷布，零件没被刮飞。" },
                    { "text": "弃货保命（-20盖，道德-1）", "effects": { "caps": -20, "moral": -1 }, "result": "你丢下货箱逃命，良心有点沉。" } ] },

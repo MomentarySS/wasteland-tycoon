@@ -125,13 +125,16 @@ export function restoreBoardOrder(artOrder) {
   });
 }
 
-/** 新局重置所有可占有格（owner / level / mortgaged） */
+/** 新局重置所有可占有格（owner / level / mortgaged / price） */
 export function resetTiles() {
   TILES.forEach((t) => {
     if (t.type === 'prop' || t.type === 'rail' || t.type === 'util') {
       t.owner = null;
       t.level = 0;
       t.mortgaged = false;
+      // 还原模板基础价：上一局的 priceMult 缩放（泡沫/抄底突变）不得跨局复利
+      const spec = RAW_SPEC && RAW_SPEC[t.artIndex];
+      if (spec && spec.price) t.price = spec.price;
     }
   });
 }

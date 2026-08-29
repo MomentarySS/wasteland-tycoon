@@ -315,6 +315,7 @@ export function haptic(kind = 'light') {
     if (H) {
       if (kind === 'light') H.impact({ style: 'LIGHT' });
       else if (kind === 'medium') H.impact({ style: 'MEDIUM' });
+      else if (kind === 'win' && typeof H.vibrate === 'function') H.vibrate({ timeMs: [0, 60, 40, 60, 40, 90] });
       else H.impact({ style: 'HEAVY' });
       return;
     }

@@ -62,7 +62,7 @@ export function showNukeLaunchConfirm(p, onCancel) {
     <div class="evtArt has-img nukeLaunchArt" style="border-color:#ff6b00">${nukeArtHtml('launch')}</div>
     <div class="evtText">阿尔法、布拉沃、查理三井密钥已对齐，靶场锁定棋盘中央。发射后棋盘将被核平，<strong>无论当前战局输赢，你都将获得绝对胜利</strong>。</div>
     <div class="moralHint">⚠ 此操作不可撤销</div>
-    <div id="actions" style="margin-top:14px">
+    <div id="modalActions" style="margin-top:14px">
       <button class="nuke" id="nukeGo">☢ 确认发射</button>
       <button class="alt" id="nukeWait">稍后决定</button>
     </div>`;
@@ -76,6 +76,17 @@ export function showNukeLaunchConfirm(p, onCancel) {
   };
 }
 
+/** 任务结算收尾：warp 效果与核弹确认互不阻塞（取消发射后 warp 仍要结算） */
+function continueAfterMission(p, c) {
+  if (G.gameOver) return;
+  if (c.effects && c.effects.warp) {
+    if (p.bankrupt) { afterHumanAction(p); return; }
+    resolveTile(p, { afterWarp: true });
+    return;
+  }
+  afterHumanAction(p);
+}
+
 export function showMission(m, p) {
   const col = m.bad ? 'var(--gang)' : 'var(--phos)';
   const chain = isChainMission(m);
@@ -86,7 +97,7 @@ export function showMission(m, p) {
     <div class='evtArt has-img art-${escapeHtml(m.art || 'caps')}' style='color:${col};border-color:${col}'>${eventArtHtml(m)}</div>
     <div class='evtText'>${escapeHtml(m.story)}</div>
     ${m.moral ? `<div class='moralHint'>⚖ ${escapeHtml(m.moral)}</div>` : ''}
-    <div id='actions' style='margin-top:14px'>${choices}</div>`;
+    <div id='modalActions' style='margin-top:14px'>${choices}</div>`;
   openModal(html, { flip: true, bad: m.bad });
   playEventIntro(modalBox, m);
   if (m.bad) { flashLightning(); flashScreen(); screenShake(.8); haptic('heavy'); }
@@ -95,6 +106,11 @@ export function showMission(m, p) {
   (m.choices || []).forEach((c, i) => {
     const el = document.getElementById('mc' + i);
     if (el) el.onclick = async () => {
+      // 防连点：结算动画窗口内禁用全部选项，避免二次结算/重复推进回合
+      (m.choices || []).forEach((_, j) => {
+        const b = document.getElementById('mc' + j);
+        if (b) b.disabled = true;
+      });
       const summary = formatChoiceResult(c.effects);
       await showChoiceResult(modalBox, summary, m.bad, null);
       closeModal();
@@ -102,19 +118,12 @@ export function showMission(m, p) {
       if (m.bad) await new Promise(r => setTimeout(r, 120));
       applyMissionEffects(p, c.effects, m, c);
       sfx(m.bad ? 'bad' : 'good');
-      if (canLaunchNuke(p)) {
-        render();
-        showNukeLaunchConfirm(p, () => afterHumanAction(p));
-        return;
-      }
-      if (c.effects && c.effects.warp) {
-        if (G.gameOver) return;
-        if (p.bankrupt) { afterHumanAction(p); return; }
-        resolveTile(p, { afterWarp: true });
-        return;
-      }
       render();
-      afterHumanAction(p);
+      if (canLaunchNuke(p)) {
+        showNukeLaunchConfirm(p, () => continueAfterMission(p, c));
+        return;
+      }
+      continueAfterMission(p, c);
     };
   });
 }
@@ -123,7 +132,7 @@ export function showBlackMarket(p) {
   const canSteal = p.caps >= 80;
   const html = `<h2 style='color:var(--amber);text-align:center'>⚑ 黑市交易</h2>
     <div class='evtText'>你溜进黑市，能捞点什么？</div>
-    <div id='actions' style='margin-top:14px'>
+    <div id='modalActions' style='margin-top:14px'>
       <button id='bmSteal' ${canSteal ? '' : 'disabled'}>偷袭 (-80盖，抢对手一块地)</button>
       <button class='alt' id='bmCard'>搜刮 (免费，50%得通行证)</button>
       <button class='alt' id='bmLeave'>离开</button>
@@ -149,7 +158,7 @@ export function showRadiation(p) {
   const tileName = (TILES[p.pos] && TILES[p.pos].name) || '莫诺加矿洞';
   const html = `<h2 style='color:#b8d84a;text-align:center'>☢ ${escapeHtml(tileName)}</h2>
     <div class='evtText'>盖革计数器狂响。深采回报高，浅采省成本但会污染声誉。</div>
-    <div id='actions' style='margin-top:14px'>
+    <div id='modalActions' style='margin-top:14px'>
       <button id='radDeep' ${canDeep ? '' : 'disabled'}>深采 (-80盖，+150盖)</button>
       <button class='alt' id='radShallow' ${canShallow ? '' : 'disabled'}>浅采 (-40盖，+70盖，道德-1)</button>
       <button class='alt' id='radLeave'>离开</button>
@@ -174,7 +183,7 @@ export function showBunker(p) {
   const tileName = (TILES[p.pos] && TILES[p.pos].name) || '国会掩体';
   const html = `<h2 style='color:#9aa3ad;text-align:center'>⛟ ${escapeHtml(tileName)}</h2>
     <div class='evtText'>厚门后是无菌空气。休整恢复士气，或就地加固一处地产。</div>
-    <div id='actions' style='margin-top:14px'>
+    <div id='modalActions' style='margin-top:14px'>
       <button id='bkRest'>休整 (+35盖，道德+1)</button>
       <button class='alt' id='bkFort' ${canFort ? '' : 'disabled'}>掩体加固 (免费强化一处地产)</button>
       <button class='alt' id='bkLeave'>离开</button>
@@ -193,7 +202,7 @@ export function showChapterIntro(chapterIdx, onContinue, moral) {
     <h2 style="color:var(--amber);text-align:center">${escapeHtml(intro.title)}</h2>
     <div class="evtArt" style="color:var(--amber);border-color:var(--amber)">${intro.art || ''}</div>
     <div class="evtText campIntro">${escapeHtml(intro.story)}</div>
-    <div id="actions" style="margin-top:14px"><button id="chGo">继续</button></div>`;
+    <div id="modalActions" style="margin-top:14px"><button id="chGo">继续</button></div>`;
   openModal(html, { flip: true });
   ttsSpeak(intro.title + '。' + intro.story);
   document.getElementById('chGo').onclick = () => { closeModal(); if (onContinue) onContinue(); };

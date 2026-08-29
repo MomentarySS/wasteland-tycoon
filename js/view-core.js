@@ -3,7 +3,7 @@ import { G } from './state.js';
 import { TILES, positions } from './data.js';
 import { N, CELL, COLORS, GROUPS, TOKEN_SLOT } from './config.js';
 import { playerPortrait, tileIcon, iconColor, buildingSVG } from './icons.js';
-import { netWorth, rentDisplay } from './rules-core.js';
+import { netWorth, rentDisplay, isMonopoly } from './rules-core.js';
 import { evaluateCampaign, evaluateCampaignCoop, campaignDecayPerTurn } from './campaign.js';
 import { formatFactionRep } from './missions.js';
 import { nukeKeyBadgeHtml } from './nuke.js';
@@ -81,7 +81,9 @@ export function avatarHTML(p) {
   if (av && typeof av === 'string' && av.startsWith('data:')) inner = `<img class="avimg" src="${escapeHtml(av)}">`;
   else if (av) inner = `<span class="avemoji">${escapeHtml(av)}</span>`;
   else inner = playerPortrait(p.id);
-  return `<span class="pva" style="color:${p.color}">${inner}</span>`;
+  // color 可能来自读档存档，必须转义防止破坏 style 属性边界
+  const color = escapeHtml(String(p.color || '#ccc'));
+  return `<span class="pva" style="color:${color}">${inner}</span>`;
 }
 
 export function slotAvatarHTML(i) {
@@ -138,6 +140,17 @@ function buildStripTileHTML(t) {
   }
   html += `<span class="tname">${escapeHtml(name)}${t.mortgaged ? ' <span class="mort">[押]</span>' : ''}</span>`;
   html += `</div>`;
+  // board-v2: prop 格右上角 HUD = 主人色点 + 等级徽章 + 建造图标
+  if (t.type === 'prop') {
+    const owner = t.owner != null && G.players[t.owner] ? G.players[t.owner] : null;
+    const ownerColor = owner ? escapeHtml(owner.color) : '';
+    const level = t.level || 0;
+    html += `<div class="tileHud"><div class="tileRow">`;
+    if (owner) html += `<span class="towner" style="background:${ownerColor};color:${ownerColor}"></span>`;
+    if (level > 0) html += `<span class="tlevel" data-lv="${level}">${level}</span>`;
+    if (level > 0) html += `<span class="tbuild">${buildingSVG(level)}</span>`;
+    html += `</div></div>`;
+  }
   return html;
 }
 
@@ -249,7 +262,13 @@ export function fitBoard() {
   // 21:9 竖长屏（竖屏 height > width×2.0）：也压缩侧栏，避免棋盘被挤窄
   const isTallPill = vw > 0 && vh > 0 && (vh / vw) > 2.0;
   const baseSideW = vw >= 1400 ? 420 : vw >= 1100 ? 400 : vw >= 860 ? 380 : 320;
-  const sideW = sideEl.offsetWidth || (isUltraWide || isTallPill ? Math.max(160, Math.floor(baseSideW * 0.5)) : baseSideW);
+  // CSS 21:9 媒体查询（ratio≥2.333）已压缩侧栏时用实测值；
+  // 20:9 等未命中 CSS 的设备（ratio>2 但 <2.333）由 JS 兜底压缩
+  const measuredSideW = sideEl.offsetWidth || 0;
+  const compressedSideW = Math.max(160, Math.floor(baseSideW * 0.5));
+  const sideW = (isUltraWide || isTallPill) && measuredSideW > baseSideW * 0.75
+    ? compressedSideW
+    : (measuredSideW || baseSideW);
   setVar('--side-w', sideW + 'px');
   const PAD = 16, BPAD = 6, BOARD_PAD = 12;
   const MAP_TOP = 22, MAP_BOT = 16, MAP_SIDE = 8;
@@ -286,6 +305,8 @@ export function fitBoard() {
   setVar('--center-top', (cellH + gap) + 'px');
   setVar('--board-size', realW + 'px');
   setVar('--gap', gap + 'px');
+  // CSS 变量已更新，棋子移动动画使用的格宽缓存必须同步失效
+  invalidateCellMetricsCache();
 }
 
 export function log(msg, opts) {
@@ -294,7 +315,13 @@ export function log(msg, opts) {
   const kind = classifyLogKind(msg);
   if (kind) d.classList.add('log-' + kind);
   d.textContent = msg;
-  if (logEl) logEl.prepend(d);
+  if (logEl) {
+    logEl.prepend(d);
+    // 战报上限：生存模式无限回合下 DOM 无限增长会拖垮低端 WebView
+    if (typeof logEl.removeChild === 'function') {
+      while (logEl.children && logEl.children.length > 100) logEl.removeChild(logEl.lastChild);
+    }
+  }
   requestAnimationFrame(() => d.classList.add('in'));
   if (opts === true || (opts && opts.speak)) ttsSpeak(msg);
 }
@@ -333,8 +360,50 @@ export function renderPlayers() {
     }
     div.innerHTML = `<span>${avHtml}${escapeHtml(p.name)}${p.isAI ? ' <span class="aiTag">AI</span>' : ''}${tag}${nukeHtml}</span>
       <span><span class="cap">${Math.max(p.caps, 0)}</span>盖 · <span class="nw">净${netWorth(p)}</span> · 产${owned} · <span class="moral">德${p.moral || 0}</span>${repHtml}</span>`;
+
+    // 地块缩略条：每个拥有产权格一个小色块
+    const propThumbs = TILES.filter(t => t.type === 'prop' && t.owner === p.id);
+    if (propThumbs.length > 0) {
+      const thumbRow = document.createElement('div');
+      thumbRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;padding:2px 4px;background:#0e1213;border-radius:2px;';
+      propThumbs.forEach(t => {
+        const g = GROUPS[t.group];
+        const color = g ? g.color : '#888';
+        const lv = t.level > 0 ? `<span style="position:absolute;font-size:7px;font-weight:bold;color:#000;line-height:1;top:1px;right:2px;">${t.level}</span>` : '';
+        const div2 = document.createElement('div');
+        div2.style.cssText = `position:relative;width:14px;height:14px;background:${color};border-radius:2px;border:1px solid #000;opacity:${t.mortgaged ? '0.4' : '1'};display:flex;align-items:center;justify-content:center;overflow:visible;flex-shrink:0;`;
+        if (lv) div2.innerHTML = lv;
+        thumbRow.appendChild(div2);
+      });
+      div.appendChild(thumbRow);
+    }
+
     pp.appendChild(div);
     p._rowEl = div;
+  });
+}
+
+/** 垄断成套装发光：给所有垄断地块加 .monopoly-set class */
+export function markMonopolyTiles() {
+  if (!tilesEl) return;
+  tilesEl.querySelectorAll('.tile.tile-v2').forEach(el => el.classList.remove('monopoly-set'));
+  if (!G.players) return;
+  G.players.forEach(p => {
+    if (p.bankrupt) return;
+    // 收集该玩家所有垄断组
+    const groups = new Set();
+    TILES.forEach(t => {
+      if (t.type === 'prop' && t.owner === p.id && !t.mortgaged) {
+        if (isMonopoly(t)) groups.add(t.group);
+      }
+    });
+    // 给属于这些组的 prop 格打标记
+    TILES.forEach(t => {
+      if (t.type === 'prop' && groups.has(t.group)) {
+        const el = tilesEl.querySelector(`.tile[data-i="${t.id}"]`);
+        if (el) el.classList.add('monopoly-set');
+      }
+    });
   });
 }
 
@@ -347,7 +416,11 @@ export function render() {
     const t = TILES[i]; const [r, c] = positions[i];
     const d = document.createElement('div');
     d.className = 'tile tile-v2 ' + t.type + (r === 0 ? ' top' : r === N - 1 ? ' bot' : c === 0 ? ' left' : c === N - 1 ? ' right' : '');
-    if (t.type === 'prop') d.dataset.group = t.group;
+    if (t.type === 'prop') {
+      d.dataset.group = t.group;
+      if (t.level === 1) d.classList.add('level-1');
+      else if (t.level >= 2) d.classList.add('level-2');
+    }
     d.style.gridRow = r + 1; d.style.gridColumn = c + 1;
     d.dataset.i = String(i);
     if (t.type === 'prop' && t.group) {
@@ -402,6 +475,7 @@ export function render() {
   fxMoney(G.players);
   repositionAllTokens();
   syncActivePreview();
+  markMonopolyTiles();
 }
 
 export function repositionAllTokens() {

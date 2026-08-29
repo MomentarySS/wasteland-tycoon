@@ -219,7 +219,8 @@ body.bad-lightning .amb-lightning{animation:ambBolt .5s ease-out;}
 .card::after{bottom:-1px;right:-1px;border-left:none;border-top:none;}
 .card h2{margin:0 0 8px;font-size:12px;color:var(--amber);letter-spacing:2px;text-transform:uppercase;}
 #players .pl{display:flex;justify-content:space-between;align-items:center;padding:5px 6px;border:1px solid transparent;margin-bottom:4px;background:#0e1213;border-radius:2px;}
-#players .pl.cur{border-color:var(--amber);box-shadow:0 0 8px #c9a22733;}
+@keyframes playerPulse{0%,100%{border-color:var(--amber);box-shadow:0 0 6px #c9a22733;}50%{border-color:#f0c137;box-shadow:0 0 14px #c9a22766,0 0 4px #c9a22788;}}
+#players .pl.cur{border-color:var(--amber);box-shadow:0 0 8px #c9a22733;animation:playerPulse 1.8s ease-in-out infinite;}
 #players .pl.bk{opacity:.4;text-decoration:line-through;}
 .aiTag{font-size:10px;color:#9fb0a6;background:#1d2426;border:1px solid #2a3630;border-radius:2px;padding:0 4px;margin-left:4px;line-height:1.4;letter-spacing:1px;}
 .swatch{width:11px;height:11px;border-radius:2px;display:inline-block;margin-right:6px;vertical-align:middle;box-shadow:0 0 5px currentColor;}
@@ -236,6 +237,8 @@ body.bad-lightning .amb-lightning{animation:ambBolt .5s ease-out;}
 #log .logEntry.log-build::before{content:"🔧 ";color:#c9a227;}
 #log .logEntry.log-rent::before{content:"💸 ";color:#e0574a;}
 #log .logEntry.log-camp::before{content:"📖 ";color:var(--amber);}
+#log .logEntry.log-warn::before{content:"💀 ";color:#e0574a;}
+#log .logEntry.log-warn{color:#e0574a;}
 button{font-family:inherit;background:var(--amber);color:#0c0e0d;border:1px solid #000;padding:8px 12px;border-radius:2px;font-weight:bold;cursor:pointer;letter-spacing:1px;text-transform:uppercase;}
 button:disabled{background:#1a1f20;color:#4a5550;cursor:not-allowed;border-color:var(--line);}
 button.alt{background:#11161a;color:var(--ink);border:1px solid var(--line);}
@@ -250,7 +253,19 @@ button.nuke:hover{filter:brightness(1.08);}
 @keyframes mushCap{to{transform:translate(-50%,-50%) scale(8);opacity:.75;}}
 @keyframes nukeRing{to{transform:translate(-50%,-50%) scale(14);opacity:0;}}
 #board.board-nuked{filter:saturate(.35) sepia(.4) brightness(.72);transition:filter 2.4s ease;}
-#actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+/* P8: 核弹色调分离 + 冲击波 */
+#board.board-chromatic{animation:chromaticShift 0.18s ease-in-out infinite alternate;}
+@keyframes chromaticShift{
+  0%{filter:drop-shadow(-4px 0 0 rgba(255,0,60,.55)) drop-shadow(4px 0 0 rgba(0,210,255,.55)) drop-shadow(0 -2px 0 rgba(255,255,0,.3)) saturate(1.4) sepia(.15);}
+  100%{filter:drop-shadow(-2px 0 0 rgba(255,0,60,.3)) drop-shadow(2px 0 0 rgba(0,210,255,.3)) drop-shadow(0 -1px 0 rgba(255,255,0,.2)) saturate(1.2) sepia(.1);}
+}
+@keyframes shockwave{
+  0%{transform:translate(-50%,-50%) scale(0);opacity:.9;stroke-width:18;}
+  60%{opacity:.5;}
+  100%{transform:translate(-50%,-50%) scale(28);opacity:0;stroke-width:0;}
+}
+.fxShockwave{position:fixed;width:40px;height:40px;margin-left:-20px;margin-top:-20px;pointer-events:none;z-index:52;}
+#actions,#modalActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
 #overlay{position:fixed;inset:0;background:#000c;display:flex;align-items:center;justify-content:center;z-index:30;}
 #setup{
   background:var(--panel);
@@ -468,6 +483,44 @@ html, body { -webkit-tap-highlight-color: transparent; }
   #board { padding: 4px; }
 }
 
+/* ===================== 废土天气系统 ===================== */
+/* 沙尘暴：棕褐噪点蒙层 + 棋盘轻微抖动 */
+body.weather-dust #board {
+  animation: boardShake 0.35s ease-in-out infinite;
+  filter: sepia(0.25) saturate(1.15) brightness(0.92);
+}
+body.weather-dust::after {
+  background: radial-gradient(ellipse at 30% 20%, rgba(160, 100, 40, 0.18) 0%, transparent 60%),
+              repeating-linear-gradient(45deg, transparent 0 3px, rgba(160, 100, 40, 0.06) 3px 4px);
+  animation: dustFlicker 0.6s ease-in-out infinite alternate;
+}
+/* 酸雨：绿色偏色 + 棋盘细抖 */
+body.weather-acid #board {
+  animation: boardShake 0.25s ease-in-out infinite;
+  filter: hue-rotate(20deg) saturate(1.3) brightness(0.88) sepia(0.15);
+}
+body.weather-acid::after {
+  background: repeating-linear-gradient(0deg, transparent 0 4px, rgba(60, 180, 80, 0.07) 4px 6px);
+  animation: dustFlicker 0.4s ease-in-out infinite alternate;
+}
+/* 废土黄昏：暖橙色渐变覆盖层 */
+body.weather-dusk {
+  --amb-dusk: 1;
+}
+body.weather-dusk::after {
+  background: radial-gradient(ellipse at 50% 100%, rgba(200, 100, 20, 0.22) 0%, transparent 65%);
+}
+
+@keyframes boardShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+@keyframes dustFlicker {
+  0% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
 /* ===================== 特效层 FX ===================== */
 #fxLayer{position:fixed;inset:0;pointer-events:none;z-index:80;overflow:hidden;}
 .fxCoin{position:absolute;left:0;top:0;width:13px;height:13px;border-radius:50%;
@@ -593,6 +646,10 @@ html, body { -webkit-tap-highlight-color: transparent; }
 .evtArtOverlay.art-gas .artMote{background:#7fae6e99;animation:artMoteDrift 2.6s ease-in-out infinite;}
 .evtArtOverlay.art-storm .artMote{background:#d8b13a88;animation:artMoteDrift 1.8s ease-in-out infinite;}
 .evtArtOverlay.art-warp .artMote{background:#6ec4d8;animation:artMoteSpin 2.2s linear infinite;}
+.evtArtOverlay.art-trade .artMote{background:var(--amber);animation:artMoteUp 2s ease-in-out infinite;}
+.evtArtOverlay.art-blackmarket .artMote{background:#9b6bb8;animation:artMoteDrift 2.4s ease-in-out infinite;}
+.evtArtOverlay.art-shield .artMote{background:#6ec4d8;animation:artMoteSpin 2.6s linear infinite;}
+.evtArtOverlay.art-prison .artMote{background:#7d8a93;animation:artMoteUp 2.8s ease-in-out infinite;}
 .evtArtOverlay.art-caps .artMote,.evtArtOverlay.art-med .artMote,.evtArtOverlay.art-gear .artMote,
 .evtArtOverlay.art-dice .artMote,.evtArtOverlay.art-chip .artMote,.evtArtOverlay.art-dna .artMote,
 .evtArtOverlay.art-drop .artMote,.evtArtOverlay.art-trap .artMote{background:var(--amber);animation:artMoteUp 2.4s ease-in-out infinite;}

@@ -5,7 +5,7 @@ import { TILES_COUNT } from './config.js';
 import { log, render, openModal, closeModal, placeToken, setActiveTile } from './view.js';
 import { sfx } from './audio.js';
 import { landDust, screenShake, haptic } from './fx.js';
-import { playTileBuildFx } from './fx-events.js';
+import { playTileBuildFx, floatUpgrade } from './fx-events.js';
 import { addPlayerFlags, markMissionDone, addFactionRep } from './missions.js';
 import { tryGrantNukeKey } from './nuke.js';
 import { FACTIONS as FACTION_LABELS } from './config.js';
@@ -25,6 +25,8 @@ export function gain(p, a) { p.caps += a; log(`${p.name} ${p.short}  +${a} 瓶�
 export function lose(p, a) { payCaps(p, a, '事件损失'); }
 
 export function enterJail(p) {
+  // 「无法无天」突变：隔离区失效
+  if (G.noJail) { log(`⛓ 无法无天：${p.name} 无视隔离区`); return; }
   p.inJail = true; p.jailTurns = 0; p.doubles = 0;
   const qIdx = TILES.findIndex(t => t.type === 'quarantine');
   if (qIdx >= 0) { p.pos = qIdx; placeToken(p, qIdx); setActiveTile(qIdx); }
@@ -42,6 +44,7 @@ export function upgrade(p, t, free) {
   if (!free) p.caps -= t.price;
   t.level++; sfx('buy'); log(`${p.name} 强化「${t.name}」至 L${t.level}${free ? '（免费）' : ''}`, true); render();
   playTileBuildFx(t.id, 'upgrade');
+  floatUpgrade(t.id, t.level);
 }
 export function mortgage(p, t, silent) {
   if (t.owner !== p.id || t.mortgaged || t.level > 0) return;
@@ -56,12 +59,16 @@ export function unmortgage(p, t) {
 }
 export function payRent(p, t) {
   if (t.mortgaged) { log(`${p.name} 踩中「${t.name}」，地块已抵押，免租`); render(); return; }
+  // 「和平主义」突变：无人收租
+  if (G.pacifist) { log(`☮ 和平主义：${p.name} 免缴租金`); render(); return; }
   const o = G.players[t.owner];
   if (!o || o.bankrupt) { t.owner = null; t.level = 0; t.mortgaged = false; render(); return; }
   let r;
   if (t.type === 'rail') r = railRent(t);
   else if (t.type === 'util') r = G.lastRoll * utilMult(t);
   else { r = t.rent * (t.level + 1); if (isMonopoly(t)) r *= 2; }
+  // 「双倍租金」突变
+  r = Math.floor(r * (G.rentMult || 1));
   p.caps -= r; o.caps += r; sfx('rent'); log(`${p.name} 向 ${o.name} 缴租 ${r}盖`, true);
   if (p.caps < 0) bankrupt(p, o);
   render();
@@ -111,7 +118,7 @@ export function askHumanBid(t, minBid, maxCaps) {
     openModal(`<h2>拍卖 // ${t.name}</h2>
       <div style="font-size:12px;color:var(--dim)">参考价 ${Math.floor(t.price * 0.5)} 盖 · 当前最高 ${minBid} 盖${maxText}</div>
       <div style="margin-top:8px">你的出价 <input id="bid" type="number" value="${defVal}" style="width:80px"> 盖</div>
-      <div id="actions" style="margin-top:10px"><button id="ok">出价</button><button class="alt" id="pass">放弃</button></div>`);
+      <div id="modalActions" style="margin-top:10px"><button id="ok">出价</button><button class="alt" id="pass">放弃</button></div>`);
     document.getElementById('ok').onclick = () => { const v = Math.min(max, Math.max(0, +document.getElementById('bid').value || 0)); closeModal(); res(v); };
     document.getElementById('pass').onclick = () => { closeModal(); res(0); };
   });
@@ -163,7 +170,9 @@ export function aiMission(p, m) {
 }
 
 export function warp(p) {
-  const dest = (p.pos + 1 + Math.floor(Math.random() * (TILES_COUNT - 1))) % TILES_COUNT;
+  // 「虫洞紊乱」突变：传送距离加倍
+  const base = 1 + Math.floor(Math.random() * (TILES_COUNT - 1));
+  const dest = (p.pos + Math.floor(base * (G.warpMult || 1))) % TILES_COUNT;
   p.pos = dest; placeToken(p, dest); setActiveTile(dest); landDust(p);
   log(`${p.name} 被卷入虫洞，传送到「${TILES[dest].name}」`, true);
   sfx('event'); screenShake(0.5); haptic('medium');
@@ -201,19 +210,20 @@ export function aiBlackMarket(p) {
 }
 
 export function radiationMine(p, deep) {
+  const cost = deep ? 80 : 40;
+  // 先确认付得起再扣费：此前「付不起也拿奖励」的漏洞（payCaps 破产清零后 p.caps>=0 恒真）
+  if (p.caps < cost) { log(`${p.name} 瓶盖不足，放弃采矿`); sfx('bad'); return; }
+  payCaps(p, cost, deep ? '辐射深采' : '辐射浅采');
+  if (p.bankrupt) return;
   if (deep) {
-    payCaps(p, 80, '辐射深采');
-    if (p.caps >= 0) gain(p, 150);
+    gain(p, 150);
     log(`${p.name} 深采辐射矿，高风险高回报`, true);
     tryGrantNukeKey(p, 'radiation_deep');
   } else {
-    payCaps(p, 40, '辐射浅采');
-    if (p.caps >= 0) {
-      gain(p, 70);
-      p.moral = (p.moral || 0) - 1;
-      log(`${p.name} 道德值 -1（现 ${p.moral}）`);
-      tryGrantNukeKey(p, 'radiation_shallow');
-    }
+    gain(p, 70);
+    p.moral = (p.moral || 0) - 1;
+    log(`${p.name} 道德值 -1（现 ${p.moral}）`);
+    tryGrantNukeKey(p, 'radiation_shallow');
     log(`${p.name} 浅采辐射矿`, true);
   }
   sfx('bad');

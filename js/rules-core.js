@@ -46,6 +46,8 @@ export function aiBid(x, t) {
   if (G.mode === 'coop' && x.isAI) {
     const human = G.players.find(p => !p.isAI);
     if (human) {
+      // 「战友情谊」叙事种子：AI 按概率把拍卖机会让给人类队友
+      if (G.aiCoopBonus && Math.random() < G.aiCoopBonus) return 0;
       const grp = t.type === 'prop' ? TILES.filter(y => y.type === 'prop' && y.group === t.group) : [];
       const ownedByHuman = grp.filter(y => y.owner === human.id).length;
       if (ownedByHuman > 0) return 0; // 让人类拿这个区域
@@ -75,7 +77,9 @@ export function aiShouldBuy(p, t) {
     const ownedByHuman = grp.filter(x => x.owner === human.id).length;
     if (ownedByHuman > 0) return false;
   }
-  return ownedByOther === 0;
+  if (ownedByOther === 0) return true;
+  // 有对手持有同组地块时，现金充裕仍可买入：避免 AI 全面弃购导致租金经济停滞、对局拖到近千轮
+  return ownedByOther === 1 && p.caps > t.price * 2;
 }
 
 export function aiUpgrade(p, t) {

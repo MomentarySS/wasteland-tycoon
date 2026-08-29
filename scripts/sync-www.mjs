@@ -9,7 +9,7 @@ const SRC = join(HERE, '..');
 const DST = join(SRC, 'www');
 const INCLUDE = new Set([
   'index.html', 'manifest.json', 'service-worker.js',
-  'icon.svg', 'icon-192.png', 'icon-512.png',
+  'logo.svg', 'icon.svg', 'icon-192.png', 'icon-512.png',
   'css', 'js', 'content', 'vendor', 'assets'
 ]);
 
@@ -29,6 +29,11 @@ function cpFiltered(from, to) {
 function pruneMirror(from, to) {
   if (!existsSync(to)) return;
   for (const name of readdirSync(to)) {
+    // 历史拷贝的流水线备份文件一律清除（源文件存在但被 cpFiltered 排除）
+    if (name.endsWith('.orig.webp')) {
+      rmSync(join(to, name), { recursive: true, force: true });
+      continue;
+    }
     const srcPath = join(from, name);
     const dstPath = join(to, name);
     if (!existsSync(srcPath)) {
@@ -38,6 +43,15 @@ function pruneMirror(from, to) {
     if (statSync(srcPath).isDirectory() && statSync(dstPath).isDirectory()) {
       pruneMirror(srcPath, dstPath);
     }
+  }
+}
+
+/** 顶层清理：从 INCLUDE 移除或源目录已删除的 www 顶层文件/目录不打入包内 */
+function pruneTopLevel() {
+  if (!existsSync(DST)) return;
+  for (const name of readdirSync(DST)) {
+    if (INCLUDE.has(name) && existsSync(join(SRC, name))) continue;
+    rmSync(join(DST, name), { recursive: true, force: true });
   }
 }
 
@@ -60,6 +74,7 @@ for (const name of readdirSync(SRC)) {
   }
   copied++;
 }
+pruneTopLevel();
 function walk(p) {
   for (const n of readdirSync(p)) {
     const s = statSync(join(p, n));

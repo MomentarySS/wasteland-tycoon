@@ -1,60 +1,72 @@
 // Capacitor 原生 TTS 封装
 // 仅在 Capacitor 运行时可用；浏览器/非 Android 环境自动降级
+// 注意：无打包器的纯浏览器 ESM 无法 import('@capacitor-community/text-to-speech')，
+// 必须通过 cap sync 注册的 window.Capacitor.Plugins.TextToSpeech 访问原生层。
 
+const PROBE_RETRY_MS = 10000;
 let _available = null;
+let _lastProbeAt = 0;
 let _speaking = false;
 
 function isCapacitor() {
   return typeof window !== 'undefined' && !!window.Capacitor;
 }
 
+function getPlugin() {
+  try {
+    const plugins = window.Capacitor && window.Capacitor.Plugins;
+    return (plugins && plugins.TextToSpeech) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 export async function isNativeTtsAvailable() {
-  if (_available !== null) {
-    console.warn('[CapacitorTTS] isNativeTtsAvailable 缓存结果:', _available);
-    return _available;
+  if (_available === true) return true;
+  // 检测失败后冷却重试，避免每句朗读都重复全量探测
+  if (_available === false && Date.now() - _lastProbeAt < PROBE_RETRY_MS) return false;
+  _lastProbeAt = Date.now();
+  if (!isCapacitor()) {
+    _available = false;
+    return false;
+  }
+  const plugin = getPlugin();
+  if (!plugin) {
+    console.warn('[CapacitorTTS] TextToSpeech 插件未注册（是否已 npx cap sync android？）');
+    _available = false;
+    return false;
   }
   try {
-    if (!isCapacitor()) {
-      console.warn('[CapacitorTTS] 非 Capacitor 环境');
-      _available = false;
-      return false;
+    // 调用一次 lightweight 接口验证原生层真实可用
+    if (typeof plugin.getSupportedLanguages === 'function') {
+      await plugin.getSupportedLanguages();
     }
-    console.warn('[CapacitorTTS] 动态导入插件...');
-    const { TextToSpeech } = await import('@capacitor-community/text-to-speech');
-    console.warn('[CapacitorTTS] 插件导入成功，调用 getSupportedLanguages...');
-    // 调用一次 lightweight 接口验证插件已注册
-    await TextToSpeech.getSupportedLanguages();
-    console.warn('[CapacitorTTS] 插件验证成功');
     _available = true;
     return true;
   } catch (e) {
-    console.warn('[CapacitorTTS] 不可用:', e && e.message, e && e.stack);
+    console.warn('[CapacitorTTS] 不可用:', e && e.message);
     _available = false;
     return false;
   }
 }
 
+function cleanText(text) {
+  return (text || '')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{20E3}]/gu, '')
+    .replace(/[☢⚑⛓🏆📖💀🤖⚠★✔○]/g, '')
+    .trim();
+}
+
 export async function nativeSpeak(text, opts = {}) {
-  console.log('[CapTTS] nativeSpeak CALLED:', typeof text === 'string' ? text.slice(0, 30) : String(text));
-  // 如果之前检测失败，强制重新检测
-  if (_available === false) {
-    console.warn('[CapTTS] 之前检测失败，强制重新检测...');
-    _available = null;
-  }
   const available = await isNativeTtsAvailable();
-  console.log('[CapTTS] isNativeTtsAvailable:', available);
   if (!available) return false;
+  const plugin = getPlugin();
+  if (!plugin) return false;
+  const cleaned = cleanText(text);
+  if (!cleaned) return true;
+  _speaking = true;
   try {
-    const { TextToSpeech } = await import('@capacitor-community/text-to-speech');
-    const cleaned = (text || '').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{20E3}]/gu, '')
-      .replace(/[☢⚑⛓🏆📖💀🤖⚠★✔○]/g, '').trim();
-    if (!cleaned) {
-      console.log('[CapTTS] empty text, skip');
-      return true;
-    }
-    console.log('[CapTTS] speak start:', cleaned);
-    _speaking = true;
-    const result = await TextToSpeech.speak({
+    await plugin.speak({
       text: cleaned,
       lang: 'zh-CN',
       rate: Math.max(0.5, Math.min(2, opts.rate || 1.0)),
@@ -62,21 +74,20 @@ export async function nativeSpeak(text, opts = {}) {
       pitch: opts.pitch || 1.0,
       queueStrategy: 0,
     });
-    console.log('[CapTTS] speak done:', result);
-    _speaking = false;
     return true;
   } catch (e) {
-    console.error('[CapTTS] speak FAIL:', e && e.message, e && e.stack);
-    _speaking = false;
+    console.warn('[CapTTS] speak 失败:', e && e.message);
     return false;
+  } finally {
+    _speaking = false;
   }
 }
 
 export async function nativeStop() {
   if (!(await isNativeTtsAvailable())) return;
   try {
-    const { TextToSpeech } = await import('@capacitor-community/text-to-speech');
-    await TextToSpeech.stop();
+    const plugin = getPlugin();
+    if (plugin && typeof plugin.stop === 'function') await plugin.stop();
     _speaking = false;
   } catch (e) {
     // ignore

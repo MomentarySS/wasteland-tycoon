@@ -44,7 +44,6 @@ function validateSave(d) {
 function normalizeSave(d) {
   const out = { ...d };
   if (out.awaitingRoll == null) out.awaitingRoll = false;
-  if (out.pendingTilePos == null && d.pendingTilePos !== 0) out.pendingTilePos = d.pendingTilePos ?? null;
   if (out.lastRoll == null) out.lastRoll = 0;
   if (out.turnPlayerId == null) out.turnPlayerId = d.turnPlayerId ?? null;
   return out;

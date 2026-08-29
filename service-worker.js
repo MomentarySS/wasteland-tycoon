@@ -1,5 +1,6 @@
 // 离线缓存：App Shell 预缓存；运行时缓存其余资源（含 assets 插画）
-const CACHE = 'wasteland-tycoon-v56';
+// 注意：修改任何被缓存的源文件后必须手动 bump 版本号，否则旧缓存不会被清除
+const CACHE = 'wasteland-tycoon-v57';
 const ASSETS = [
   './', './index.html', './manifest.json',
   './css/style.css', './css/board-v2.css',
@@ -39,19 +40,29 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // 页面导航：网络优先，失败时回退到预缓存的 index.html（离线启动 PWA 不再白屏）
   if (e.request.mode === 'navigate') {
-    e.respondWith(fetch(e.request));
+    e.respondWith(
+      fetch(e.request).then((resp) => {
+        if (resp && resp.ok) {
+          const cp = resp.clone();
+          caches.open(CACHE).then((c) => c.put('./index.html', cp));
+        }
+        return resp;
+      }).catch(() => caches.match('./index.html', { ignoreSearch: true }).then(withCorp))
+    );
     return;
   }
   e.respondWith(
-    caches.match(e.request).then((cached) => {
+    // ignoreSearch：预缓存的 css/style.css 要能命中实际请求的 style.css?v=xxx
+    caches.match(e.request, { ignoreSearch: true }).then((cached) => {
       if (cached) return withCorp(cached);
       return fetch(e.request).then((resp) => {
         if (!resp || resp.status !== 200) return resp;
         const cp = resp.clone();
         caches.open(CACHE).then((c) => c.put(e.request, cp));
         return resp;
-      }).catch(() => caches.match('./index.html').then(withCorp));
+      }).catch(() => caches.match('./index.html', { ignoreSearch: true }).then(withCorp));
     })
   );
 });

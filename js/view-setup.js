@@ -11,6 +11,7 @@ import {
   STEP_VOICES
 } from './tts.js';
 import { escapeHtml } from './view-util.js';
+import { showLegacyShop } from './view-legacy.js';
 
 export function buildSetup() {
   const setup = document.getElementById('setup');
@@ -111,18 +112,44 @@ export function buildSetup() {
     const fileInput = card.querySelector('input[type=file]');
     if (fileInput) fileInput.onchange = (e) => {
       const f = e.target.files && e.target.files[0]; if (!f) return;
-      const rd = new FileReader();
-      rd.onload = () => {
-        slotAvatars[i] = rd.result;
-        const prev = document.getElementById('pva' + i);
-        if (prev) prev.innerHTML = slotAvatarHTML(i);
-        card.querySelectorAll('.avEmoji').forEach(b => b.classList.remove('sel'));
+      // 小图直接用原图；大图缩到 256px JPEG，防止 dataURL 撑爆 localStorage 导致存档失败
+      if (f.size <= 100 * 1024) {
+        const rd = new FileReader();
+        rd.onload = () => {
+          slotAvatars[i] = rd.result;
+          const prev = document.getElementById('pva' + i);
+          if (prev) prev.innerHTML = slotAvatarHTML(i);
+          card.querySelectorAll('.avEmoji').forEach(b => b.classList.remove('sel'));
+        };
+        rd.readAsDataURL(f);
+        return;
+      }
+      const img = new Image();
+      const url = URL.createObjectURL(f);
+      img.onload = () => {
+        try {
+          const MAX = 256;
+          const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+          const cv = document.createElement('canvas');
+          cv.width = Math.max(1, Math.round(img.width * scale));
+          cv.height = Math.max(1, Math.round(img.height * scale));
+          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          slotAvatars[i] = cv.toDataURL('image/jpeg', 0.85);
+          const prev = document.getElementById('pva' + i);
+          if (prev) prev.innerHTML = slotAvatarHTML(i);
+          card.querySelectorAll('.avEmoji').forEach(b => b.classList.remove('sel'));
+        } catch (err) { console.warn('头像压缩失败', err); }
+        URL.revokeObjectURL(url);
       };
-      rd.readAsDataURL(f);
+      img.onerror = () => URL.revokeObjectURL(url);
+      img.src = url;
     };
   });
   const sb = document.getElementById('startBtn');
   if (sb) sb.onclick = startGame;
+  // wireTopButtons 先于 buildSetup 执行，商店按钮在此处生成后须在此补绑
+  const legacyBtn = document.getElementById('legacyShopBtn');
+  if (legacyBtn) legacyBtn.onclick = () => showLegacyShop();
 
   function updateTtsPanels() {
     const src = document.getElementById('ttsSrc') ? document.getElementById('ttsSrc').value : 'auto';

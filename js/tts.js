@@ -48,9 +48,10 @@ function loadSourcePref() {
 }
 
 function sourceOrder() {
-  // Capacitor 原生优先，其次 step，最后 browser 兜底
+  // auto：Capacitor 原生优先 → step → browser 兜底
+  // step：用户显式选择阶跃在线时不得被原生抢先，原生完全不参与
   if (source === 'step') {
-    return stepConfigured() ? ['capacitor', 'step', 'browser'] : ['capacitor', 'browser'];
+    return stepConfigured() ? ['step', 'browser'] : ['browser'];
   }
   return ['capacitor', ...(stepConfigured() ? ['step'] : []), 'browser'];
 }
@@ -145,34 +146,23 @@ async function speakStep(text) {
 }
 
 async function speakOne(text) {
-  // Capacitor 原生 TTS 优先（Android 真机）
-  try {
-    const ok = await nativeSpeak(text, { rate, volume });
-    if (ok) {
-      lastEngine = 'capacitor';
-      console.debug('[TTS] 原生引擎成功');
-      return;
-    }
-    console.debug('[TTS] 原生引擎不可用，尝试下一档');
-  } catch (e) {
-    console.warn('[TTS] 原生引擎失败，尝试下一档:', e && e.message);
-  }
-
   const order = sourceOrder();
-  console.debug('[TTS] 尝试引擎顺序:', order);
   for (const eng of order) {
     try {
       if (eng === 'capacitor') {
-        // 已在上方尝试过，跳过
-        continue;
+        const ok = await nativeSpeak(text, { rate, volume });
+        if (ok) {
+          lastEngine = 'capacitor';
+          console.debug('[TTS] 原生引擎成功');
+          return;
+        }
+        console.debug('[TTS] 原生引擎不可用，尝试下一档');
       }
       if (eng === 'step') {
-        console.debug('[TTS] 尝试 step 引擎');
         await speakStep(text);
         return;
       }
       if (eng === 'browser') {
-        console.debug('[TTS] 尝试 browser 引擎, supported:', browserTtsSupported());
         const ok = await speakBrowser(text);
         if (ok) {
           lastEngine = 'browser';
@@ -243,9 +233,13 @@ export async function testTts() {
   }
   if (browserTtsSupported()) {
     try {
-      await speakBrowser(text);
-      console.warn('[TTS] testTts browser 成功');
-      return 'browser';
+      // speakBrowser 失败时 resolve(false) 而不是 throw，必须检查返回值
+      const ok = await speakBrowser(text);
+      if (ok) {
+        console.warn('[TTS] testTts browser 成功');
+        return 'browser';
+      }
+      console.warn('[TTS] testTts browser 失败');
     } catch (e) {
       console.warn('[TTS] testTts browser 异常:', e && e.message);
     }
@@ -307,9 +301,18 @@ export function cancelTts() {
   nativeStop().catch(() => {});
 }
 
+// 播报串行链 + 队列上限：事件密集时丢弃溢出播报，避免 backlog 越积越多、听到几分钟前的旧战报
+const MAX_QUEUE = 3;
+let _pending = 0;
+
 export function ttsSpeak(text) {
   const t = cleanText(text);
   if (!enabled || !t) return;
-  _chain = _chain.then(() => speakOne(t)).catch(() => {});
+  if (_pending >= MAX_QUEUE) {
+    console.warn('[TTS] 播报队列已满，丢弃:', t.slice(0, 20));
+    return;
+  }
+  _pending++;
+  _chain = _chain.then(() => speakOne(t)).catch(() => {}).finally(() => { _pending--; });
   return _chain;
 }

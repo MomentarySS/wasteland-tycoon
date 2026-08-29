@@ -19,7 +19,7 @@ import { sfx, NUKE_LAUNCH_SFX_MS } from './audio.js';
 import { rollDice3D, hopToken, landDust, haptic, screenShake, footprint } from './fx.js';
 import { playTileLandFx, playNukeStrike } from './fx-events.js';
 import { applyLegacyToGame, getLegacyMeta, recordRun } from './legacy.js';
-import { rollMutators, applyMutators } from './mutators.js';
+import { rollMutators, applyMutators, resetMutatorFields } from './mutators.js';
 import { getNarrativeSeed, applyNarrativeStart, formatNarrativeIntro } from './narrative.js';
 import { setTtsEnabled, setTtsRate, unlockTts, cancelTts, preloadTTS, setVoiceSource, setStepApiKey, setStepVoice, setStepInstruction } from './tts.js';
 import { canLaunchNuke, tryNukeKeyFromChipFactory } from './nuke.js';
@@ -73,8 +73,9 @@ async function moveTokenAnim(p, steps) {
   settleTokenLean(p);
   landDust(p);
   if (old + steps >= TILES_COUNT) {
-    p.caps += G.SALARY; sfx('good');
-    log(`${p.name} 经过据点，补给 +${G.SALARY} 瓶盖`, true);
+    const salary = Math.floor(G.SALARY * (G.SALARY_MULT || 1));
+    p.caps += salary; sfx('good');
+    log(`${p.name} 经过据点，补给 +${salary} 瓶盖`, true);
     renderPlayers();
   }
 }
@@ -114,9 +115,15 @@ async function handleAfterRoll(p, a, b, isAI, turnAt) {
   if (p.doubles >= 3) { enterJail(p); log(`${p.name} 连续三次双数，被关进隔离区！`); sfx('bad'); await sleep(500); if (aliveInGame(p) && isCurrentTurn(turnAt)) endTurn(turnAt); return; }
   const gotDouble = a === b && !p.inJail && !p.bankrupt;
   if (gotDouble) p.extraRoll = true;
-  await moveTokenAnim(p, a + b);
+  let steps = a + b;
+  // 「幸运开局」突变：本局首次掷骰额外前进
+  if (G.luckyDice && !p.luckyUsed) {
+    steps += G.luckyDice; p.luckyUsed = true;
+    log(`🎲 幸运开局：${p.name} 首次掷骰额外 +${G.luckyDice} 步`);
+  }
+  await moveTokenAnim(p, steps);
   if (!aliveInGame(p) || !isCurrentTurn(turnAt)) return;
-  const turnEnded = resolveTile(p, { turnAt });   // 隔离区等分支会在内部结束回合，避免重复 endTurn
+  const turnEnded = await resolveTile(p, { turnAt });   // 隔离区等分支会在内部结束回合，避免重复 endTurn
   if (G.gameOver || turnEnded) return;
   if (canLaunchNuke(p)) {
     if (isAI) { await launchNuke(p); return; }
@@ -141,6 +148,9 @@ export async function takeTurn() {
   const turnAt = G.turn;
   p.extraRoll = false;
   if (p.bankrupt) { nextPlayer(); return; }
+  // 每回合突变效果：和平主义补贴 / 道德困境流失
+  if (G.pacifist) { p.caps += 20; log(`☮ 和平主义：${p.name} 获得 +20 盖补给`); }
+  if (G.moralDrain) { p.moral = (p.moral || 0) - G.moralDrain; log(`😈 道德困境：${p.name} 道德值 -${G.moralDrain}（现 ${p.moral}）`); }
   if (p.inJail) {
     if (p.isAI) await aiJailTurn(p, turnAt);
     else startJailTurn(p);
@@ -203,6 +213,36 @@ export function startGame() {
   G.targetWealth = +document.getElementById('target').value || diffPreset.targetWealth;
   G.mode = document.getElementById('mode') ? document.getElementById('mode').value : 'versus';
   const slotAvatars = getSlotAvatars();
+  // 清空旧战报，随后叙事/突变日志才能正确显示
+  const logEl = document.getElementById('log'); if (logEl) logEl.innerHTML = '';
+
+  // 遗产模式：先应用遗产加成 + 叙事传承 + 突变因子（写入 STARTCAPS/START_MORAL 等全局量），
+  // 再据此创建玩家，保证各项加成真正生效
+  if (G.mode === 'legacy') {
+    applyLegacyToGame(G);
+    const meta = getLegacyMeta();
+    if (meta.lastEndKind) {
+      const seed = getNarrativeSeed(meta.lastEndKind, meta.lastMoral);
+      applyNarrativeStart(G, seed);
+      if (seed.intro) log(formatNarrativeIntro(seed), true);
+    }
+    const unlockedMuts = meta.unlockedMutators.length > 0 ? meta.unlockedMutators : null;
+    let mutators = rollMutators(3, unlockedMuts);
+    // 「每日重抽」遗产加成：开局可确认重抽突变因子
+    let rerolls = G.MUTATOR_REROLL || 0;
+    while (rerolls > 0 && mutators.length
+      && !confirm('本局突变因子：\n' + mutators.map(m => `${m.icon} ${m.name} — ${m.desc}`).join('\n')
+        + `\n\n是否重抽？（剩余 ${rerolls} 次）`)) {
+      rerolls--;
+      mutators = rollMutators(3, unlockedMuts);
+    }
+    resetMutatorFields(G);
+    applyMutators(G, mutators);
+    if (mutators.length) {
+      log('☢ 突变因子：' + mutators.map(m => `${m.icon} ${m.name}`).join(' · '), true);
+    }
+  }
+
   G.players = [];
   for (let i = 0; i < 4; i++) {
     const v = document.getElementById('slot' + i).value;
@@ -210,12 +250,21 @@ export function startGame() {
     const nameVal = (document.getElementById('name' + i).value || '').trim();
     // 未选头像则系统随机选一个，保证每个幸存者都有头像
     const av = slotAvatars[i] || WASTELAND_EMOJI[Math.floor(Math.random() * WASTELAND_EMOJI.length)];
+    // 「命运中断」叙事种子：初始瓶盖随机波动 ±15%
+    const variance = G.randomStart ? (0.85 + Math.random() * 0.3) : 1;
+    const startCaps = Math.max(100, Math.floor(G.STARTCAPS * variance));
+    const rep = { eagle: 0, survivor: 0, tech: 0 };
+    // 「暴君余波」等种子：人类玩家的初始派系声望受罚
+    if (v !== 'ai' && G.startRepPenalty) {
+      for (const k of Object.keys(rep)) if (G.startRepPenalty[k]) rep[k] += G.startRepPenalty[k];
+    }
     G.players.push({
       id: G.players.length, name: nameVal || ('玩家' + SHORT[i]), short: SHORT[i], isAI: v === 'ai',
-      color: COLORS[i], caps: G.STARTCAPS, pos: 0, skipNext: false, bankrupt: false,
-      inJail: false, jailTurns: 0, getOut: 0, doubles: 0, tokenEl: null, moral: 0,
+      color: COLORS[i], caps: startCaps, pos: 0, skipNext: false, bankrupt: false,
+      inJail: false, jailTurns: 0, getOut: G.START_GETOUT || 0, doubles: 0, tokenEl: null,
+      moral: G.START_MORAL || 0, rollsTaken: 0, luckyUsed: false,
       avatar: av, flags: [], missionDone: [],
-      factionRep: { eagle: 0, survivor: 0, tech: 0 }
+      factionRep: rep
     });
   }
   if (G.mode === 'survival') {
@@ -237,26 +286,17 @@ export function startGame() {
   }
   document.getElementById('overlay').style.display = 'none';
   document.getElementById('win').style.display = 'none';
-  const logEl = document.getElementById('log'); if (logEl) logEl.innerHTML = '';
   buildTokens();
 
-  // 遗产模式：应用遗产加成 + 突变因子 + 叙事传承
-  if (G.mode === 'legacy') {
-    applyLegacyToGame(G);
-    // 叙事传承
-    const meta = getLegacyMeta();
-    if (meta.lastEndKind) {
-      const seed = getNarrativeSeed(meta.lastEndKind, meta.lastMoral);
-      applyNarrativeStart(G, seed);
-      if (seed.intro) log(formatNarrativeIntro(seed), true);
-    }
-    // 突变因子
-    const unlockedMuts = meta.unlockedMutators.length > 0 ? meta.unlockedMutators : null;
-    const mutators = rollMutators(3, unlockedMuts);
-    applyMutators(G, mutators);
-    if (mutators.length) {
-      log('☢ 突变因子：' + mutators.map(m => `${m.icon} ${m.name}`).join(' · '), true);
-    }
+  // 地产价格类突变（泡沫/抄底）：开局一次性缩放价格
+  // resetTiles 每局会把价格还原为基础价，不会跨局复利
+  if (G.priceMult && G.priceMult !== 1) {
+    TILES.forEach(t => {
+      if (t.type === 'prop' || t.type === 'rail' || t.type === 'util') {
+        t.price = Math.max(20, Math.floor(t.price * G.priceMult));
+      }
+    });
+    log(`💰 地产价格 ×${G.priceMult.toFixed(1)}`, true);
   }
 
   log(`${GAME_TITLE} 启动，幸存者已就位。` + (G.mode === 'campaign' || G.mode === 'coop' ? ` 进入${CAMPAIGNS[0].name}。` : (G.targetWealth > 0 ? ` 目标净身家 ${G.targetWealth} 盖。` : ''))
@@ -287,7 +327,17 @@ async function jailRoll(p) {
   const [a, b] = roll(); await animateDice(a, b); G.lastRoll = a + b;
   if (!aliveInGame(p) || !isCurrentTurn(turnAt)) return;
   log(`${p.name} 隔离区掷出 ${a + b}`);
-  if (a === b) { log(' 掷出双数，成功逃出！'); leaveJail(p, turnAt); return; }
+  if (a === b) {
+    log(`${p.name} 掷出双数，成功逃出隔离区！`);
+    p.inJail = false; p.jailTurns = 0; p.doubles = 0; render(); sfx('good');
+    // 经典规则：双数出狱后按点数前进并结算落地格
+    await moveTokenAnim(p, a + b);
+    if (!aliveInGame(p) || !isCurrentTurn(turnAt)) return;
+    const turnEnded = await resolveTile(p, { turnAt });
+    if (G.gameOver || turnEnded) return;
+    if (p.isAI) endTurn(turnAt);
+    return;
+  }
   p.jailTurns++;
   if (p.jailTurns >= 3) { log(' 关满3回合，强制离开'); leaveJail(p, turnAt); return; }
   if (p.isAI) { await sleep(400); if (aliveInGame(p) && isCurrentTurn(turnAt)) await aiJailTurn(p, turnAt); }
@@ -305,19 +355,27 @@ function tileLandFx(p, type) {
   if (p && p.tokenEl) playTileLandFx(type, p.tokenEl);
 }
 
-export function resolveTile(p, opts = {}) {
+export async function resolveTile(p, opts = {}) {
   const t = TILES[p.pos];
   if (!t) return;
 
   if (t.type === 'wormhole' && !opts.afterWarp) {
     tileLandFx(p, 'wormhole');
     warp(p);
-    if (!G.gameOver && !p.bankrupt) resolveTile(p, { afterWarp: true });
+    if (!G.gameOver && !p.bankrupt) await resolveTile(p, { afterWarp: true });
     return;
   }
 
   if (t.type === 'prop' || t.type === 'rail' || t.type === 'util') {
     if (t.owner === null) {
+      // 「拍卖狂潮」突变：所有未购地产自动进入拍卖
+      if (G.auctionAll) {
+        log(`🔨 拍卖狂潮：「${t.name}」自动进入拍卖`, true);
+        await auction(t);
+        if (p.isAI) { endTurn(opts.turnAt); return true; }
+        afterHumanAction(p);
+        return true;
+      }
       if (p.isAI) { if (aiShouldBuy(p, t)) buy(p, t); }
       else {
         G.pendingTile = t;
@@ -351,20 +409,28 @@ export function resolveTile(p, opts = {}) {
     } else { payRent(p, t); }
   } else if (t.type === 'event') {
     tileLandFx(p, 'event');
+    // 突变/叙事种子调整坏事件概率（尸潮频发 +30%、暴君余波 +30%、仁心传承 -30% 等）
+    const badP = Math.min(0.6, Math.max(0.05, 0.30 + (G.badEventBonus || 0) - (G.goodEventBonus || 0)));
     const roll = Math.random();
-    const pile = roll < 0.30 ? ALERTS : roll < 0.60 ? INTEL : roll < 0.80 ? FACTIONS : RUINS;
+    const pile = roll < badP ? ALERTS : roll < badP + 0.30 ? INTEL : roll < badP + 0.50 ? FACTIONS : RUINS;
     const m = pickMission(pile, p);
-    const chainTag = isNukeMission(m) ? '☢ 机密频道' : isFactionMission(m) ? '⚑ 派系任务' : m.deck === 'ruins' ? '⛏ 遗迹猎人' : isChainMission(m) ? '🔗 连锁任务' : '迷你任务';
-    if (p.isAI) {
-      const c = aiMission(p, m);
-      log(`${chainTag} // ${m.title}`, true);
-      applyMissionEffects(p, c.effects, m, c);
-      if (c.effects && c.effects.warp) {
-        if (!G.gameOver && !p.bankrupt) resolveTile(p, { afterWarp: true });
-        return;
-      }
-      sfx(m.bad ? 'bad' : 'good'); render();
-    } else { render(); showMission(m, p); return; }
+    if (!m) {
+      // 牌堆任务全部 once 且已完成：播放空频道提示，回合照常继续（不重放、不重复结算）
+      log(`${p.name} 调频到空频道，只有杂音…`);
+      sfx('event');
+    } else {
+      const chainTag = isNukeMission(m) ? '☢ 机密频道' : isFactionMission(m) ? '⚑ 派系任务' : m.deck === 'ruins' ? '⛏ 遗迹猎人' : isChainMission(m) ? '🔗 连锁任务' : '迷你任务';
+      if (p.isAI) {
+        const c = aiMission(p, m);
+        log(`${chainTag} // ${m.title}`, true);
+        applyMissionEffects(p, c.effects, m, c);
+        if (c.effects && c.effects.warp) {
+          if (!G.gameOver && !p.bankrupt) await resolveTile(p, { afterWarp: true });
+          return;
+        }
+        sfx(m.bad ? 'bad' : 'good'); render();
+      } else { render(); showMission(m, p); return; }
+    }
   } else if (t.type === 'tax') {
     tileLandFx(p, 'tax');
     const amount = Math.floor(t.tax * (G.taxMult || 1));
@@ -376,7 +442,12 @@ export function resolveTile(p, opts = {}) {
     render(); endTurn(opts.turnAt); return true;   // 返回 true 表示本回合已在此结束
   } else if (t.type === 'safe') {
     tileLandFx(p, 'safe');
-    log(`${p.name} 在安全地带休整`); sfx('good');
+    if (G.noSafe) {
+      log(`${p.name} 踩中安全地带，但废土没有免费的安宁（-15 盖）`); sfx('bad');
+      payCaps(p, 15, '安全区占用费');
+    } else {
+      log(`${p.name} 在安全地带休整`); sfx('good');
+    }
   } else if (t.type === 'wormhole') {
     /* 由函数开头 afterWarp 分支处理；此处为落地后不再重复传送 */
   } else if (t.type === 'oasis') {
@@ -432,6 +503,8 @@ export async function launchNuke(p) {
   showNukeWin(p.name);
   haptic('heavy');
   log(`☢ 蘑菇云在阿帕拉契亚升起——无论战局如何，${p.name} 以绝对火力终结协议。`, true);
+  // 遗产模式：核弹结局同样结算遗产点（awardLegacyPoints 对 nuke 有 +100）
+  if (G.mode === 'legacy') recordLegacyRun();
   return true;
 }
 export function afterHumanAction(p) {
@@ -450,6 +523,26 @@ export function afterHumanAction(p) {
   wireNukeBtn(p);
 }
 
+const WEATHER_CLASSES = ['weather-dust', 'weather-acid', 'weather-dusk'];
+let _weatherTimer = null;
+function triggerWeather() {
+  if (G.gameOver) return;
+  if (_weatherTimer) { clearTimeout(_weatherTimer); _weatherTimer = null; }
+  WEATHER_CLASSES.forEach(c => document.body.classList.remove(c));
+  const roll = Math.random();
+  let cls = null;
+  if (roll < 0.45) cls = 'weather-dust';
+  else if (roll < 0.80) cls = 'weather-acid';
+  else if (roll < 0.95) cls = 'weather-dusk';
+  if (cls) {
+    document.body.classList.add(cls);
+    const duration = 4000 + Math.random() * 5000;
+    _weatherTimer = setTimeout(() => {
+      document.body.classList.remove(cls);
+      _weatherTimer = null;
+    }, duration);
+  }
+}
 function endTurn(turnAt) {
   // 僵尸链防护：仅当前回合的链可以结算；turnAt 落后说明回合已被推进，忽略
   if (!isCurrentTurn(turnAt)) return;
@@ -468,6 +561,7 @@ function endTurn(turnAt) {
       if (r.done) {
         if (G.campaign >= campaignCount() - 1) { campaignWin(human); return; }
         G.campaign++;
+        G.turn = 0;   // 章节轮次上限按章计算，进入新章节重新计数
         log(`📖 章节达成，进入 ${CAMPAIGNS[G.campaign].name}！`, true);
         render();
         const decay = campaignDecayPerTurn(G.campaign);
@@ -492,33 +586,44 @@ function endTurn(turnAt) {
   if (G.mode !== 'campaign' && alive.length <= 1) { gameWin(alive[0]); return; }
   const turnLimit = (G.mode === 'campaign' || G.mode === 'coop') ? MAX_TURNS_CAMPAIGN : MAX_TURNS;
   if (G.turn >= turnLimit) {
+    // 闯关/合作模式到达上限 = 未达成章节目标 → 闯关失败，而不是把资产最高的 AI 判为「胜利者」
+    if (G.mode === 'campaign' || G.mode === 'coop') {
+      log(`⏳ 已达 ${turnLimit} 回合上限，章节目标未达成。`);
+      const human = G.players.find(p => !p.isAI);
+      campaignLose(human || alive[0]); return;
+    }
     const winner = alive.reduce((a, b) => netWorth(b) > netWorth(a) ? b : a);
     log(`⏳ 已达 ${turnLimit} 回合上限，按净身家判胜。`);
     gameWin(winner); return;
   }
+  triggerWeather();
   nextPlayer();
 }
 function applyWastelandDecay() {
   if (G.gameOver) return;
-  let amount;
+  let amount = 0;
   if (G.mode === 'campaign' || G.mode === 'coop') {
     amount = campaignDecayPerTurn(G.campaign);
   } else if (G.mode === 'survival') {
     // 生存模式：每 8 回合衰减 +5，从第 8 回合开始
     const tier = Math.floor((G.turn || 0) / 8);
     amount = tier > 0 ? tier * 5 : 0;
-  } else {
-    return;
   }
-  if (!amount) return;
+  // 「辐射泄漏」突变 / 「核爆余烬」叙事种子：任何模式每回合额外扣盖
+  const leak = G.radiationLeak || 0;
+  if (!amount && !leak) return;
   let any = false;
   for (const p of G.players) {
     if (p.bankrupt) continue;
     any = true;
-    p.caps -= amount;
+    if (amount) p.caps -= amount;
+    if (leak) p.caps -= leak;
     if (p.caps < 0) bankrupt(p);
   }
-  if (any) log(`☢ 废土衰减：全员 -${amount} 盖`, true);
+  if (any) {
+    if (amount) log(`☢ 废土衰减：全员 -${amount} 盖`, true);
+    if (leak) log(`☢ 辐射泄漏：全员额外 -${leak} 盖`, true);
+  }
 }
 /** 生存模式计算当前衰减等级 */
 export function survivalDecayTier(turn) {
@@ -540,6 +645,7 @@ function gameDraw() {
   showWin('协议中断', '无人幸存');
   haptic('heavy');
   log('所有幸存者都已倒下，协议中断。', true);
+  if (G.mode === 'legacy') recordLegacyRun();
 }
 function nextPlayer() {
   let n = G.current;
@@ -552,6 +658,9 @@ function nextPlayer() {
   G.current = n; G.turn = (G.turn || 0) + 1;
   applyWastelandDecay();
   if (G.gameOver) return;
+  // 衰减/辐射可能直接把玩家打死：生存模式走专属结局，全员死亡走协议中断
+  if (G.players.every(p => p.bankrupt)) { gameDraw(); return; }
+  if (G.mode === 'survival' && G.players[0].bankrupt) { survivalLose(G.players[0]); return; }
   render(); takeTurn();
 }
 function gameWin(w) {
@@ -576,7 +685,10 @@ function recordLegacyRun() {
   }
 }
 function campaignWin(p) {
-  G.gameOver = true; setGameEnd('campaign', p.id); render(); sfx('win');
+  G.gameOver = true;
+  // coop 用专属 endKind，叙事种子的「战友情谊」分支才能命中
+  setGameEnd(G.mode === 'coop' ? 'coop' : 'campaign', p.id);
+  render(); sfx('win');
   if (G.mode === 'coop') {
     const ally = G.players.find(x => x.isAI);
     showWin(p.name + (ally ? ' & ' + ally.name : ''), '合作通关');
@@ -591,6 +703,7 @@ function campaignLose(p) {
   showWin(p.name, '闯关失败');
   haptic('heavy');
   log('💀 你在废土中倒下，闯关终止。', true);
+  if (G.mode === 'legacy') recordLegacyRun();
 }
 export function restoreTurnUI() {
   if (G.gameOver) return;

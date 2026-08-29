@@ -43,7 +43,7 @@ export function awardLegacyPoints(run) {
   pts += (run.chaptersCompleted || 0) * 50; // 章节完成
   pts += Math.max(0, run.moral || 0) * 10; // 道德值
   if (run.endKind === 'nuke') pts += 100;  // 核弹结局
-  if (run.endKind === 'campaign') pts += 80; // 通关
+  if (run.endKind === 'campaign' || run.endKind === 'coop') pts += 80; // 通关（单人/合作）
   if (run.endKind === 'survival') pts += Math.floor((run.turns || 0) * 2);
   if (run.bankrupt) pts = Math.floor(pts * 0.5); // 破产减半
   return Math.floor(pts);
