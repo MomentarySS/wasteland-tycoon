@@ -2,6 +2,7 @@
 import { haptic, flashScreen, screenShake } from './fx.js';
 import { flashLightning, nukeArtHtml } from './assets-art.js';
 import { sfx } from './audio.js';
+import { getTileRect } from './board-metrics.js';
 
 const ENABLED = typeof document !== 'undefined' && !!document.documentElement;
 
@@ -139,27 +140,25 @@ export function startAmbience() {
 export function playTileBuildFx(tileId, kind = 'buy') {
   if (!ENABLED || RM) return;
   const tileEl = document.querySelector(`.tile[data-i="${tileId}"]`);
-  if (!tileEl) return;
-  tileEl.classList.remove('tbuild-buy', 'tbuild-up');
-  void tileEl.offsetWidth;
-  tileEl.classList.add(kind === 'upgrade' ? 'tbuild-up' : 'tbuild-buy');
-  const r = rectOf(tileEl);
-  if (r) {
-    const x = r.left + r.width / 2;
-    const y = r.top + r.height / 2;
-    const col = kind === 'upgrade' ? '#c9a227' : '#7fae6e';
-    spawnRing(x, y, col, 2.4, 520);
-    spawnBurst(x, y, col, kind === 'upgrade' ? 10 : 7);
+  const r = getTileRect(tileId);
+  if (!r) return;
+  if (tileEl) {
+    tileEl.classList.remove('tbuild-buy', 'tbuild-up');
+    void tileEl.offsetWidth;
+    tileEl.classList.add(kind === 'upgrade' ? 'tbuild-up' : 'tbuild-buy');
   }
-  setTimeout(() => tileEl.classList.remove('tbuild-buy', 'tbuild-up'), 680);
+  const x = r.left + r.width / 2;
+  const y = r.top + r.height / 2;
+  const col = kind === 'upgrade' ? '#c9a227' : '#7fae6e';
+  spawnRing(x, y, col, 2.4, 520);
+  spawnBurst(x, y, col, kind === 'upgrade' ? 10 : 7);
+  if (tileEl) setTimeout(() => tileEl.classList.remove('tbuild-buy', 'tbuild-up'), 680);
 }
 
 /** 升级飘字：格子上冒出 +Lv1 / +Lv2 浮动文字 */
 export function floatUpgrade(tileId, level) {
   if (!ENABLED || !fxLayer()) return;
-  const tileEl = document.querySelector(`.tile[data-i="${tileId}"]`);
-  if (!tileEl) return;
-  const r = rectOf(tileEl);
+  const r = getTileRect(tileId);
   if (!r) return;
   const d = document.createElement('div');
   d.className = 'fxFloat';

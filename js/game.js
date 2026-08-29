@@ -18,6 +18,7 @@ import { pickMission, isChainMission, isFactionMission, isNukeMission } from './
 import { sfx, NUKE_LAUNCH_SFX_MS } from './audio.js';
 import { rollDice3D, hopToken, landDust, haptic, screenShake, footprint } from './fx.js';
 import { playTileLandFx, playNukeStrike } from './fx-events.js';
+import { playNukeCutscene } from './cutscene.js';
 import { applyLegacyToGame, getLegacyMeta, recordRun } from './legacy.js';
 import { rollMutators, applyMutators, resetMutatorFields } from './mutators.js';
 import { getNarrativeSeed, applyNarrativeStart, formatNarrativeIntro } from './narrative.js';
@@ -61,11 +62,15 @@ async function moveTokenAnim(p, steps) {
     }
     setActiveTile(p.pos);
     // DOM 更新完成后再触发弹跳与音效，减少主线程压力
+    // 后台页签 / 后台 WebView 会把 rAF 节流到 0，必须加超时兜底，否则回合链会冻结
     await new Promise(resolve => {
+      let done = false;
+      const fin = () => { if (done) return; done = true; hopToken(p); sfx('tick'); resolve(); };
       if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(() => { hopToken(p); sfx('tick'); resolve(); });
+        requestAnimationFrame(fin);
+        setTimeout(fin, 120);
       } else {
-        hopToken(p); sfx('tick'); resolve();
+        fin();
       }
     });
     await sleep(150);
@@ -499,6 +504,8 @@ export async function launchNuke(p) {
   render();
   sfx('nukeLaunch');
   await sleep(NUKE_LAUNCH_SFX_MS);
+  // 全屏分镜过场：警报 → 密钥对齐 → 弹头离井，随后蘑菇云在棋盘升起
+  await playNukeCutscene();
   await playNukeStrike();
   showNukeWin(p.name);
   haptic('heavy');

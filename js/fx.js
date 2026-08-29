@@ -1,5 +1,6 @@
 // 特效层：3D 骰子、棋子弹跳、金币飞散、飘字、震屏、触感反馈
 // 设计约定：本模块只做表现，不参与任何规则判定；在无 DOM 环境（node 测试）下整体降级为空操作。
+import { getTileRect } from './board-metrics.js';
 
 const ENABLED = typeof document !== 'undefined'
   && !!document.documentElement
@@ -148,9 +149,7 @@ export function landDust(p) {
 /** 2.5D：棋子经过的格子留足迹残影（让棋盘活起来） */
 export function footprint(p, fromIdx) {
   if (!ENABLED || !fxLayer || RM || !p) return;
-  const tileEl = document.querySelector(`.tile[data-i="${fromIdx}"]`);
-  if (!tileEl) return;
-  const r = rectOf(tileEl);
+  const r = getTileRect(fromIdx);
   if (!r) return;
   const d = document.createElement('div');
   d.className = 'fxFootprint';

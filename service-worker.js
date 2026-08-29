@@ -1,6 +1,6 @@
 // 离线缓存：App Shell 预缓存；运行时缓存其余资源（含 assets 插画）
 // 注意：修改任何被缓存的源文件后必须手动 bump 版本号，否则旧缓存不会被清除
-const CACHE = 'wasteland-tycoon-v57';
+const CACHE = 'wasteland-tycoon-v59';
 const ASSETS = [
   './', './index.html', './manifest.json',
   './css/style.css', './css/board-v2.css',
@@ -9,7 +9,8 @@ const ASSETS = [
   './js/view-core.js', './js/view-setup.js', './js/view-modal.js', './js/view-manage.js', './js/view-save.js',
   './js/view-legacy.js', './js/legacy.js', './js/mutators.js', './js/narrative.js',
   './js/view.js', './js/game.js', './js/campaign.js', './js/fx.js', './js/fx-events.js', './js/tts.js', './js/step-tts.js', './js/capacitor-tts.js',
-  './js/difficulty.js', './js/missions.js', './js/nuke.js',
+  './js/difficulty.js', './js/missions.js', './js/nuke.js', './js/cutscene.js', './js/log-panel.js',
+  './js/board-metrics.js', './js/board-canvas.js',
   './content/tiles.json', './content/events.json',
   './logo.svg'
 ];

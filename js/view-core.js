@@ -10,6 +10,9 @@ import { nukeKeyBadgeHtml } from './nuke.js';
 import { FACTIONS } from './config.js';
 import { initFx, fxMoney, fxResetMoney } from './fx.js';
 import { classifyLogKind, startAmbience } from './fx-events.js';
+import { initLogPanel, applyEntryFilter, makeLogTag } from './log-panel.js';
+import { initBoardCanvas, isCanvasMode, resizeBoardCanvas, drawBoard, setMonopolySet } from './board-canvas.js';
+import { getCellMetrics, invalidateCellMetricsCache } from './board-metrics.js';
 import { ttsSpeak } from './tts.js';
 import { escapeHtml } from './view-util.js';
 import { tileArtUrl, zoneTexUrl } from './assets-art.js';
@@ -225,6 +228,7 @@ export function initView() {
   diceEl = document.getElementById('diceSum') || document.getElementById('dice');
   previewEl = document.getElementById('tilePreview');
   initFx();
+  initLogPanel();
   startAmbience();
   applyBoardTilt(false);
   applyTileArt(true);
@@ -234,12 +238,22 @@ export function initView() {
       document.body.classList.add('no-container');
     }
   } catch (_) { /* 部分旧环境 CSS.supports 抛错 */ }
-  bindTileHover();
+  // Canvas 棋盘层（#13）：支持 canvas 时格子层改由 <canvas> 绘制，#tiles 保留为降级路径
+  if (initBoardCanvas((idx) => { if (idx != null) updateTilePreview(idx); else syncActivePreview(); })) {
+    if (tilesEl) tilesEl.style.display = 'none';
+  } else {
+    bindTileHover();
+  }
   if (window.addEventListener) {
     let rt;
     window.addEventListener('resize', () => {
       clearTimeout(rt);
-      rt = setTimeout(() => { fitBoard(); repositionAllTokens(); invalidateCellMetricsCache(); }, 80);
+      rt = setTimeout(() => {
+        fitBoard();
+        repositionAllTokens();
+        invalidateCellMetricsCache();
+        if (isCanvasMode()) { resizeBoardCanvas(); drawBoard(); }
+      }, 80);
     });
   }
 }
@@ -314,13 +328,21 @@ export function log(msg, opts) {
   d.className = 'logEntry';
   const kind = classifyLogKind(msg);
   if (kind) d.classList.add('log-' + kind);
-  d.textContent = msg;
+  d.dataset.kind = kind || 'sys';
+  d.dataset.text = String(msg);
+  const tag = makeLogTag(d.dataset.kind);
+  if (tag) d.appendChild(tag);
+  const tx = document.createElement('span');
+  tx.className = 'logText';
+  tx.textContent = msg;
+  d.appendChild(tx);
   if (logEl) {
     logEl.prepend(d);
     // 战报上限：生存模式无限回合下 DOM 无限增长会拖垮低端 WebView
     if (typeof logEl.removeChild === 'function') {
       while (logEl.children && logEl.children.length > 100) logEl.removeChild(logEl.lastChild);
     }
+    applyEntryFilter(d);
   }
   requestAnimationFrame(() => d.classList.add('in'));
   if (opts === true || (opts && opts.speak)) ttsSpeak(msg);
@@ -332,6 +354,11 @@ export function setActionsHTML(html) { if (actionsEl) actionsEl.innerHTML = html
 
 export function setActiveTile(idx) {
   if (!tilesEl || G.gameOver) return;
+  if (isCanvasMode()) {
+    // 当前格由 G.players[G.current].pos 推导，重绘即可
+    drawBoard();
+    return;
+  }
   tilesEl.querySelectorAll('.tile.active').forEach(el => el.classList.remove('active'));
   const cur = G.players && G.players[G.current];
   if (cur && cur.pos === idx) {
@@ -383,62 +410,77 @@ export function renderPlayers() {
   });
 }
 
-/** 垄断成套装发光：给所有垄断地块加 .monopoly-set class */
+/** 垄断成套装发光：收集垄断组地块，Canvas 模式注入绘制，DOM 模式打 class */
 export function markMonopolyTiles() {
   if (!tilesEl) return;
+  const monoIdx = new Set();
+  if (G.players) {
+    G.players.forEach(p => {
+      if (p.bankrupt) return;
+      // 收集该玩家所有垄断组
+      const groups = new Set();
+      TILES.forEach(t => {
+        if (t.type === 'prop' && t.owner === p.id && !t.mortgaged) {
+          if (isMonopoly(t)) groups.add(t.group);
+        }
+      });
+      // 属于这些组的 prop 格
+      TILES.forEach((t, i) => {
+        if (t.type === 'prop' && groups.has(t.group)) monoIdx.add(i);
+      });
+    });
+  }
+  if (isCanvasMode()) {
+    setMonopolySet(monoIdx);
+    drawBoard();
+    return;
+  }
   tilesEl.querySelectorAll('.tile.tile-v2').forEach(el => el.classList.remove('monopoly-set'));
-  if (!G.players) return;
-  G.players.forEach(p => {
-    if (p.bankrupt) return;
-    // 收集该玩家所有垄断组
-    const groups = new Set();
-    TILES.forEach(t => {
-      if (t.type === 'prop' && t.owner === p.id && !t.mortgaged) {
-        if (isMonopoly(t)) groups.add(t.group);
-      }
-    });
-    // 给属于这些组的 prop 格打标记
-    TILES.forEach(t => {
-      if (t.type === 'prop' && groups.has(t.group)) {
-        const el = tilesEl.querySelector(`.tile[data-i="${t.id}"]`);
-        if (el) el.classList.add('monopoly-set');
-      }
-    });
+  monoIdx.forEach(i => {
+    const el = tilesEl.querySelector(`.tile[data-i="${i}"]`);
+    if (el) el.classList.add('monopoly-set');
   });
 }
 
 export function render() {
   fitBoard();
   if (!tilesEl) return;
-  tilesEl.innerHTML = '';
-  const tileArtOn = isTileArtEnabled();
-  for (let i = 0; i < TILES.length; i++) {
-    const t = TILES[i]; const [r, c] = positions[i];
-    const d = document.createElement('div');
-    d.className = 'tile tile-v2 ' + t.type + (r === 0 ? ' top' : r === N - 1 ? ' bot' : c === 0 ? ' left' : c === N - 1 ? ' right' : '');
-    if (t.type === 'prop') {
-      d.dataset.group = t.group;
-      if (t.level === 1) d.classList.add('level-1');
-      else if (t.level >= 2) d.classList.add('level-2');
-    }
-    d.style.gridRow = r + 1; d.style.gridColumn = c + 1;
-    d.dataset.i = String(i);
-    if (t.type === 'prop' && t.group) {
-      const zt = zoneTexUrl(t.group);
-      if (zt) d.style.setProperty('--zone-tex', `url("${zt}")`);
-    }
-    // 顶面贴图模式：把该格的废土插画（artIndex 固定映射）铺成顶面
-    if (tileArtOn) {
-      const art = tileArtUrl(t.artIndex ?? i);
-      if (art) {
-        d.dataset.art = '1';
-        d.style.setProperty('--tile-art', `url("${art}")`);
+  if (isCanvasMode()) {
+    // Canvas 模式：格子层由 board-canvas 绘制，#tiles 保持空
+    tilesEl.innerHTML = '';
+    resizeBoardCanvas();
+    drawBoard();
+  } else {
+    tilesEl.innerHTML = '';
+    const tileArtOn = isTileArtEnabled();
+    for (let i = 0; i < TILES.length; i++) {
+      const t = TILES[i]; const [r, c] = positions[i];
+      const d = document.createElement('div');
+      d.className = 'tile tile-v2 ' + t.type + (r === 0 ? ' top' : r === N - 1 ? ' bot' : c === 0 ? ' left' : c === N - 1 ? ' right' : '');
+      if (t.type === 'prop') {
+        d.dataset.group = t.group;
+        if (t.level === 1) d.classList.add('level-1');
+        else if (t.level >= 2) d.classList.add('level-2');
       }
+      d.style.gridRow = r + 1; d.style.gridColumn = c + 1;
+      d.dataset.i = String(i);
+      if (t.type === 'prop' && t.group) {
+        const zt = zoneTexUrl(t.group);
+        if (zt) d.style.setProperty('--zone-tex', `url("${zt}")`);
+      }
+      // 顶面贴图模式：把该格的废土插画（artIndex 固定映射）铺成顶面
+      if (tileArtOn) {
+        const art = tileArtUrl(t.artIndex ?? i);
+        if (art) {
+          d.dataset.art = '1';
+          d.style.setProperty('--tile-art', `url("${art}")`);
+        }
+      }
+      d.innerHTML = buildStripTileHTML(t);
+      d.title = tileTip(t);
+      if (!G.gameOver && G.players[G.current] && i === G.players[G.current].pos) d.classList.add('active');
+      tilesEl.appendChild(d);
     }
-    d.innerHTML = buildStripTileHTML(t);
-    d.title = tileTip(t);
-    if (!G.gameOver && G.players[G.current] && i === G.players[G.current].pos) d.classList.add('active');
-    tilesEl.appendChild(d);
   }
   renderPlayers();
   const campCard = document.getElementById('campCard');
@@ -528,22 +570,5 @@ export function placeToken(p, idx, metrics) {
   if (p.id === G.current && !G.gameOver) updateTilePreview(idx, { pulse: true });
 }
 
-let _cachedCellMetrics = null;
-export function getCellMetrics() {
-  if (_cachedCellMetrics) return _cachedCellMetrics;
-  if (typeof document === 'undefined' || !document.documentElement) {
-    _cachedCellMetrics = { cellW: CELL, cellH: CELL, gap: 3 };
-    return _cachedCellMetrics;
-  }
-  const cs = getComputedStyle(document.documentElement);
-  const w = parseFloat(cs.getPropertyValue('--cell-w'));
-  const h = parseFloat(cs.getPropertyValue('--cell-h'));
-  const g = parseFloat(cs.getPropertyValue('--gap'));
-  _cachedCellMetrics = {
-    cellW: w > 0 ? w : CELL,
-    cellH: h > 0 ? h : CELL,
-    gap: g > 0 ? g : 3,
-  };
-  return _cachedCellMetrics;
-}
-export function invalidateCellMetricsCache() { _cachedCellMetrics = null; }
+// 格尺寸缓存已下沉到 board-metrics.js（Canvas / DOM 双模式共用），此处 re-export 兼容旧导入
+export { getCellMetrics, invalidateCellMetricsCache };
