@@ -144,6 +144,8 @@ export function saveGame() {
       moral: p.moral || 0, avatar: p.avatar || '',
       flags: Array.isArray(p.flags) ? p.flags.slice() : [],
       missionDone: Array.isArray(p.missionDone) ? p.missionDone.slice() : [],
+      cards: Array.isArray(p.cards) ? p.cards.slice() : [],
+      shield: p.shield || 0, marchBonus: p.marchBonus || 0,
       factionRep: p.factionRep && typeof p.factionRep === 'object' ? { ...p.factionRep } : { eagle: 0, survivor: 0, tech: 0 }
     }))
   };
@@ -204,6 +206,8 @@ export function loadGame() {
     extraRoll: !!p.extraRoll,
     flags: Array.isArray(p.flags) ? p.flags.slice() : [],
     missionDone: Array.isArray(p.missionDone) ? p.missionDone.slice() : [],
+    cards: Array.isArray(p.cards) ? p.cards.slice() : [],
+    shield: p.shield || 0, marchBonus: p.marchBonus || 0,
     factionRep: p.factionRep && typeof p.factionRep === 'object' ? { ...p.factionRep } : { eagle: 0, survivor: 0, tech: 0 },
     tokenEl: null
   }));

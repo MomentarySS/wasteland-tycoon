@@ -9,6 +9,9 @@ import { playTileBuildFx, floatUpgrade } from './fx-events.js';
 import { addPlayerFlags, markMissionDone, addFactionRep } from './missions.js';
 import { tryGrantNukeKey } from './nuke.js';
 import { FACTIONS as FACTION_LABELS } from './config.js';
+import { cardName, giveCard, randomCardId, canUseCard, removeCard, HAND_LIMIT,
+  applyShield, applyPlunder, applyDemolish, applyMarch,
+  applyEqualizer, applyDeed, applyRemoteDice } from './cards.js';
 import {
   netWorth, isMonopoly, railRent, utilMult, rentDisplay, canUpgrade,
   aiBid, aiShouldBuy, aiTradeAccept, aiMissionChoice, aiUpgrade as aiUpgradeCheck,
@@ -61,6 +64,8 @@ export function payRent(p, t) {
   if (t.mortgaged) { log(`${p.name} 踩中「${t.name}」，地块已抵押，免租`); render(); return; }
   // 「和平主义」突变：无人收租
   if (G.pacifist) { log(`☮ 和平主义：${p.name} 免缴租金`); render(); return; }
+  // 道具卡「护盾」：抵挡本次租金
+  if ((p.shield || 0) > 0) { p.shield--; log(`🛡 护盾生效：${p.name} 免缴租金`); render(); return; }
   const o = G.players[t.owner];
   if (!o || o.bankrupt) { t.owner = null; t.level = 0; t.mortgaged = false; render(); return; }
   let r;
@@ -158,6 +163,10 @@ export function applyMissionEffects(p, eff, mission, choice) {
     log(`${p.name} 道德值 ${eff.moral > 0 ? '+' : ''}${eff.moral}（现 ${p.moral}）`);
   }
   if (eff.getOut) { p.getOut = (p.getOut || 0) + eff.getOut; log(`${p.name} 获得 ${eff.getOut} 张免罚通行证`); }
+  // 事件奖励：直接发放指定道具卡
+  if (eff.card) {
+    if (giveCard(p, eff.card)) log(`🃏 ${p.name} 获得「${cardName(eff.card)}」`, true);
+  }
   if (eff.skip) { p.skipNext = true; log(`${p.name} 下回合无法行动`); }
   if (eff.upgrade) {
     const c = TILES.filter(t => t.type === 'prop' && t.owner === p.id && t.level < 2);
@@ -218,10 +227,57 @@ export function blackMarketCard(p) {
   else log(`${p.name} 黑市一无所获`);
   tryGrantNukeKey(p, 'blackmarket_card');
 }
+/** 黑市淘卡：120 盖随机获得一张道具卡（手牌满时拒收不扣费） */
+export function blackMarketBuyCard(p) {
+  if (p.caps < 120) { log(`${p.name} 瓶盖不足，淘卡失败`); return; }
+  const id = randomCardId();
+  p.cards = Array.isArray(p.cards) ? p.cards : [];
+  if (p.cards.length >= HAND_LIMIT) { log(`🃏 ${p.name} 手牌已满（${HAND_LIMIT} 张），淘卡失败`); return; }
+  p.caps -= 120;
+  giveCard(p, id);
+  sfx('buy');
+  log(`${p.name} 在黑市淘到「${cardName(id)}」(-120盖)`, true);
+  tryGrantNukeKey(p, 'blackmarket_card');
+}
 export function aiBlackMarket(p) {
   const pool = TILES.filter(t => (t.type === 'prop' || t.type === 'rail' || t.type === 'util') && t.owner != null && t.owner !== p.id && !t.mortgaged);
   if (p.caps > 120 && pool.length && Math.random() < 0.7) blackMarketSteal(p);
+  else if (p.caps > 250 && Math.random() < 0.3) blackMarketBuyCard(p);
   else if (Math.random() < 0.5) blackMarketCard(p);
+}
+
+/** AI 使用道具卡：在 AI 回合开始时调用，按简单阈值/概率决策 */
+export function aiUseCards(p) {
+  if (!Array.isArray(p.cards) || !p.cards.length) return;
+  const alive = G.players.filter(x => x !== p && !x.bankrupt);
+  if (!alive.length) return;
+  const richest = alive.reduce((a, b) => (b.caps > a.caps ? b : a));
+  const poorestSelf = p.caps <= Math.min(...alive.map(x => x.caps));
+  for (const id of [...p.cards]) {
+    if (!canUseCard(p, id)) continue;
+    let use = false;
+    switch (id) {
+      case 'shield': use = p.caps < 300 && !(p.shield > 0); break;
+      case 'plunder': use = richest.caps > 400; break;
+      case 'demolish': use = Math.random() < 0.5; break;
+      case 'march': case 'remote_dice': use = Math.random() < 0.3; break;
+      case 'deed': use = true; break; // canUseCard 已限定脚下无主格
+      case 'equalizer': use = poorestSelf; break;
+      default: use = false; break; // pass 留作出狱（aiJailTurn 自会用 getOut）；swap/pardon AI 不主动用
+    }
+    if (!use) continue;
+    removeCard(p, id);
+    if (id === 'shield') applyShield(p);
+    else if (id === 'plunder') applyPlunder(p);
+    else if (id === 'march') applyMarch(p);
+    else if (id === 'remote_dice') applyRemoteDice(p, 6 + Math.floor(Math.random() * 4));
+    else if (id === 'deed') applyDeed(p);
+    else if (id === 'equalizer') applyEqualizer(p);
+    else if (id === 'demolish') {
+      const targets = TILES.filter(t => t.type === 'prop' && t.owner != null && t.owner !== p.id && (t.level || 0) > 0);
+      if (targets.length) applyDemolish(p, targets[Math.floor(Math.random() * targets.length)]);
+    }
+  }
 }
 
 export function radiationMine(p, deep) {

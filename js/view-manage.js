@@ -7,14 +7,22 @@ import {
 import { afterHumanAction } from './game.js';
 import { sfx } from './audio.js';
 import { render, log } from './view-core.js';
-import { openModal, closeModal } from './view-modal.js';
+import { openModal, closeModal, showHand } from './view-modal.js';
 import { escapeHtml } from './view-util.js';
+import { cardDef } from './cards.js';
 
 export function renderManage() {
   const p = G.turnPlayer; if (!p) return;
   const owned = TILES.filter(t => (t.type === 'prop' || t.type === 'rail' || t.type === 'util') && t.owner === p.id);
   let html = `<h2>资产管理 // ${escapeHtml(p.name)}</h2>`;
   html += `<div class="nw">净身家 ${netWorth(p)} 盖 · 现金 ${p.caps} 盖</div>`;
+  const cards = Array.isArray(p.cards) ? p.cards : [];
+  if (cards.length) {
+    html += `<div style="margin:6px 0 0;font-size:11px"><b style="color:var(--tech)">🃏 手牌：</b>${cards.map(id => {
+      const c = cardDef(id);
+      return c ? `${c.icon}${c.name}` : id;
+    }).join('、')} <button class="alt" id="openHand" style="padding:2px 8px;font-size:10px">使用</button></div>`;
+  }
   html += `<div style="margin:8px 0;border-top:1px solid var(--line);padding-top:8px"><b style="color:var(--amber)">抵押 / 赎回</b><br>`;
   if (owned.length === 0) html += '<div style="font-size:11px;color:var(--dim)">暂无资产</div>';
   owned.forEach(t => {
@@ -42,6 +50,7 @@ export function renderManage() {
   });
   const cls = document.getElementById('cls'); if (cls) cls.onclick = () => { closeModal(); afterHumanAction(p); };
   const prop = document.getElementById('prop'); if (prop) prop.onclick = proposeTrade;
+  const oh = document.getElementById('openHand'); if (oh) oh.onclick = () => showHand(p);
 }
 
 export function proposeTrade() {

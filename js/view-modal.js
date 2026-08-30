@@ -2,7 +2,7 @@
 import { render, log } from './view-core.js';
 import { eventArtHtml, flashLightning, nukeArtHtml } from './assets-art.js';
 import { applyMissionEffects, blackMarketSteal, blackMarketCard } from './rules.js';
-import { afterHumanAction, resolveTile, launchNuke } from './game.js';
+import { afterHumanAction, humanActionUI, resolveTile, launchNuke } from './game.js';
 import { canLaunchNuke } from './nuke.js';
 import { G } from './state.js';
 import { TILES } from './data.js';
@@ -13,7 +13,10 @@ import { ttsSpeak } from './tts.js';
 import { escapeHtml } from './view-util.js';
 import { getChapterIntro, getCampaignEnding } from './campaign.js';
 import { isChainMission, isFactionMission, isNukeMission } from './missions.js';
-import { radiationMine, bunkerRest, bunkerFortify } from './rules.js';
+import { radiationMine, bunkerRest, bunkerFortify, blackMarketBuyCard } from './rules.js';
+import { cardDef, canUseCard, removeCard, HAND_LIMIT,
+  applyPass, applyShield, applyPardon, applyPlunder, applyMarch, applyDeed,
+  applyDemolish, applySwap, applyEqualizer, applyRemoteDice } from './cards.js';
 
 let modal, modalBox, winEl;
 
@@ -146,12 +149,115 @@ export function showMission(m, p) {
   });
 }
 
+/** 目标选择列表弹窗（拆迁令 / 换地卡等二级选择用） */
+function openTargetList(p, title, items, label, onPick) {
+  const rows = items.map((t, i) =>
+    `<div class="row" style="justify-content:space-between;gap:8px"><span style="font-size:12px">${label(t)}</span><button id="tg${i}">选择</button></div>`
+  ).join('');
+  const html = `<div class="deckTag" style="color:var(--tech)">🎯 选择目标</div>
+    <h2 style="color:var(--tech);text-align:center">${title}</h2>
+    <div style="max-height:44vh;overflow:auto">${rows}</div>
+    <div id="modalActions" style="margin-top:14px"><button class="alt" id="tgBack">返回手牌</button></div>`;
+  openModal(html);
+  items.forEach((t, i) => {
+    const el = document.getElementById('tg' + i);
+    if (el) el.onclick = () => onPick(t);
+  });
+  const back = document.getElementById('tgBack');
+  if (back) back.onclick = () => showHand(p);
+}
+
+/** 手牌弹窗：展示并使用道具卡（不消耗回合） */
+export function showHand(p) {
+  const cards = Array.isArray(p.cards) ? p.cards : [];
+  const rows = cards.map((id, i) => {
+    const c = cardDef(id);
+    if (!c) return '';
+    const usable = canUseCard(p, id);
+    return `<div class="row" style="justify-content:flex-start;gap:8px;border-bottom:1px dotted #1d2426;padding:5px 0">
+      <span style="font-size:20px;flex:0 0 auto">${c.icon}</span>
+      <span style="flex:1 1 auto;min-width:0;font-size:12px;line-height:1.4"><b style="color:var(--amber)">${c.name}</b><br><span style="color:#9fb0a6">${c.desc}</span></span>
+      <button id="uc${i}" ${usable ? '' : 'disabled'} style="flex:0 0 auto">使用</button></div>`;
+  }).join('');
+  const html = `<div class="deckTag" style="color:var(--tech)">🎒 道具</div>
+    <h2 style="color:var(--tech);text-align:center">手牌（${cards.length}/${HAND_LIMIT}）</h2>
+    <div>${rows || '<div class="evtText">手牌空空如也</div>'}</div>
+    <div class="moralHint">卡在自己回合内使用，不消耗回合</div>
+    <div id="modalActions" style="margin-top:14px"><button class="alt" id="hdClose">关闭</button></div>`;
+  openModal(html);
+  haptic('light');
+  document.getElementById('hdClose').onclick = () => closeModal();
+  cards.forEach((id, i) => {
+    const el = document.getElementById('uc' + i);
+    if (el) el.onclick = () => useHandCard(p, id);
+  });
+}
+
+/** 使用一张手牌：无目标卡直接生效；目标卡进入二级选择 */
+function useHandCard(p, id) {
+  // 用卡后按阶段恢复操作条：掷骰前回到掷骰条，掷骰后回到资产条
+  const finish = () => { render(); humanActionUI(p); };
+  const consumeAnd = (fn) => { removeCard(p, id); if (fn() !== false) { sfx('good'); } finish(); };
+  switch (id) {
+    case 'demolish': {
+      const targets = TILES.filter(t => t.type === 'prop' && t.owner != null && t.owner !== p.id && (t.level || 0) > 0);
+      openTargetList(p, '拆除谁的地块？', targets,
+        t => `💣 ${t.name}（Lv${t.level} · ${G.players[t.owner] ? G.players[t.owner].name : '?'}）`,
+        t => { removeCard(p, id); if (applyDemolish(p, t) !== false) { sfx('good'); screenShake(0.6); } finish(); });
+      return;
+    }
+    case 'swap': {
+      const theirTiles = TILES.filter(t => t.type === 'prop' && t.owner != null && t.owner !== p.id);
+      openTargetList(p, '换取谁的地块？', theirTiles,
+        t => `🔄 ${t.name}（Lv${t.level || 0} · ${G.players[t.owner] ? G.players[t.owner].name : '?'}）`,
+        theirTile => {
+          const myTiles = TILES.filter(t => t.type === 'prop' && t.owner === p.id);
+          openTargetList(p, '用你哪块地交换？', myTiles,
+            t => `🔄 ${t.name}（Lv${t.level || 0}）`,
+            myTile => {
+              removeCard(p, id);
+              if (applySwap(p, myTile, theirTile) !== false) { sfx('good'); }
+              finish();
+            });
+        });
+      return;
+    }
+    case 'remote_dice': {
+      const sums = [];
+      for (let s = 2; s <= 12; s++) sums.push(s);
+      const btns = sums.map(s => `<button id="ds${s}" style="min-width:44px">${s}</button>`).join('');
+      openModal(`<div class="deckTag" style="color:var(--tech)">🎲 遥控骰</div>
+        <h2 style="color:var(--tech);text-align:center">锁定下一次点数</h2>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:12px">${btns}</div>
+        <div id="modalActions" style="margin-top:14px"><button class="alt" id="dsBack">返回手牌</button></div>`);
+      sums.forEach(s => {
+        const el = document.getElementById('ds' + s);
+        if (el) el.onclick = () => { removeCard(p, id); applyRemoteDice(p, s); sfx('good'); finish(); };
+      });
+      const back = document.getElementById('dsBack');
+      if (back) back.onclick = () => showHand(p);
+      return;
+    }
+    case 'pass': consumeAnd(() => applyPass(p)); return;
+    case 'march': consumeAnd(() => applyMarch(p)); return;
+    case 'shield': consumeAnd(() => applyShield(p)); return;
+    case 'pardon': consumeAnd(() => applyPardon(p)); return;
+    case 'plunder': consumeAnd(() => applyPlunder(p)); return;
+    case 'deed': consumeAnd(() => applyDeed(p)); return;
+    case 'equalizer': consumeAnd(() => applyEqualizer(p)); return;
+    default: finish();
+  }
+}
+
 export function showBlackMarket(p) {
   const canSteal = p.caps >= 80;
+  const hand = Array.isArray(p.cards) ? p.cards : [];
+  const canCard = p.caps >= 120 && hand.length < HAND_LIMIT;
   const html = `<h2 style='color:var(--amber);text-align:center'>⚑ 黑市交易</h2>
     <div class='evtText'>你溜进黑市，能捞点什么？</div>
     <div id='modalActions' style='margin-top:14px'>
       <button id='bmSteal' ${canSteal ? '' : 'disabled'}>偷袭 (-80盖，抢对手一块地)</button>
+      <button id='bmBuyCard' ${canCard ? '' : 'disabled'}>🃏 淘卡 (-120盖${hand.length >= HAND_LIMIT ? '，手牌已满' : ''})</button>
       <button class='alt' id='bmCard'>搜刮 (免费，50%得通行证)</button>
       <button class='alt' id='bmLeave'>离开</button>
     </div>`;
@@ -159,6 +265,11 @@ export function showBlackMarket(p) {
   haptic('medium');
   document.getElementById('bmSteal').onclick = () => {
     closeModal(); blackMarketSteal(p); render();
+    if (canLaunchNuke(p)) showNukeLaunchConfirm(p, () => afterHumanAction(p));
+    else afterHumanAction(p);
+  };
+  document.getElementById('bmBuyCard').onclick = () => {
+    closeModal(); blackMarketBuyCard(p); render();
     if (canLaunchNuke(p)) showNukeLaunchConfirm(p, () => afterHumanAction(p));
     else afterHumanAction(p);
   };

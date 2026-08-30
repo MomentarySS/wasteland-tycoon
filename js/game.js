@@ -5,12 +5,12 @@ import { TILES_COUNT, JAIL_FEE, COLORS, SHORT, GAME_TITLE, MAX_TURNS, MAX_TURNS_
 import {
   render, showMission, buildTokens, log, setDice, placeToken,
   setActionsHTML, showSetupScreen, showBlackMarket, getSlotAvatars, WASTELAND_EMOJI,
-  showChapterIntro, showCampaignEnding, showWin, showNukeWin, showNukeLaunchConfirm, renderManage, showSpeedDieChoice,
+  showChapterIntro, showCampaignEnding, showWin, showNukeWin, showNukeLaunchConfirm, renderManage, showSpeedDieChoice, showHand,
   showRadiation, showBunker, setActiveTile, renderPlayers, fitBoard, repositionAllTokens
 } from './view.js';
 import {
   buy, upgrade, payRent, payCaps, auction, canUpgrade, aiShouldBuy, aiUpgrade, netWorth, enterJail,
-  oasis, bounty, warp, aiBlackMarket, aiMission, applyMissionEffects, aiRadiation, aiBunker
+  oasis, bounty, warp, aiBlackMarket, aiMission, applyMissionEffects, aiRadiation, aiBunker, aiUseCards
 } from './rules.js';
 import { CAMPAIGNS, evaluateCampaign, campaignCount, campaignDecayPerTurn } from './campaign.js';
 import { applyDifficulty, getDifficultyPreset } from './difficulty.js';
@@ -24,6 +24,7 @@ import { rollMutators, applyMutators, resetMutatorFields } from './mutators.js';
 import { getNarrativeSeed, applyNarrativeStart, formatNarrativeIntro } from './narrative.js';
 import { setTtsEnabled, setTtsRate, unlockTts, cancelTts, preloadTTS, setVoiceSource, setStepApiKey, setStepVoice, setStepInstruction } from './tts.js';
 import { canLaunchNuke, tryNukeKeyFromChipFactory } from './nuke.js';
+import { giveCard, randomCardId, applyForcedRoll } from './cards.js';
 
 export function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function roll() { return [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)]; }
@@ -112,7 +113,7 @@ function settleTokenLean(p) {
 }
 async function humanRoll(p) {
   if (!G.awaitingRoll) return; G.awaitingRoll = false;
-  const [a, b] = roll(); await animateDice(a, b); G.lastRoll = a + b;
+  let { a, b } = applyForcedRoll(...roll()); await animateDice(a, b); G.lastRoll = a + b;
   log(`${p.name} 掷出 ${a + b}${a === b ? ' (双数)' : ''}`);
   await handleAfterRoll(p, a, b, false, G.turn);
 }
@@ -120,7 +121,7 @@ async function aiRoll(p) {
   const turnAt = G.turn;
   await sleep(400);
   if (!aliveInGame(p) || !isCurrentTurn(turnAt)) return;
-  const [a, b] = roll(); await animateDice(a, b); G.lastRoll = a + b;
+  let { a, b } = applyForcedRoll(...roll()); await animateDice(a, b); G.lastRoll = a + b;
   log(`${p.name} 🤖 掷出 ${a + b}${a === b ? ' (双数)' : ''}`); await sleep(150);
   if (!aliveInGame(p) || !isCurrentTurn(turnAt)) return;
   await handleAfterRoll(p, a, b, true, turnAt);
@@ -150,6 +151,12 @@ async function handleAfterRoll(p, a, b, isAI, turnAt) {
   if (G.brokeRush && p.caps < 200) {
     steps += 3;
     log(`🏃 绝境狂奔：${p.name} 现金告急，掷骰 +3 步`);
+  }
+  // 道具卡「急行军」：本回合掷骰额外步数
+  if (p.marchBonus) {
+    steps += p.marchBonus;
+    log(`🏃 急行军：额外 +${p.marchBonus} 步`);
+    p.marchBonus = 0;
   }
   await moveTokenAnim(p, steps);
   if (!aliveInGame(p) || !isCurrentTurn(turnAt)) return;
@@ -199,13 +206,36 @@ export async function takeTurn() {
   }
   if (p.skipNext) { p.skipNext = false; log(`${p.name} 因事件影响，跳过本回合`); render(); await sleep(600); if (aliveInGame(p) && isCurrentTurn(turnAt)) nextPlayer(); return; }
   if (p.isAI && canLaunchNuke(p)) { await launchNuke(p); return; }
+  // AI 使用道具卡（护盾/掠夺/拆迁/超频等，在掷骰前结算）
+  if (p.isAI) aiUseCards(p);
   if (p.isAI) { await aiRoll(p); }
   else {
     G.turnPlayer = p; G.awaitingRoll = true;
-    setActionsHTML('<button id="rollBtn">🎲 掷骰</button>' + nukeBtnHtml(p));
-    document.getElementById('rollBtn').onclick = () => humanRoll(p);
-    wireNukeBtn(p);
+    humanActionUI(p);
   }
+}
+
+/** 手牌按钮 HTML（有手牌才显示） */
+function handBtnHtml(p) {
+  return (Array.isArray(p.cards) && p.cards.length)
+    ? `<button class="alt" id="handBtn">🎒 道具(${p.cards.length})</button>` : '';
+}
+function wireHandBtn(p) {
+  const hb = document.getElementById('handBtn');
+  if (hb) hb.onclick = () => showHand(p);
+}
+
+/** 人类回合操作条统一入口：掷骰前显示掷骰条，掷骰后显示资产/道具/结束条 */
+export function humanActionUI(p) {
+  G.turnPlayer = p;
+  if (G.awaitingRoll) {
+    setActionsHTML('<button id="rollBtn">🎲 掷骰</button>' + handBtnHtml(p) + nukeBtnHtml(p));
+    document.getElementById('rollBtn').onclick = () => humanRoll(p);
+    wireHandBtn(p);
+    wireNukeBtn(p);
+    return;
+  }
+  afterHumanAction(p);
 }
 
 export function startGame() {
@@ -305,8 +335,11 @@ export function startGame() {
       inJail: false, jailTurns: 0, getOut: G.START_GETOUT || 0, doubles: 0, tokenEl: null,
       moral: G.START_MORAL || 0, rollsTaken: 0, luckyUsed: false,
       avatar: av, flags: [], missionDone: [],
+      cards: [], shield: 0, marchBonus: 0,
       factionRep: rep
     });
+    // 遗产遗物「起始手牌」：开局随机获得道具卡
+    if (G.START_CARDS) giveCard(G.players[G.players.length - 1], randomCardId());
   }
   if (G.mode === 'survival') {
     // 生存模式：仅 1 名人类，无 AI 对手
@@ -475,9 +508,15 @@ export async function resolveTile(p, opts = {}) {
   } else if (t.type === 'tax') {
     tileLandFx(p, 'tax');
     const amount = Math.floor(t.tax * (G.taxMult || 1));
-    log(`${p.name} 缴纳${t.name} ${amount}盖`, true); sfx('bad'); payCaps(p, amount, t.name);
-    // 「免费停车彩金」突变：税款进入奖池
-    if (G.jackpot && amount > 0) { G.jackpotPool = (G.jackpotPool || 0) + amount; log(`🎁 彩金池累积至 ${G.jackpotPool} 盖`); }
+    // 道具卡「护盾」：抵挡本次税款
+    if ((p.shield || 0) > 0) {
+      p.shield--;
+      log(`🛡 护盾生效：${p.name} 免缴${t.name} ${amount}盖`, true); sfx('good');
+    } else {
+      log(`${p.name} 缴纳${t.name} ${amount}盖`, true); sfx('bad'); payCaps(p, amount, t.name);
+      // 「免费停车彩金」突变：税款进入奖池
+      if (G.jackpot && amount > 0) { G.jackpotPool = (G.jackpotPool || 0) + amount; log(`🎁 彩金池累积至 ${G.jackpotPool} 盖`); }
+    }
   } else if (t.type === 'quarantine') {
     tileLandFx(p, 'quarantine');
     enterJail(p); log(`${p.name} 被关进隔离区`, true); sfx('bad');
@@ -564,12 +603,12 @@ export function afterHumanAction(p) {
   if (p.bankrupt) { setActionsHTML(''); endTurn(); return; }
   if (p.extraRoll) {
     p.extraRoll = false; G.awaitingRoll = true;
-    setActionsHTML('<button id="rb">🎲 双数·再掷一次</button>');
-    document.getElementById('rb').onclick = () => humanRoll(p);
+    humanActionUI(p);
     return;
   }
-  setActionsHTML('<button class="alt" id="mgBtn">资产/交易</button>' + nukeBtnHtml(p) + '<button id="endBtn">结束回合</button>');
+  setActionsHTML('<button class="alt" id="mgBtn">资产/交易</button>' + handBtnHtml(p) + nukeBtnHtml(p) + '<button id="endBtn">结束回合</button>');
   document.getElementById('mgBtn').onclick = () => renderManage();
+  wireHandBtn(p);
   document.getElementById('endBtn').onclick = () => { setActionsHTML(''); endTurn(); };
   wireNukeBtn(p);
 }
@@ -782,9 +821,7 @@ export function restoreTurnUI() {
   }
   if (G.awaitingRoll) {
     G.turnPlayer = p;
-    setActionsHTML('<button id="rollBtn">🎲 掷骰</button>' + nukeBtnHtml(p));
-    document.getElementById('rollBtn').onclick = () => humanRoll(p);
-    wireNukeBtn(p);
+    humanActionUI(p);
     return;
   }
   if (G.pendingTile != null) {

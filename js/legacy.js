@@ -57,6 +57,7 @@ export const LEGACY_BONUSES = [
   { id: 'moral_bonus', name: '道德起步 +2', desc: '每局起始道德值 +2', cost: 100, effect: { startMoral: 2 } },
   { id: 'getout_start', name: '起始出狱卡 +1', desc: '每局起始获得 1 张出狱卡', cost: 60, effect: { startGetOut: 1 } },
   { id: 'reroll_once', name: '每日重抽', desc: '突变因子可重抽 1 次', cost: 150, effect: { mutatorReroll: 1 } },
+  { id: 'start_card', name: '起始手牌', desc: '每局开局随机获得 1 张道具卡', cost: 150, effect: { startCards: 1 } },
 ];
 
 /** 应用遗产加成到游戏状态 */
@@ -70,6 +71,7 @@ export function applyLegacyToGame(G) {
     if (e.salaryMult) G.SALARY_MULT = (G.SALARY_MULT || 1) * e.salaryMult;
     if (e.startMoral) G.START_MORAL = (G.START_MORAL || 0) + e.startMoral;
     if (e.startGetOut) G.START_GETOUT = (G.START_GETOUT || 0) + e.startGetOut;
+    if (e.startCards) G.START_CARDS = (G.START_CARDS || 0) + e.startCards;
     if (e.mutatorReroll) G.MUTATOR_REROLL = (G.MUTATOR_REROLL || 0) + e.mutatorReroll;
   }
   return meta;

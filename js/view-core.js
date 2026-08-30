@@ -379,13 +379,14 @@ export function renderPlayers() {
     const repTag = formatFactionRep(p, FACTIONS);
     const repHtml = repTag ? ` · <span class="frep" title="派系声望">${escapeHtml(repTag)}</span>` : '';
     const nukeHtml = nukeKeyBadgeHtml(p);
+    const handHtml = (Array.isArray(p.cards) && p.cards.length) ? ` <span class="aiTag" title="道具卡">🃏${p.cards.length}</span>` : '';
     const avHtml = avatarHTML(p);
     // 调试：检测头像 HTML 是否异常（开发时保留）
     if (typeof console !== 'undefined' && console.debug) {
       const avCount = (avHtml.match(/class="pva"/g) || []).length;
       if (avCount > 1) console.debug('[renderPlayers] 玩家', p.name, '头像重复', avCount, '次:', avHtml);
     }
-    div.innerHTML = `<span>${avHtml}${escapeHtml(p.name)}${p.isAI ? ' <span class="aiTag">AI</span>' : ''}${tag}${nukeHtml}</span>
+    div.innerHTML = `<span>${avHtml}${escapeHtml(p.name)}${p.isAI ? ' <span class="aiTag">AI</span>' : ''}${tag}${nukeHtml}${handHtml}</span>
       <span><span class="cap">${Math.max(p.caps, 0)}</span>盖 · <span class="nw">净${netWorth(p)}</span> · 产${owned} · <span class="moral">德${p.moral || 0}</span>${repHtml}</span>`;
 
     // 地块缩略条：每个拥有产权格一个小色块
