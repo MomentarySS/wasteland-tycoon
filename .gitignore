@@ -45,3 +45,5 @@ www/
 
 # MiniMax 预录语音试听产物（正式包在 assets/voice/，随仓库提交）
 assets/voice-audition/
+# 外部合成任务清单（派生物，npm run voice:export 重出）
+assets/voice/agent-tasks.json

@@ -4,6 +4,8 @@
 //
 // 用法：
 //   node scripts/gen-voice.mjs --list                 # 只打印清单与字数（无需 Key）
+//   node scripts/gen-voice.mjs --export-tasks         # 导出任务清单给 MiniMax Agent 等外部合成（无需 Key）
+//   node scripts/gen-voice.mjs --manifest-only        # 外部音频拷回 assets/voice/ 后本地重建 manifest（无需 Key）
 //   node scripts/gen-voice.mjs --audition             # 候选音色各生成一条试听 → assets/voice-audition/
 //   node scripts/gen-voice.mjs                        # 全量生成（增量：已存在的条目跳过）
 //   node scripts/gen-voice.mjs --force --voice <id>   # 换音色/强制全部重录
@@ -142,7 +144,77 @@ async function synthRetry(opts, tries = 3) {
   }
 }
 
-// ── 模式 ──────────────────────────────────────────────
+// ── 共用小工具 ────────────────────────────────────────
+function newManifest() {
+  return {
+    meta: { model: MODEL, voice: VOICE, speed: SPEED, sampleRate: SAMPLE_RATE, bitrate: BITRATE, count: 0, totalBytes: 0, generatedAt: new Date().toISOString() },
+    lines: {},
+  };
+}
+function addManifestLine(manifest, l, file, bytes) {
+  manifest.lines[voiceHash(VOICE, l.text)] = { file, text: l.text, bytes, id: l.id };
+  manifest.meta.count++;
+  manifest.meta.totalBytes += bytes;
+}
+function pruneOrphans(manifest) {
+  // 清理孤儿 mp3（换音色/改文案后 hash 变了，旧文件不再被 manifest 引用）
+  const referenced = new Set(Object.values(manifest.lines).map((e) => e.file));
+  for (const f of fs.readdirSync(OUT_DIR)) {
+    if (f.endsWith('.mp3') && !referenced.has(f)) {
+      fs.unlinkSync(path.join(OUT_DIR, f));
+      console.log(`清理孤儿文件: ${f}`);
+    }
+  }
+}
+function writeManifest(manifest) {
+  fs.writeFileSync(path.join(OUT_DIR, 'manifest.json'), JSON.stringify(manifest, null, 1));
+  // 预录内容变了 → SW 预缓存的 manifest.json 随之失效，自动 bump 版本号清缓存
+  const sw = fs.readFileSync(SW_FILE, 'utf8');
+  const swNew = sw.replace(/wasteland-tycoon-v(\d+)/, (_, n) => `wasteland-tycoon-v${Number(n) + 1}`);
+  if (swNew !== sw) {
+    fs.writeFileSync(SW_FILE, swNew);
+    console.log('已 bump service-worker 缓存版本（manifest.json 是预缓存资源）');
+  }
+}
+
+// ── 模式：导出任务清单（给 MiniMax Agent 等外部合成用，无需 Key）──
+if (hasFlag('--export-tasks')) {
+  const tasks = collectLines().map((l) => ({ id: l.id, filename: `${voiceHash(VOICE, l.text)}.mp3`, text: l.text }));
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  const out = path.join(OUT_DIR, 'agent-tasks.json');
+  fs.writeFileSync(out, JSON.stringify({ meta: { model: MODEL, voice: VOICE, speed: SPEED, sampleRate: SAMPLE_RATE, bitrate: BITRATE, count: tasks.length }, tasks }, null, 1));
+  const chars = tasks.reduce((a, t) => a + t.text.length, 0);
+  console.log(`已导出 ${tasks.length} 条 / ${chars} 字 → ${path.relative(ROOT, out)}`);
+  console.log(`音色已绑定 ${VOICE}（hash 含音色）：外部合成时不得更换音色；要换先重跑 voice:export -- --voice <id>。`);
+  process.exit(0);
+}
+
+// ── 模式：仅重建 manifest（音频由外部生成后本地建索引，无需 Key）──
+if (hasFlag('--manifest-only')) {
+  const lines = collectLines();
+  const manifest = newManifest();
+  let missing = 0;
+  for (const l of lines) {
+    const file = `${voiceHash(VOICE, l.text)}.mp3`;
+    const p = path.join(OUT_DIR, file);
+    if (fs.existsSync(p) && fs.statSync(p).size > 64) {
+      addManifestLine(manifest, l, file, fs.statSync(p).size);
+    } else {
+      missing++;
+    }
+  }
+  console.log(`音色 ${VOICE}：命中 ${manifest.meta.count} 条，缺失 ${missing} 条`);
+  if (manifest.meta.count === 0) {
+    console.error('一条都没命中：确认 mp3 已解压到 assets/voice/，且 --voice 与导出任务时一致（或与外部实际所用音色标识一致）。');
+    process.exit(1);
+  }
+  pruneOrphans(manifest);
+  writeManifest(manifest);
+  console.log(`manifest.json 已重建：${manifest.meta.count} 条 / ${(manifest.meta.totalBytes / 1024 / 1024).toFixed(1)}MB${missing ? `；缺 ${missing} 条（运行时对缺失条目自动回退普通 TTS）` : ''}`);
+  process.exit(0);
+}
+
+// ── 模式：清单预览 ────────────────────────────────────
 if (hasFlag('--list')) {
   const lines = collectLines();
   const chars = lines.reduce((a, l) => a + l.text.length, 0);
@@ -176,10 +248,7 @@ const chars = targets.reduce((a, l) => a + l.text.length, 0);
 console.log(`模型 ${MODEL} · 音色 ${VOICE} · 语速 ${SPEED} · ${targets.length} 条 / ${chars} 字（约 ¥${(chars / 10000 * 3.5).toFixed(2)}）`);
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
-const manifest = {
-  meta: { model: MODEL, voice: VOICE, speed: SPEED, sampleRate: SAMPLE_RATE, bitrate: BITRATE, count: 0, totalBytes: 0, generatedAt: new Date().toISOString() },
-  lines: {},
-};
+const manifest = newManifest();
 let done = 0, skipped = 0, failed = 0;
 
 for (const l of targets) {
@@ -188,18 +257,14 @@ for (const l of targets) {
   const out = path.join(OUT_DIR, file);
   const exists = fs.existsSync(out) && fs.statSync(out).size > 64;
   if (exists && !FORCE) {
-    manifest.lines[key] = { file, text: l.text, bytes: fs.statSync(out).size, id: l.id };
-    manifest.meta.count++;
-    manifest.meta.totalBytes += fs.statSync(out).size;
+    addManifestLine(manifest, l, file, fs.statSync(out).size);
     skipped++;
     continue;
   }
   try {
     const buf = await synthRetry({ text: l.text, voice: VOICE, apiKey, groupId });
     fs.writeFileSync(out, buf);
-    manifest.lines[key] = { file, text: l.text, bytes: buf.length, id: l.id };
-    manifest.meta.count++;
-    manifest.meta.totalBytes += buf.length;
+    addManifestLine(manifest, l, file, buf.length);
     done++;
     console.log(`✓ [${done + skipped}/${targets.length}] ${l.id} (${(buf.length / 1024).toFixed(0)}KB)`);
     await new Promise((r) => setTimeout(r, 300)); // 轻微限速，避免触发限流
@@ -209,24 +274,8 @@ for (const l of targets) {
   }
 }
 
-// 清理孤儿 mp3（换音色/改文案后 hash 变了，旧文件不再被 manifest 引用）
-const referenced = new Set(Object.values(manifest.lines).map((e) => e.file));
-for (const f of fs.readdirSync(OUT_DIR)) {
-  if (f.endsWith('.mp3') && !referenced.has(f)) {
-    fs.unlinkSync(path.join(OUT_DIR, f));
-    console.log(`清理孤儿文件: ${f}`);
-  }
-}
-
-fs.writeFileSync(path.join(OUT_DIR, 'manifest.json'), JSON.stringify(manifest, null, 1));
-
-// 预录内容变了 → SW 预缓存的 manifest.json 随之失效，自动 bump 版本号清缓存
-const sw = fs.readFileSync(SW_FILE, 'utf8');
-const swNew = sw.replace(/wasteland-tycoon-v(\d+)/, (_, n) => `wasteland-tycoon-v${Number(n) + 1}`);
-if (swNew !== sw) {
-  fs.writeFileSync(SW_FILE, swNew);
-  console.log('已 bump service-worker 缓存版本（manifest.json 是预缓存资源）');
-}
+pruneOrphans(manifest);
+writeManifest(manifest);
 
 console.log(`\n完成：新增 ${done}，复用 ${skipped}，失败 ${failed}；共 ${manifest.meta.count} 条 / ${(manifest.meta.totalBytes / 1024 / 1024).toFixed(1)}MB`);
 if (failed > 0) process.exit(2);

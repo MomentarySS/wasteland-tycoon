@@ -18,6 +18,8 @@
     "cap:deploy:fast": "node scripts/android-deploy.mjs --skip-sync",
     "download:tts-lab": "node scripts/download-tts-lab.mjs",
     "voice:list": "node scripts/gen-voice.mjs --list",
+    "voice:export": "node scripts/gen-voice.mjs --export-tasks",
+    "voice:manifest": "node scripts/gen-voice.mjs --manifest-only",
     "voice:audition": "node scripts/gen-voice.mjs --audition",
     "voice:gen": "node scripts/gen-voice.mjs"
   },
