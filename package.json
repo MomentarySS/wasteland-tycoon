@@ -15,7 +15,8 @@
     "cap:sync": "npx cap sync android",
     "cap:open": "npx cap open android",
     "cap:deploy": "node scripts/android-deploy.mjs",
-    "cap:deploy:fast": "node scripts/android-deploy.mjs --skip-sync"
+    "cap:deploy:fast": "node scripts/android-deploy.mjs --skip-sync",
+    "download:tts-lab": "node scripts/download-tts-lab.mjs"
   },
   "devDependencies": {
     "@capacitor/android": "^6.1.2",

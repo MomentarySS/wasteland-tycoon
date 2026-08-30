@@ -10,6 +10,10 @@ Thumbs.db
 .step-api-key
 sherpa-onnx-wasm-simd-*.tar.bz2
 _sherpa_tmp/
+_ttslab_*.tar.bz2
+_ttslab_tmp/
+# 本地 TTS 试听页模型包（体积大，npm run download:tts-lab 获取）
+vendor/tts-lab/
 release/
 # 生图/去水印流水线临时产物（正式资源在 assets/）
 generated-images/
