@@ -7,12 +7,14 @@ import {
   STEP_VOICES
 } from './step-tts.js';
 import { nativeSpeak, nativeStop } from './capacitor-tts.js';
+import { edgeSpeak, setEdgeVoice, getEdgeVoice, EDGE_VOICES } from './edge-tts.js';
 
 export {
   setStepApiKey, getStepApiKey,
   setStepVoice, getStepVoice,
   setStepInstruction, getStepInstruction,
-  STEP_VOICES, stepConfigured
+  STEP_VOICES, stepConfigured,
+  setEdgeVoice, getEdgeVoice, EDGE_VOICES
 };
 
 const SOURCE_STORAGE = 'wasteland_tts_source';
@@ -46,15 +48,20 @@ function loadSourcePref() {
       localStorage.setItem(SOURCE_STORAGE, 'auto');
       return;
     }
-    if (s === 'auto' || s === 'step') source = s;
+    if (s === 'auto' || s === 'step' || s === 'edge') source = s;
   } catch (_) {}
 }
 
 function sourceOrder() {
-  // auto：Capacitor 原生优先 → step → browser 兜底
+  // auto：Capacitor 原生优先 → step（配了 Key）→ browser 兜底
+  // 注意：Edge 档不进 auto 链——微软对大陆 IP 封锁合成接口，默认链里只会白白增加降级延迟；
+  // 它仅作为显式「Edge 免费(在线)」来源提供（有代理的用户可用），失败自动落系统语音
   // step：用户显式选择阶跃在线时不得被原生抢先，原生完全不参与
   if (source === 'step') {
-    return stepConfigured() ? ['step', 'browser'] : ['browser'];
+    return stepConfigured() ? ['step', 'edge', 'browser'] : ['browser'];
+  }
+  if (source === 'edge') {
+    return ['edge', 'browser'];
   }
   return ['capacitor', ...(stepConfigured() ? ['step'] : []), 'browser'];
 }
@@ -148,6 +155,13 @@ async function speakStep(text) {
   return true;
 }
 
+async function speakEdge(text) {
+  // edgeSpeak 失败会 reject，由 speakOne 捕获后降级下一档
+  await edgeSpeak(text, { rate, volume, playBlob });
+  lastEngine = 'edge';
+  return true;
+}
+
 async function speakOne(text) {
   const order = sourceOrder();
   for (const eng of order) {
@@ -163,6 +177,10 @@ async function speakOne(text) {
       }
       if (eng === 'step') {
         await speakStep(text);
+        return;
+      }
+      if (eng === 'edge') {
+        await speakEdge(text);
         return;
       }
       if (eng === 'browser') {
@@ -204,13 +222,17 @@ export function ttsEngineStatus() {
     if (!enabled) return 'disabled';
     if (lastEngine === 'capacitor') return 'capacitor';
     if (lastEngine === 'step') return 'step';
+    if (lastEngine === 'edge') return 'edge';
     if (lastEngine === 'browser') return 'browser';
     // auto 模式：按可用性显示最优先引擎
     if (source === 'auto') {
       if (nativeTtsSupported()) return 'capacitor-ready';
-      if (browserTtsSupported()) return 'browser-ready';
       if (stepConfigured()) return 'step-ready';
+      if (browserTtsSupported()) return 'browser-ready';
       return 'pending';
+    }
+    if (source === 'edge') {
+      return 'edge-ready';
     }
     if (source === 'step') {
       if (!stepConfigured()) return 'no-key';
@@ -233,6 +255,15 @@ export async function testTts() {
     if (ok) return 'capacitor';
   } catch (e) {
     console.warn('[TTS] testTts nativeSpeak 异常:', e && e.message);
+  }
+  if (navigator.onLine) {
+    try {
+      await speakEdge(text);
+      console.warn('[TTS] testTts edge 成功');
+      return 'edge';
+    } catch (e) {
+      console.warn('[TTS] testTts edge 失败:', e && e.message);
+    }
   }
   if (browserTtsSupported()) {
     try {
@@ -281,7 +312,7 @@ export function updateTtsDebugPanel() {
 }
 
 export function setVoiceSource(s) {
-  if (s === 'auto' || s === 'step') {
+  if (s === 'auto' || s === 'step' || s === 'edge') {
     source = s;
     try { localStorage.setItem(SOURCE_STORAGE, s); } catch (_) {}
   }

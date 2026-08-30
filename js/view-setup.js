@@ -8,7 +8,7 @@ import {
 import {
   getVoiceSource, getStepApiKey, getStepVoice, getStepInstruction,
   setStepApiKey, setStepVoice, setStepInstruction, setVoiceSource,
-  STEP_VOICES
+  STEP_VOICES, getEdgeVoice, setEdgeVoice, EDGE_VOICES
 } from './tts.js';
 import { escapeHtml } from './view-util.js';
 import { showLegacyShop } from './view-legacy.js';
@@ -82,7 +82,11 @@ export function buildSetup() {
     +     '<div class="optRow"><span>语音来源</span><select id="ttsSrc">'
     +       '<option value="auto"' + (curSrc === 'auto' ? ' selected' : '') + '>自动(在线优先)</option>'
     +       '<option value="step"' + (curSrc === 'step' ? ' selected' : '') + '>阶跃在线</option>'
+    +       '<option value="edge"' + (curSrc === 'edge' ? ' selected' : '') + '>Edge 免费(需代理)</option>'
     +     '</select></div>'
+    +     '<div class="edgeNote dim">Edge 档说明：微软对大陆 IP 封锁了合成接口，需开代理才可用；连接失败会自动改用系统语音。</div>'
+    +     '<div class="optRow"><span>Edge 音色</span><select id="edgeVoice">' + EDGE_VOICES.map((v) =>
+          '<option value="' + v.id + '"' + (v.id === getEdgeVoice() ? ' selected' : '') + '>' + v.name + '</option>').join('') + '</select></div>'
     +     '<div id="ttsPanelStep" class="ttsSubPanel">'
     +       '<div class="ttsSubHead">// 阶跃在线设置</div>'
     +       '<div class="optRow col2"><span>阶跃 API Key</span><input id="stepApiKey" class="nameIn" type="password" autocomplete="off" placeholder="Step Plan Key，仅存本机浏览器"></div>'
@@ -200,6 +204,8 @@ export function applyTtsSetupFromForm() {
   if (keyIn) setStepApiKey(keyIn.value.trim());
   const voiceSel = document.getElementById('stepVoice');
   if (voiceSel) setStepVoice(voiceSel.value);
+  const edgeVoiceSel = document.getElementById('edgeVoice');
+  if (edgeVoiceSel) setEdgeVoice(edgeVoiceSel.value);
   const instrIn = document.getElementById('stepInstruction');
   if (instrIn) setStepInstruction(instrIn.value.trim());
 }

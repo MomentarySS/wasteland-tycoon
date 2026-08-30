@@ -51,6 +51,8 @@ function updateTtsStatus() {
       capacitor: '✓ 原生语音',
       'capacitor-ready': '✓ 原生语音就绪',
       step: '✓ 阶跃在线',
+      edge: '✓ Edge语音',
+      'edge-ready': '✓ Edge在线',
       'step-ready': '✓ 阶跃就绪',
       browser: '✓ 系统语音',
       'browser-ready': '✓ 系统语音',
