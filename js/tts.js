@@ -409,3 +409,15 @@ export function ttsSpeak(text) {
   _chain = _chain.then(() => speakOne(t)).catch(() => {}).finally(() => { _pending--; });
   return _chain;
 }
+
+/**
+ * 仅预录音频播报（过场专用）：命中 assets/voice/ 就播，未命中立即 resolve(false)，
+ * 不落运行时 TTS 引擎链——在线 TTS 的网络延迟会打乱分镜节奏，过场宁可无声。
+ * 走串行链避免与排队中的战报抢 currentAudio；返回的 promise 在音频播完（或被 cancelTts 清链）时 settle。
+ */
+export function ttsSpeakPrerecorded(text) {
+  const t = cleanText(text);
+  if (!enabled || !t) return Promise.resolve(false);
+  _chain = _chain.then(() => speakVoice(t)).catch(() => false);
+  return _chain;
+}

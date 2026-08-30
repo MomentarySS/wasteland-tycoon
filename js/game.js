@@ -24,6 +24,7 @@ import { rollMutators, applyMutators, resetMutatorFields } from './mutators.js';
 import { getNarrativeSeed, applyNarrativeStart, formatNarrativeIntro } from './narrative.js';
 import { setTtsEnabled, setTtsRate, unlockTts, cancelTts, preloadTTS, setVoiceSource, setStepApiKey, setStepVoice, setStepInstruction } from './tts.js';
 import { canLaunchNuke, tryNukeKeyFromChipFactory } from './nuke.js';
+import { narrativeSpeakText, chapterClearSpeakText, GAMEOVER_LINES } from './voice-lines.js';
 import { giveCard, randomCardId, applyForcedRoll } from './cards.js';
 
 export function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -295,7 +296,7 @@ export function startGame() {
     if (meta.lastEndKind) {
       const seed = getNarrativeSeed(meta.lastEndKind, meta.lastMoral);
       applyNarrativeStart(G, seed);
-      if (seed.intro) log(formatNarrativeIntro(seed), true);
+      if (seed.intro) log(narrativeSpeakText(seed), true);
     }
     const unlockedMuts = meta.unlockedMutators.length > 0 ? meta.unlockedMutators : null;
     let mutators = rollMutators(3, unlockedMuts);
@@ -652,7 +653,7 @@ function endTurn(turnAt) {
         if (G.campaign >= campaignCount() - 1) { campaignWin(human); return; }
         G.campaign++;
         G.turn = 0;   // 章节轮次上限按章计算，进入新章节重新计数
-        log(`📖 章节达成，进入 ${CAMPAIGNS[G.campaign].name}！`, true);
+        log(chapterClearSpeakText(CAMPAIGNS[G.campaign].name), true);
         render();
         const decay = campaignDecayPerTurn(G.campaign);
         if (decay > 0) log(`☢ 警告：本章起每回合废土衰减 -${decay} 盖（全员）`, true);
@@ -734,7 +735,7 @@ function gameDraw() {
   G.gameOver = true; setGameEnd('draw', null); render(); sfx('bad');
   showWin('协议中断', '无人幸存');
   haptic('heavy');
-  log('所有幸存者都已倒下，协议中断。', true);
+  log(GAMEOVER_LINES.allDown, true);
   if (G.mode === 'legacy') recordLegacyRun();
 }
 function nextPlayer() {
@@ -796,7 +797,7 @@ function campaignWin(p) {
   if (G.mode === 'coop') {
     const ally = G.players.find(x => x.isAI);
     showWin(p.name + (ally ? ' & ' + ally.name : ''), '合作通关');
-    log('📖 你们携手完成了全部章节，废土终于有了归属。', true);
+    log(GAMEOVER_LINES.coopClear, true);
   } else {
     showCampaignEnding(p);
   }
@@ -806,7 +807,7 @@ function campaignLose(p) {
   G.gameOver = true; setGameEnd('campaignLose', p.id); render(); sfx('bad');
   showWin(p.name, '闯关失败');
   haptic('heavy');
-  log('💀 你在废土中倒下，闯关终止。', true);
+  log(GAMEOVER_LINES.campaignOver, true);
   if (G.mode === 'legacy') recordLegacyRun();
 }
 export function restoreTurnUI() {

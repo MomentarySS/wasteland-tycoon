@@ -71,8 +71,8 @@ export function applyNarrativeStart(G, seed) {
   G.narrativeSeed = seed;
 }
 
-/** 格式化叙事 intro 文本 */
+/** 格式化叙事 intro 文本（组装逻辑收敛到 voice-lines.js，与预录语音共用） */
+import { narrativeSpeakText } from './voice-lines.js';
 export function formatNarrativeIntro(seed) {
-  if (!seed) return '';
-  return `📖 ${seed.name}\n${seed.intro}`;
+  return narrativeSpeakText(seed);
 }

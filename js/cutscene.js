@@ -1,7 +1,10 @@
 // 全屏过场（cutscene）：核弹结局 / 大事件专用分镜序列
 // 只做表现：分镜 + 剧情字幕打字机 + 转场淡出，不参与任何规则判定；
 // 无 DOM 环境（node 测试 / mock）下整体降级为立即返回。
+// 分镜数据（NUKE_SCENES）放 voice-lines.js：预录旁白按 sub 生成，运行时按同一份文案寻址。
 import { sfx } from './audio.js';
+import { ttsSpeakPrerecorded } from './tts.js';
+import { NUKE_SCENES, cutsceneSpeakText } from './voice-lines.js';
 
 const ENABLED = typeof document !== 'undefined' && !!document.documentElement;
 
@@ -13,12 +16,6 @@ function reducedMotion() {
 }
 const RM = ENABLED && reducedMotion();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-const NUKE_SCENES = [
-  { id: 'alert', title: '战略警报 · ALERT', sub: '三座导弹井同时上电 — 扩散协议解锁', ms: 2000 },
-  { id: 'keys', title: '发射密钥已对齐', sub: '阿尔法 · 布拉沃 · 查理 — 发射授权确认', ms: 2000 },
-  { id: 'launch', title: '弹头离井', sub: '落点锁定：棋盘中央 · 无可拦截', ms: 1800 },
-];
 
 let layer = null;
 
@@ -122,7 +119,12 @@ export async function playCutscene(scenes, opts) {
         subEl.classList.add('in');
       }
       sfx('tick');
+      // 旁白：只走预录包（无包时立即 resolve，分镜节奏不变）；语音没播完则续等，点击过场层可跳过
+      const voiceP = ttsSpeakPrerecorded(cutsceneSpeakText(sc));
       await waitOrSkip(Math.max(420, (sc.ms || 1600) * speed), skip);
+      if (!skip.flag) {
+        await Promise.race([voiceP, waitOrSkip(60000, skip)]);
+      }
       if (skip.flag && titleEl) titleEl.textContent = sc.title;
     }
   } finally {

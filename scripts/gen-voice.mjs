@@ -21,9 +21,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   missionSpeakText, chapterSpeakText, endingSpeakText,
+  narrativeSpeakText, chapterClearSpeakText, cutsceneSpeakText, GAMEOVER_LINES, NUKE_SCENES,
   cleanVoiceText, voiceHash, VOICE_DIR
 } from '../js/voice-lines.js';
-import { CHAPTER_INTROS, CAMPAIGN_ENDINGS } from '../js/campaign.js';
+import { CAMPAIGNS, CHAPTER_INTROS, CAMPAIGN_ENDINGS } from '../js/campaign.js';
+import { NARRATIVE_SEEDS } from '../js/narrative.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const API_URL = 'https://api.minimaxi.com/v1/t2a_v2';
@@ -80,6 +82,22 @@ function collectLines() {
   });
   CAMPAIGN_ENDINGS.forEach((e, i) => {
     lines.push({ id: `ending-${i}`, text: endingSpeakText(e) });
+  });
+  // 上局结局→下局开场的叙事种子（7 种固定文案）
+  Object.entries(NARRATIVE_SEEDS).forEach(([key, seed]) => {
+    lines.push({ id: `seed-${key}`, text: narrativeSpeakText(seed) });
+  });
+  // 章节达成播报（章节名固定集）
+  for (const c of CAMPAIGNS) {
+    lines.push({ id: `chapter-clear-${c.id}`, text: chapterClearSpeakText(c.name) });
+  }
+  // 终局固定播报（coop 全灭 / 合作通关 / 闯关倒下）
+  Object.entries(GAMEOVER_LINES).forEach(([key, text]) => {
+    lines.push({ id: `gameover-${key}`, text });
+  });
+  // 核弹过场旁白（分镜 sub）
+  NUKE_SCENES.forEach((sc) => {
+    lines.push({ id: `cutscene-${sc.id}`, text: cutsceneSpeakText(sc) });
   });
   // 清洗规则与运行时 ttsSpeak 完全一致，hash 才能对上
   return lines.map((l) => ({ ...l, text: cleanVoiceText(l.text) })).filter((l) => l.text);

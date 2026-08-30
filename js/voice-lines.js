@@ -30,6 +30,36 @@ export function endingSpeakText(e) {
   return e.log;
 }
 
+/** 上局结局→下局开场的叙事种子播报（formatNarrativeIntro 同款组装） */
+export function narrativeSpeakText(seed) {
+  return seed ? `📖 ${seed.name}\n${seed.intro}` : '';
+}
+
+/** 章节达成进入下一章的播报（章节名来自 CAMPAIGNS 固定集） */
+export function chapterClearSpeakText(name) {
+  return `📖 章节达成，进入 ${name}！`;
+}
+
+/** 无插值的终局固定播报（coop 全灭 / 合作通关 / 闯关倒下），game.js 直接引用 */
+export const GAMEOVER_LINES = {
+  allDown: '所有幸存者都已倒下，协议中断。',
+  coopClear: '📖 你们携手完成了全部章节，废土终于有了归属。',
+  campaignOver: '💀 你在废土中倒下，闯关终止。',
+};
+
+// 核弹过场分镜数据：cutscene.js 负责演出，gen-voice.mjs 按 sub 生成预录旁白。
+// 过场只读 sub（title 是屏幕字幕装饰，不进语音）。
+export const NUKE_SCENES = [
+  { id: 'alert', title: '战略警报 · ALERT', sub: '三座导弹井同时上电 — 扩散协议解锁', ms: 2000 },
+  { id: 'keys', title: '发射密钥已对齐', sub: '阿尔法 · 布拉沃 · 查理 — 发射授权确认', ms: 2000 },
+  { id: 'launch', title: '弹头离井', sub: '落点锁定：棋盘中央 · 无可拦截', ms: 1800 },
+];
+
+/** 过场分镜旁白文案（只读 sub） */
+export function cutsceneSpeakText(scene) {
+  return scene ? scene.sub : '';
+}
+
 /**
  * 音频寻址 hash：key = hash(voiceId + '|' + 清洗后的文案)。
  * 双 32 位混合（FNV-1a + 乘法散列）拼成 64 bit，sync 无 crypto 依赖，
