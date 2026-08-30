@@ -10,6 +10,7 @@ import { sfx } from './audio.js';
 import { flashScreen, screenShake, haptic, coinRain } from './fx.js';
 import { playEventIntro, showChoiceResult, formatChoiceResult } from './fx-events.js';
 import { ttsSpeak } from './tts.js';
+import { missionSpeakText, chapterSpeakText } from './voice-lines.js';
 import { escapeHtml } from './view-util.js';
 import { getChapterIntro, getCampaignEnding } from './campaign.js';
 import { isChainMission, isFactionMission, isNukeMission } from './missions.js';
@@ -123,7 +124,7 @@ export function showMission(m, p) {
   playEventIntro(modalBox, m);
   if (m.bad) { flashLightning(); flashScreen(); screenShake(.8); haptic('heavy'); }
   else haptic('medium');
-  ttsSpeak(m.title + (m.moral ? '。' + m.moral : ''));
+  ttsSpeak(missionSpeakText(m));
   (m.choices || []).forEach((c, i) => {
     const el = document.getElementById('mc' + i);
     if (el) el.onclick = async () => {
@@ -333,7 +334,7 @@ export function showChapterIntro(chapterIdx, onContinue, moral) {
     <div class="evtText campIntro">${escapeHtml(intro.story)}</div>
     <div id="modalActions" style="margin-top:14px"><button id="chGo">继续</button></div>`;
   openModal(html, { flip: true });
-  ttsSpeak(intro.title + '。' + intro.story);
+  ttsSpeak(chapterSpeakText(intro));
   document.getElementById('chGo').onclick = () => { closeModal(); if (onContinue) onContinue(); };
 }
 

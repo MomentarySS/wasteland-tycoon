@@ -41,3 +41,7 @@ www/
 
 # 其他敏感 / 机器特定
 .minimax-api-key
+.minimax-group-id
+
+# MiniMax 预录语音试听产物（正式包在 assets/voice/，随仓库提交）
+assets/voice-audition/

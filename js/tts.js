@@ -1,4 +1,4 @@
-// 混合语音：Capacitor 原生（Android 优先）→ 阶跃 Step Plan 在线 → 系统 speechSynthesis 兜底
+// 混合语音：预录音频（MiniMax 离线包）→ Capacitor 原生（Android）→ 阶跃/Edge 在线 → 系统 speechSynthesis 兜底
 import {
   stepSpeak, stepConfigured,
   setStepApiKey, getStepApiKey,
@@ -8,6 +8,8 @@ import {
 } from './step-tts.js';
 import { nativeSpeak, nativeStop } from './capacitor-tts.js';
 import { edgeSpeak, setEdgeVoice, getEdgeVoice, EDGE_VOICES } from './edge-tts.js';
+// cleanVoiceText 复用为播报清洗（与生成脚本同一份规则，保证预录音频 hash 对得上）
+import { cleanVoiceText as cleanText, voiceHash, VOICE_DIR, VOICE_MANIFEST_URL } from './voice-lines.js';
 
 export {
   setStepApiKey, getStepApiKey,
@@ -32,13 +34,7 @@ try { debugHidden = localStorage.getItem('ttsDebugHidden') === '1'; } catch (_) 
 let cachedZhVoice = null;
 let browserVoicesHooked = false;
 
-function cleanText(s) {
-  return (s || '')
-    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{20E3}]/gu, '')
-    .replace(/[☢⚑⛓🏆📖💀🤖⚠★✔○]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+
 
 function loadSourcePref() {
   try {
@@ -162,10 +158,62 @@ async function speakEdge(text) {
   return true;
 }
 
+// ── 预录音频档（voice）：assets/voice/ 内 MiniMax 离线生成的 mp3，manifest.json 寻址 ──
+// manifest 一次性懒加载；serve.mjs 对未知路径会 SPA 回退成 index.html，须校验 content-type/内容
+let voiceManifestPromise = null;
+let voicePackState = 'unknown'; // unknown | ready | none
+
+function loadVoiceManifest() {
+  if (!voiceManifestPromise) {
+    voiceManifestPromise = (async () => {
+      try {
+        const res = await fetch(VOICE_MANIFEST_URL);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        const body = await res.text();
+        if (!ct.includes('json') || !body.trim().startsWith('{')) throw new Error('SPA 回退误判');
+        const j = JSON.parse(body);
+        if (!j || !j.meta || !j.lines) throw new Error('manifest 结构异常');
+        voicePackState = 'ready';
+        console.warn('[TTS] 预录语音包就绪:', j.meta.voice, j.meta.count + '条');
+        return j;
+      } catch (e) {
+        voicePackState = 'none';
+        console.warn('[TTS] 无预录语音包，走常规引擎链:', e && e.message);
+        return null;
+      }
+    })();
+  }
+  return voiceManifestPromise;
+}
+
+/** 供调试面板/设置页查询预录包状态 */
+export function voicePackStatus() { return voicePackState; }
+
+async function speakVoice(text) {
+  const manifest = await loadVoiceManifest();
+  if (!manifest) return false;
+  const key = voiceHash(manifest.meta.voice, text);
+  const entry = manifest.lines[key];
+  if (!entry || !entry.file) return false;
+  const res = await fetch(VOICE_DIR + '/' + entry.file);
+  if (!res.ok) return false;
+  const blob = await res.blob();
+  if (!blob || blob.size < 64) return false;
+  lastEngine = 'voice';
+  await playBlob(blob);
+  return true;
+}
+
 async function speakOne(text) {
-  const order = sourceOrder();
+  // 预录音频永远最优先（音质最好且离线零成本）；未命中/加载失败静默落到常规链
+  const order = ['voice', ...sourceOrder()];
   for (const eng of order) {
     try {
+      if (eng === 'voice') {
+        const ok = await speakVoice(text);
+        if (ok) return; // 未命中是常态（动态战报无预录），静默走下一档
+      }
       if (eng === 'capacitor') {
         const ok = await nativeSpeak(text, { rate, volume });
         if (ok) {
@@ -212,6 +260,7 @@ export function initTTS() {
 
 export function preloadTTS() {
   initBrowserVoices();
+  loadVoiceManifest(); // 预热 manifest，避免开局第一张任务卡才去拉
   return Promise.resolve(true);
 }
 
@@ -220,6 +269,7 @@ export function ttsSupported() { return true; }
 export function ttsEngineStatus() {
   try {
     if (!enabled) return 'disabled';
+    if (lastEngine === 'voice') return 'voice';
     if (lastEngine === 'capacitor') return 'capacitor';
     if (lastEngine === 'step') return 'step';
     if (lastEngine === 'edge') return 'edge';
@@ -296,6 +346,7 @@ export function updateTtsDebugPanel() {
     el.style.display = 'block';
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:2px"><span>TTS 调试面板</span><span id="ttsDbgClose" title="关闭调试面板" style="cursor:pointer;padding:0 4px;border:1px solid #0f0;border-radius:2px;line-height:1.3">✕</span></div>
+      <div>Voice: ${voicePackState === 'ready' ? '✓ 预录' : '✗'}</div>
       <div>Capacitor: ${caps ? '✓' : '✗'}</div>
       <div>Browser: ${browser ? '✓' : '✗'}</div>
       <div>Step: ${step ? '✓' : '✗'}</div>
