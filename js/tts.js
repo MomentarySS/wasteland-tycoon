@@ -24,6 +24,9 @@ let source = 'auto';
 let lastEngine = '';
 let audioCtx = null;
 let currentAudio = null;
+// 调试面板关闭状态（记忆到 localStorage，避免刷新后又自动弹出）
+let debugHidden = false;
+try { debugHidden = localStorage.getItem('ttsDebugHidden') === '1'; } catch (_) {}
 let cachedZhVoice = null;
 let browserVoicesHooked = false;
 
@@ -253,19 +256,27 @@ export function updateTtsDebugPanel() {
   try {
     const el = document.getElementById('debugTts');
     if (!el) return;
+    // 已关闭则不再显示（刷新后仍保持关闭，除非清 localStorage）
+    if (debugHidden) { el.style.display = 'none'; return; }
     const caps = nativeTtsSupported();
     const browser = browserTtsSupported();
     const step = stepConfigured();
     const status = ttsEngineStatus();
     el.style.display = 'block';
     el.innerHTML = `
-      <div>TTS 调试面板</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:2px"><span>TTS 调试面板</span><span id="ttsDbgClose" title="关闭调试面板" style="cursor:pointer;padding:0 4px;border:1px solid #0f0;border-radius:2px;line-height:1.3">✕</span></div>
       <div>Capacitor: ${caps ? '✓' : '✗'}</div>
       <div>Browser: ${browser ? '✓' : '✗'}</div>
       <div>Step: ${step ? '✓' : '✗'}</div>
       <div>状态: ${status}</div>
       <div>LastEngine: ${lastEngine || '无'}</div>
     `;
+    const closeBtn = document.getElementById('ttsDbgClose');
+    if (closeBtn) closeBtn.onclick = () => {
+      debugHidden = true;
+      try { localStorage.setItem('ttsDebugHidden', '1'); } catch (_) {}
+      el.style.display = 'none';
+    };
   } catch (_) {}
 }
 
