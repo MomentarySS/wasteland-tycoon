@@ -49,6 +49,14 @@
     <input type="range" id="speed" min="0.5" max="2" step="0.1" value="1" style="flex:1">
   </div>
   <div class="row" id="presets"></div>
+  <div class="row" id="refRow" style="display:none;flex-direction:column;align-items:stretch;border:1px dashed #4a5550;padding:8px;border-radius:2px">
+    <label>🎤 参考音频（克隆模型必需：3~10 秒清晰人声 wav）</label>
+    <div class="row">
+      <input type="file" id="refFile" accept=".wav,audio/wav" style="color:#9fb0a6;font-size:11px">
+      <span id="refInfo" class="hint"></span>
+    </div>
+    <input type="text" id="refText" placeholder="这段参考音频的文字稿（它说了什么，逐字填写）" style="margin-top:4px">
+  </div>
   <textarea id="text">废土大亨：末世大富翁。玩家甲掷出 11 点，占领了莫诺加矿洞。</textarea>
   <div class="row">
     <button id="genBtn">▶ 生成并播放</button>

@@ -2,7 +2,8 @@
 // 与游戏本体无关；模型包经 npm run download:tts-lab 安装到 vendor/tts-lab/<engine>/
 
 const ENGINES = [
-  { id: 'zipvoice', label: 'ZipVoice 中英 int8（v1.13.4）', base: '/vendor/tts-lab/zipvoice/' },
+  { id: 'zipvoice', label: 'ZipVoice 中英 int8（克隆模型，需参考音频）', base: '/vendor/tts-lab/zipvoice/' },
+  { id: 'matcha', label: 'Matcha 中文 Baker（免克隆固定音色）', base: '/vendor/tts-lab/matcha/' },
   { id: 'kokoro', label: 'Kokoro v1.1-zh int8', base: '/vendor/tts-lab/kokoro/' },
 ];
 
@@ -94,7 +95,7 @@ function initEngine(base) {
         if (s && !/^\d+%$/.test(s)) log('[loader] ' + s);
       } else if (d.type === 'sherpa-onnx-tts-ready') {
         worker.removeEventListener('message', onMsg);
-        resolve({ numSpeakers: d.numSpeakers });
+        resolve({ numSpeakers: d.numSpeakers, modelType: d.modelType });
       } else if (d.type === 'error') {
         worker.removeEventListener('message', onMsg);
         reject(new Error(d.message));
@@ -103,7 +104,7 @@ function initEngine(base) {
   });
 }
 
-function generateInWorker(text, sid, speed) {
+function generateInWorker(text, sid, speed, genConfig) {
   return new Promise((resolve, reject) => {
     const onMsg = (e) => {
       const d = e.data || {};
@@ -117,7 +118,13 @@ function generateInWorker(text, sid, speed) {
     };
     const t0 = Date.now();
     worker.addEventListener('message', onMsg);
-    worker.postMessage({ type: 'generate', text, sid, speed });
+    if (genConfig) {
+      // 克隆模型：传参考音频副本（transfer 会 detach，每次传新拷贝）
+      const copy = new Float32Array(genConfig.referenceAudio);
+      worker.postMessage({ type: 'generateWithConfig', text, genConfig: { ...genConfig, referenceAudio: copy } }, [copy.buffer]);
+    } else {
+      worker.postMessage({ type: 'generate', text, sid, speed });
+    }
   });
 }
 
@@ -181,6 +188,8 @@ let ready = false;
 let engineInfo = null;
 let lastAudio = { samples: null, sampleRate: 24000 };
 let genQueue = Promise.resolve();
+// ZipVoice（modelType=4）是零样本克隆模型：需要参考音频 + 文字稿，走 generateWithConfig
+let refAudio = null;   // { samples: Float32Array, sampleRate }
 
 async function ensureInit() {
   if (ready) return;
@@ -190,9 +199,11 @@ async function ensureInit() {
   engineInfo = await initEngine(base);
   curEngineBase = base;
   ready = true;
-  $('spkInfo').textContent = `共 ${engineInfo.numSpeakers} 个音色 · 采样率 ${engineInfo.sampleRate} Hz`;
+  $('spkInfo').textContent = `共 ${engineInfo.numSpeakers} 个音色 · modelType ${engineInfo.modelType}`;
   $('sid').max = String(engineInfo.numSpeakers - 1);
-  log(`✓ 引擎就绪：${engineInfo.numSpeakers} 音色 @ ${engineInfo.sampleRate}Hz`, 'ok');
+  // 克隆模型需要参考音频，显示上传区
+  $('refRow').style.display = engineInfo.modelType === 4 ? 'flex' : 'none';
+  log(`✓ 引擎就绪：${engineInfo.numSpeakers} 音色 @ modelType ${engineInfo.modelType}`, 'ok');
 }
 
 async function generateAndPlay() {
@@ -207,8 +218,23 @@ async function generateAndPlay() {
   if (!text) return;
   const sid = Math.max(0, parseInt($('sid').value, 10) || 0);
   const speed = parseFloat($('speed').value) || 1;
+  // 克隆模型（ZipVoice）：必须有参考音频 + 文字稿
+  let genConfig = null;
+  if (engineInfo.modelType === 4) {
+    if (!refAudio) { log('克隆模型需要先上传参考音频（3~10 秒 wav）并填写其文字稿', 'bad'); return; }
+    const refText = ($('refText').value || '').trim();
+    if (!refText) { log('请填写参考音频的文字稿（它说了什么）', 'bad'); return; }
+    genConfig = {
+      speed,
+      referenceAudio: refAudio.samples,
+      referenceSampleRate: refAudio.sampleRate,
+      numSteps: 4,
+      referenceText: refText,
+      extra: { min_char_in_sentence: 10 },
+    };
+  }
   const chunks = splitSentences(text);
-  log(`切片：${chunks.length} 段 · 音色 ${sid} · 语速 ${speed}`);
+  log(`切片：${chunks.length} 段 · ${engineInfo.modelType === 4 ? '克隆模式' : '音色 ' + sid} · 语速 ${speed}`);
   $('genBtn').disabled = true;
   $('stopBtn').disabled = false;
   stopFlag = false;
@@ -217,7 +243,7 @@ async function generateAndPlay() {
   for (let i = 0; i < chunks.length && !stopFlag; i++) {
     const chunk = chunks[i];
     try {
-      const res = await generateInWorker(chunk, sid, speed);
+      const res = await generateInWorker(chunk, sid, speed, genConfig);
       const sec = res.samples.length / res.sampleRate;
       const rtf = res.genMs / 1000 / sec;
       lastAudio = { samples: res.samples, sampleRate: res.sampleRate };
@@ -253,6 +279,21 @@ function initUI() {
     presets.appendChild(b);
   });
   $('speed').oninput = () => { $('spdVal').textContent = parseFloat($('speed').value).toFixed(1); };
+  $('refFile').onchange = async () => {
+    const f = $('refFile').files[0];
+    if (!f) return;
+    try {
+      const buf = await f.arrayBuffer();
+      const ac = new AudioContext();
+      const decoded = await ac.decodeAudioData(buf);
+      ac.close();
+      refAudio = { samples: decoded.getChannelData(0), sampleRate: decoded.sampleRate };
+      $('refInfo').textContent = `✓ ${(decoded.duration).toFixed(1)}s @ ${decoded.sampleRate}Hz`;
+      log(`参考音频已载入：${f.name}（${decoded.duration.toFixed(1)}s）`, 'ok');
+    } catch (e) {
+      log('参考音频解析失败（请用 wav 格式）：' + e.message, 'bad');
+    }
+  };
   $('engine').onchange = () => {
     ready = false; engineInfo = null;
     $('spkInfo').textContent = '';

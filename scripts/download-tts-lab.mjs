@@ -28,6 +28,18 @@ const ENGINES = [
     required: ['sherpa-onnx-tts.js', 'sherpa-onnx-wasm-main-tts.js', 'sherpa-onnx-wasm-main-tts.wasm', 'sherpa-onnx-wasm-main-tts.data'],
   },
   {
+    id: 'matcha',
+    dir: join(LAB, 'matcha'),
+    marker: '.model-matcha',
+    // matcha-icefall-zh-baker：免 prompt 固定音色中文模型（最贴近游戏播报需求）
+    candidates: [
+      'v1.13.6/sherpa-onnx-wasm-simd-1.13.6-sherpa-onnx-matcha-icefall-zh-baker.tar.bz2',
+      'v1.13.4/sherpa-onnx-wasm-simd-1.13.4-sherpa-onnx-matcha-icefall-zh-baker.tar.bz2',
+    ],
+    minSizeMB: 20,
+    required: ['sherpa-onnx-wasm-main-tts.wasm'],
+  },
+  {
     id: 'kokoro',
     dir: join(LAB, 'kokoro'),
     marker: '.model-kokoro',
