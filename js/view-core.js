@@ -6,7 +6,7 @@ import { playerPortrait, tileIcon, iconColor, buildingSVG } from './icons.js';
 import { netWorth, rentDisplay, isMonopoly } from './rules-core.js';
 import { evaluateCampaign, evaluateCampaignCoop, campaignDecayPerTurn } from './campaign.js';
 import { formatFactionRep } from './missions.js';
-import { nukeKeyBadgeHtml } from './nuke.js';
+import { nukeKeyBadgeHtml } from './view-nuke.js';
 import { FACTIONS } from './config.js';
 import { initFx, fxMoney, fxResetMoney } from './fx.js';
 import { classifyLogKind, startAmbience } from './fx-events.js';
@@ -16,9 +16,13 @@ import { getCellMetrics, invalidateCellMetricsCache } from './board-metrics.js';
 import { ttsSpeak } from './tts.js';
 import { escapeHtml } from './view-util.js';
 import { tileArtUrl, zoneTexUrl } from './assets-art.js';
+import { setPlayerRowEl } from './player-row.js';
 
 let tilesEl, tokenLayer, logEl, actionsEl, diceEl, previewEl;
 let tileHoverBound = false;
+
+// 玩家行 DOM 引用已迁至 player-row.js（v1.6.0 接手轮 · 清理 _rowEl 技术债）
+// 单向依赖：view-core.js → player-row.js,fx.js → player-row.js,无循环
 
 // 全局首次用户交互解锁音频（Android WebView 要求用户手势触发 AudioContext resume）
 function ensureAudioUnlocked() {
@@ -407,7 +411,7 @@ export function renderPlayers() {
     }
 
     pp.appendChild(div);
-    p._rowEl = div;
+    setPlayerRowEl(p, div);
   });
 }
 

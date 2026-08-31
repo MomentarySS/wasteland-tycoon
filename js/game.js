@@ -5,7 +5,7 @@ import { TILES_COUNT, JAIL_FEE, COLORS, SHORT, GAME_TITLE, MAX_TURNS, MAX_TURNS_
 import {
   render, showMission, buildTokens, log, setDice, placeToken,
   setActionsHTML, showSetupScreen, showBlackMarket, getSlotAvatars, WASTELAND_EMOJI,
-  showChapterIntro, showCampaignEnding, showWin, showNukeWin, showNukeLaunchConfirm, renderManage, showSpeedDieChoice, showHand,
+  showChapterIntro, showCampaignEnding, showWin, showNukeLaunchConfirm, renderManage, showSpeedDieChoice, showHand,
   showRadiation, showBunker, setActiveTile, renderPlayers, fitBoard, repositionAllTokens
 } from './view.js';
 import {
@@ -17,13 +17,13 @@ import { applyDifficulty, getDifficultyPreset } from './difficulty.js';
 import { pickMission, isChainMission, isFactionMission, isNukeMission } from './missions.js';
 import { sfx, NUKE_LAUNCH_SFX_MS } from './audio.js';
 import { rollDice3D, hopToken, landDust, haptic, screenShake, footprint } from './fx.js';
-import { playTileLandFx, playNukeStrike } from './fx-events.js';
-import { playNukeCutscene } from './cutscene.js';
+import { playTileLandFx } from './fx-events.js';
+// playNukeCutscene / playNukeStrike 已随 launchNuke 迁至 nuke.js
 import { applyLegacyToGame, getLegacyMeta, recordRun } from './legacy.js';
 import { rollMutators, applyMutators, resetMutatorFields } from './mutators.js';
 import { getNarrativeSeed, applyNarrativeStart, formatNarrativeIntro } from './narrative.js';
 import { setTtsEnabled, setTtsRate, unlockTts, cancelTts, preloadTTS, setVoiceSource, setStepApiKey, setStepVoice, setStepInstruction } from './tts.js';
-import { canLaunchNuke, tryNukeKeyFromChipFactory } from './nuke.js';
+import { canLaunchNuke, tryNukeKeyFromChipFactory, launchNuke } from './nuke.js';
 import { narrativeSpeakText, chapterClearSpeakText, GAMEOVER_LINES } from './voice-lines.js';
 import { giveCard, randomCardId, applyForcedRoll } from './cards.js';
 
@@ -575,29 +575,7 @@ function wireNukeBtn(p) {
   const nb = document.getElementById('nukeBtn');
   if (nb) nb.onclick = () => showNukeLaunchConfirm(p);
 }
-export async function launchNuke(p) {
-  if (G.gameOver || !canLaunchNuke(p)) return false;
-  G.gameOver = true;
-  setGameEnd('nuke', p.id);
-  G.awaitingRoll = false;
-  G.pendingTile = null;
-  setActionsHTML('');
-  const modal = document.getElementById('modal');
-  if (modal) modal.style.display = 'none';
-  log(`☢ ${p.name} 启动三座导弹井，靶场锁定棋盘中央！`, true);
-  render();
-  sfx('nukeLaunch');
-  await sleep(NUKE_LAUNCH_SFX_MS);
-  // 全屏分镜过场：警报 → 密钥对齐 → 弹头离井，随后蘑菇云在棋盘升起
-  await playNukeCutscene();
-  await playNukeStrike();
-  showNukeWin(p.name);
-  haptic('heavy');
-  log(`☢ 蘑菇云在阿帕拉契亚升起——无论战局如何，${p.name} 以绝对火力终结协议。`, true);
-  // 遗产模式：核弹结局同样结算遗产点（awardLegacyPoints 对 nuke 有 +100）
-  if (G.mode === 'legacy') recordLegacyRun();
-  return true;
-}
+// launchNuke 已迁至 nuke.js（v1.6.0 接手轮 · 断 game ↔ view-modal 循环依赖）
 export function afterHumanAction(p) {
   G.pendingTile = null; G.turnPlayer = p;
   // 人类玩家回合中破产：直接结算并推进回合，不再展示可操作按钮

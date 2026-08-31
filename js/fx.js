@@ -1,6 +1,7 @@
 // 特效层：3D 骰子、棋子弹跳、金币飞散、飘字、震屏、触感反馈
 // 设计约定：本模块只做表现，不参与任何规则判定；在无 DOM 环境（node 测试）下整体降级为空操作。
 import { getTileRect } from './board-metrics.js';
+import { getPlayerRowEl } from './player-row.js';
 
 const ENABLED = typeof document !== 'undefined'
   && !!document.documentElement
@@ -240,13 +241,13 @@ export function fxMoney(players) {
   if (!changed.length) return;
   const losers = changed.filter(x => x.d < 0), gainers = changed.filter(x => x.d > 0);
   if (losers.length === 1 && gainers.length === 1 && Math.abs(losers[0].d) === gainers[0].d) {
-    coinsBetween(losers[0].p._rowEl, gainers[0].p._rowEl, Math.min(14, 4 + Math.floor(gainers[0].d / 40)));
+    coinsBetween(getPlayerRowEl(losers[0].p), getPlayerRowEl(gainers[0].p), Math.min(14, 4 + Math.floor(gainers[0].d / 40)));
   } else {
-    gainers.forEach(g => coinsBetween(null, g.p._rowEl, 0));
+    gainers.forEach(g => coinsBetween(null, getPlayerRowEl(g.p), 0));
   }
   changed.forEach(x => {
-    floatDelta(x.p._rowEl, x.d);
-    pulseRow(x.p._rowEl, x.d > 0);
+    floatDelta(getPlayerRowEl(x.p), x.d);
+    pulseRow(getPlayerRowEl(x.p), x.d > 0);
   });
   if (losers.some(x => x.d <= -100)) { screenShake(.6); haptic('medium'); }
 }

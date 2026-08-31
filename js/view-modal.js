@@ -2,8 +2,8 @@
 import { render, log } from './view-core.js';
 import { eventArtHtml, flashLightning, nukeArtHtml } from './assets-art.js';
 import { applyMissionEffects, blackMarketSteal, blackMarketCard } from './rules.js';
-import { afterHumanAction, humanActionUI, resolveTile, launchNuke } from './game.js';
-import { canLaunchNuke } from './nuke.js';
+import { afterHumanAction, humanActionUI, resolveTile } from './game.js';
+import { canLaunchNuke, launchNuke } from './nuke.js';
 import { G } from './state.js';
 import { TILES } from './data.js';
 import { sfx } from './audio.js';
