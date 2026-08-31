@@ -271,19 +271,49 @@ function wrapText(text, maxW) {
   return lines;
 }
 
+// 二分找最大字号：让 name 在 (maxW, maxH) 内、≤ maxLines 行，且文字总高 ≤ maxH
+// 文字总高（alphabetic 基线、行距 1.12） = (lines-1) * fs * 1.12 + fs
+// 字号越小 → 行数越少、文字越窄、总高越小 → 单调，故可二分
+function fitFontSizeToCell(name, maxW, maxH, maxLines, fontFamily, hardMaxFs) {
+  const LINEMUL = 1.12;
+  let lo = 5, hi = hardMaxFs;
+  let best = { fs: 5, lines: [] };
+  ctx.font = `bold 5px ${fontFamily}`;
+  best.lines = wrapText(name, maxW);
+  for (let iter = 0; iter < 10; iter++) {
+    const fs = (lo + hi) / 2;
+    ctx.font = `bold ${fs.toFixed(1)}px ${fontFamily}`;
+    const lines = wrapText(name, maxW);
+    const totalH = lines.length <= 1
+      ? fs
+      : fs * ((lines.length - 1) * LINEMUL + 1);
+    if (lines.length <= maxLines && totalH <= maxH) {
+      best = { fs, lines };
+      lo = fs;
+    } else {
+      hi = fs;
+    }
+    if (hi - lo < 0.3) break;
+  }
+  return best;
+}
+
 function drawTileName(t, x, y, w, h, side) {
   const plain = tileDisplayName(t);
-  const long = plain.replace(/\s/g, '').length >= 5;
   const name = plain + (t.mortgaged ? ' [押]' : '');
   const vert = side === 'top' || side === 'bot';
-  let fs, maxLines;
-  if (vert) { fs = Math.max(5, cellH * (long ? 0.2 : 0.22)); maxLines = long ? 3 : 2; }
-  else { fs = Math.max(5, cellW * 0.145); maxLines = 4; }
-  ctx.font = 'bold ' + fs.toFixed(1) + 'px "Courier New",Consolas,monospace';
+  const FONT = '"Courier New",Consolas,monospace';
+  // 视觉上限：短边 ×0.30（避免 4 字名爆出超大字号；短边天然统一顶/底 vs 左/右）
+  const HARD_MAX = Math.min(30, Math.min(w, h) * 0.30);
+  // 顶/底允许 3 行（很扁的横格），左/右允许 4 行（很窄的竖格）
+  const maxLines = vert ? 3 : 4;
+  const fit = fitFontSizeToCell(name, w - 6, h - 2, maxLines, FONT, HARD_MAX);
+  const fs = fit.fs;
+  const lines = fit.lines.slice(0, maxLines);
+  if (!lines.length) return;
+  ctx.font = `bold ${fs.toFixed(1)}px ${FONT}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  const lines = wrapText(name, w - 6).slice(0, maxLines);
-  if (!lines.length) return;
   const lh = fs * 1.12;
   const y0 = y + h - 2 - (lines.length - 1) * lh;
   ctx.shadowColor = 'rgba(0,0,0,0.9)';
