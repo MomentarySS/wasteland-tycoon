@@ -36,6 +36,10 @@ screen_*.png
 # 在线 TTS 生成产物（若存在）
 generated/
 
+# npm 启动/打包脚本的临时日志（开发调试用）
+.start.log
+.pack.log
+
 # 素材替换前的备份（一次性，恢复后即可删除）
 assets_backup_*/
 

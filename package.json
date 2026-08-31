@@ -1,6 +1,6 @@
 {
   "name": "wasteland-tycoon",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "废土大亨：末世大富翁 · 2D大富翁游戏（ES Module + PWA）",
   "private": true,
   "type": "module",
