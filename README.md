@@ -69,7 +69,7 @@ Debug APK 输出：`android/app/build/outputs/apk/debug/app-debug.apk`
 ```
 index.html            页面骨架
 manifest.json         PWA 清单
-service-worker.js     离线缓存（v68）
+service-worker.js     离线缓存（v70）
 package.json          devDependency: Capacitor / sharp / resvg
 css/                  样式
   style.css           全局样式 + 动效（55KB）
