@@ -1,3 +1,17 @@
+// ⚠️  此脚本已废弃（v1.4 之后不再使用）
+// ============================================================
+// 历史背景：v1.4 之前游戏运行时用 Sherpa-ONNX WASM 做离线 TTS，
+// 此脚本下载模型到 vendor/sherpa/。
+//
+// v1.4+ 改用「预录语音 + 阶跃在线 + Edge + 系统语音」四级兜底链，
+// Sherpa 已从 `tts.js` 运行时链中**完全移除**。
+//
+// 当前 vendor/tts-lab/zipvoice/（同一份 Sherpa-ONNX WASM）仍保留，
+// 但**仅供本地试听页 `tts-lab.html` 调试用，与游戏运行无关**。
+//
+// npm 脚本中已无 `download:sherpa`；本文件保留为历史参考。
+// ============================================================
+
 // 下载 Sherpa-ONNX WASM 离线语音包 → vendor/sherpa/
 // 模型：ZipVoice 中英（Emilia 蒸馏，int8）——音质优于旧版 Matcha-Baker
 // 走代理：开代理后设 HTTPS_PROXY 环境变量（如 HTTPS_PROXY=http://127.0.0.1:7890），curl 会自动使用

@@ -146,8 +146,8 @@ const utils = data.TILES.filter(t => t.type === 'util');
 if (utils.length !== 2) throw new Error('设施格数量应为 2');
 if (!utils.some(t => t.utilKind === 'water') || !utils.some(t => t.utilKind === 'power')) throw new Error('设施应区分 water/power');
 
-// paths 模块
-if (!paths.vendorUrl('sherpa/sherpa-onnx-tts.worker.js').includes('vendor/sherpa')) throw new Error('vendorUrl 解析异常');
+// paths 模块（v1.6.0：vendor 现存 tts-lab/ZipVoice WASM，已不再有 vendor/sherpa/）
+if (!paths.vendorUrl('tts-lab/zipvoice/sherpa-onnx-tts.worker.js').includes('vendor/tts-lab')) throw new Error('vendorUrl 解析异常');
 
 // 迷你任务结构校验：每张卡有标题、剧情、≥2 个选择支，每个选择支有效果
 const allMissions = [...data.ALERTS, ...data.INTEL, ...data.FACTIONS, ...data.RUINS];

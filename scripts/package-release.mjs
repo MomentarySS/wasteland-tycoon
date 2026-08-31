@@ -1,7 +1,7 @@
 // 生成可分享给朋友的 Windows 测试包（zip）
 // 用法:
 //   node scripts/package-release.mjs           # 完整包（需本机 Node）
-//   node scripts/package-release.mjs --lite    # 精简包（无 Sherpa）
+//   node scripts/package-release.mjs --lite    # 精简包（不含 vendor/，更小）
 //   node scripts/package-release.mjs --green   # 绿色完整包（内置 Node，免安装）
 //   node scripts/package-release.mjs --green --lite
 import {
@@ -57,9 +57,9 @@ goto END
 :PY
 echo.
 echo   [警告] 未检测到 Node，使用 Python 简易服务器
-echo   Sherpa 离线语音不可用；推荐安装 Node 或使用绿色版
+echo   PWA 预缓存会失效；推荐安装 Node 或使用绿色版
 echo.
-python -m http.server 8823 --bind 127.0.0.1
+python -m http.server 8824 --bind 127.0.0.1
 pause
 goto END
 
@@ -68,7 +68,7 @@ echo.
 echo   ============================================
 echo     WASTELAND TYCOON  ^|  废土大亨
 echo   ============================================
-echo     本地地址: http://127.0.0.1:8823/
+echo     本地地址: http://127.0.0.1:8824/
 echo     使用: %NODE_EXE%
 echo.
 echo     若端口被占用，请先关闭旧的 Python/Node 黑窗口
@@ -138,8 +138,8 @@ async function ensurePortableNode(destRuntimeDir) {
 function readmeText() {
   const kind = GREEN ? '绿色版' : '标准版';
   const voice = LITE
-    ? '精简包不含 Sherpa 离线语音，请用游戏内「阶跃在线」或关闭播报'
-    : '完整包含 Sherpa 离线语音（首次加载较慢）';
+    ? '精简包不含 vendor/（无本地试听页），请用游戏内「预录语音」或「阶跃在线」或关闭播报'
+    : '完整包含 124 条预录语音（MiniMax 离线音频，随包分发；自动优先）';
   const nodeHint = GREEN
     ? '无需安装 Node.js，解压即用（已内置 runtime/node.exe）'
     : '电脑需已安装 Node.js 18+（https://nodejs.org/ 选 LTS）';
@@ -150,7 +150,7 @@ function readmeText() {
 【怎么玩】
 1. ${nodeHint}
 2. 双击「启动游戏.bat」
-3. 浏览器会自动打开 http://127.0.0.1:8823/
+3. 浏览器会自动打开 http://127.0.0.1:8824/
 4. 玩完关闭黑色命令行窗口即可
 
 【说明】
@@ -163,7 +163,7 @@ function readmeText() {
 绿色版在命令行进入本目录后：
   set HOST=0.0.0.0
   runtime\\node.exe scripts\\serve.mjs
-让对方浏览器打开 http://你的电脑IP:8823/（需放行防火墙 8823）
+让对方浏览器打开 http://你的电脑IP:8824/（需放行防火墙 8824）
 
 【反馈】
 试玩后欢迎反馈：卡顿、规则 bug、UI 问题、难度感受等。

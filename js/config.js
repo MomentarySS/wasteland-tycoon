@@ -11,8 +11,6 @@ export const FACTIONS = {
 export const COLORS = ['#e84c3d', '#3498db', '#2ecc71', '#f1c40f'];
 export const SHORT = ['甲', '乙', '丙', '丁'];
 export const TOKEN_SLOT = [[0.18, 0.18], [0.82, 0.18], [0.18, 0.36], [0.82, 0.36]];
-/** @deprecated 保留兼容；请用 TOKEN_SLOT */
-export const OFF = [[0, 0], [11, 0], [0, 11], [11, 11]];
 export const JAIL_FEE = 50;
 export const GAME_TITLE = '废土大亨：末世大富翁';
 export const BRAND_MARK_HTML =
