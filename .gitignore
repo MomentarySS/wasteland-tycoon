@@ -36,6 +36,9 @@ screen_*.png
 # 在线 TTS 生成产物（若存在）
 generated/
 
+# 素材替换前的备份（一次性，恢复后即可删除）
+assets_backup_*/
+
 # Capacitor 生成的构建产物（www 会在 ci/build 时同步）
 www/
 

@@ -1,6 +1,6 @@
 // 离线缓存：App Shell 预缓存；运行时缓存其余资源（含 assets 插画）
 // 注意：修改任何被缓存的源文件后必须手动 bump 版本号，否则旧缓存不会被清除
-const CACHE = 'wasteland-tycoon-v70';
+const CACHE = 'wasteland-tycoon-v71';
 const ASSETS = [
   './', './index.html', './manifest.json',
   './css/style.css', './css/board-v2.css',
