@@ -32,7 +32,7 @@ const ROOT_FILES = [
 
 const BAT = `@echo off
 chcp 65001 >nul
-title WASTELAND TYCOON - 本地服务器
+title WASTELAND TYCOON - 废土大亨
 cd /d "%~dp0"
 
 set "NODE_EXE=%~dp0runtime\\node.exe"
@@ -184,7 +184,9 @@ for (const f of ROOT_FILES) {
   cpSync(src, join(OUT_DIR, f));
 }
 
-writeFileSync(join(OUT_DIR, '启动游戏.bat'), BAT, 'utf8');
+// bat 必须用 CRLF 行尾（CMD 不识别 LF-only），编码用 UTF-8 + chcp 65001
+const batCRLF = BAT.replace(/\n/g, '\r\n');
+writeFileSync(join(OUT_DIR, '启动游戏.bat'), batCRLF, 'utf8');
 
 for (const d of ['css', 'js', 'content', 'assets']) cpFiltered(join(ROOT, d), join(OUT_DIR, d));
 
