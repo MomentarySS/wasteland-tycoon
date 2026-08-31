@@ -208,22 +208,46 @@ if (hasFlag('--export-tasks')) {
 }
 
 // ── 模式：仅重建 manifest（音频由外部生成后本地建索引，无需 Key）──
-if (hasFlag('--manifest-only')) {
+if (hasFlag('--manifest-only') || hasFlag('--as-is')) {
+  // --as-is：文件名即 hash key，不重新计算（Agent 已用正确 voice 生成了文件名的情况）
+  // --manifest-only：按 voice 参数重新算 hash 匹配（传统用法，文件须由本脚本生成）
+  const asIs = hasFlag('--as-is');
   const lines = collectLines();
   const manifest = newManifest();
+  manifest.meta.voice = VOICE; // 写入实际使用的音色
   let missing = 0;
   for (const l of lines) {
-    const file = `${voiceHash(VOICE, l.text)}.mp3`;
-    const p = path.join(OUT_DIR, file);
-    if (fs.existsSync(p) && fs.statSync(p).size > 64) {
-      addManifestLine(manifest, l, file, fs.statSync(p).size);
+    if (asIs) {
+      // 文件名就是 hash（Agent 用正确 voice 生成时的命名）
+      const file = l.filename || `${voiceHash(VOICE, l.text)}.mp3`;
+      const p = path.join(OUT_DIR, file);
+      if (fs.existsSync(p) && fs.statSync(p).size > 64) {
+        const key = file.replace(/\.mp3$/, '');
+        manifest.lines[key] = { file, text: l.text, bytes: fs.statSync(p).size, id: l.id };
+        manifest.meta.count++;
+        manifest.meta.totalBytes += fs.statSync(p).size;
+      } else {
+        missing++;
+      }
     } else {
-      missing++;
+      // 传统模式：按 voice 参数重新算 hash
+      const file = `${voiceHash(VOICE, l.text)}.mp3`;
+      const p = path.join(OUT_DIR, file);
+      if (fs.existsSync(p) && fs.statSync(p).size > 64) {
+        addManifestLine(manifest, l, file, fs.statSync(p).size);
+      } else {
+        missing++;
+      }
     }
   }
   console.log(`音色 ${VOICE}：命中 ${manifest.meta.count} 条，缺失 ${missing} 条`);
   if (manifest.meta.count === 0) {
-    console.error('一条都没命中：确认 mp3 已解压到 assets/voice/，且 --voice 与导出任务时一致（或与外部实际所用音色标识一致）。');
+    console.error('一条都没命中：');
+    if (asIs) {
+      console.error('  --as-is 模式：文件名应为 hash（形如 fd5bfa6d2add56c5.mp3），确认 mp3 已解压到 assets/voice/。');
+    } else {
+      console.error('  确认 mp3 已解压到 assets/voice/，且 --voice 与生成时一致。');
+    }
     process.exit(1);
   }
   pruneOrphans(manifest);
