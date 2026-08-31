@@ -1,0 +1,746 @@
+{
+ "meta": {
+  "model": "speech-2.8-hd",
+  "voice": "male-qn-jingying",
+  "speed": 1,
+  "sampleRate": 32000,
+  "bitrate": 64000,
+  "count": 122,
+  "totalBytes": 12390876,
+  "generatedAt": "2026-08-31T01:28:30.722Z"
+ },
+ "lines": {
+  "fd5bfa6d2add56c5": {
+   "file": "fd5bfa6d2add56c5.mp3",
+   "text": "小型尸潮来袭。救人是本能，但物资有限。",
+   "bytes": 77382,
+   "id": "mission-radio-r1"
+  },
+  "5fd6f184f4e48c6b": {
+   "file": "5fd6f184f4e48c6b.mp3",
+   "text": "掠夺者收保护费。屈服，还是反抗？",
+   "bytes": 79110,
+   "id": "mission-radio-r2"
+  },
+  "b27ca0bd84ef31f4": {
+   "file": "b27ca0bd84ef31f4.mp3",
+   "text": "踩中诱杀陷阱。自保，还是救人？",
+   "bytes": 56646,
+   "id": "mission-radio-r3"
+  },
+  "d56edc550da66609": {
+   "file": "d56edc550da66609.mp3",
+   "text": "辐射病发作。硬扛，还是隔离？",
+   "bytes": 75654,
+   "id": "mission-radio-r4"
+  },
+  "f7242a2c01931e48": {
+   "file": "f7242a2c01931e48.mp3",
+   "text": "沙暴卷来。护车，还是弃货？",
+   "bytes": 59526,
+   "id": "mission-radio-r5"
+  },
+  "37dfca343c5ae2ed": {
+   "file": "37dfca343c5ae2ed.mp3",
+   "text": "帮派上门收钱。破财，还是拼命？",
+   "bytes": 64710,
+   "id": "mission-radio-r6"
+  },
+  "e423e6c479ac56a9": {
+   "file": "e423e6c479ac56a9.mp3",
+   "text": "误入毒气带。就医，还是硬抗？",
+   "bytes": 65862,
+   "id": "mission-radio-r7"
+  },
+  "8b043368fb29259a": {
+   "file": "8b043368fb29259a.mp3",
+   "text": "设卡强征过路费。缴费，还是绕路？",
+   "bytes": 67014,
+   "id": "mission-radio-r8"
+  },
+  "b5c906d0ce85097c": {
+   "file": "b5c906d0ce85097c.mp3",
+   "text": "仓库失火。抢货，还是救人？",
+   "bytes": 73350,
+   "id": "mission-radio-r9"
+  },
+  "c3c2428a902d6106": {
+   "file": "c3c2428a902d6106.mp3",
+   "text": "辐射风暴笼罩。护核，还是保命？",
+   "bytes": 75078,
+   "id": "mission-radio-r10"
+  },
+  "4b861d2e6b0d776e": {
+   "file": "4b861d2e6b0d776e.mp3",
+   "text": "帮派火并殃及。躲开，还是劝架？",
+   "bytes": 72774,
+   "id": "mission-radio-r11"
+  },
+  "2d9acb6be6c70668": {
+   "file": "2d9acb6be6c70668.mp3",
+   "text": "机械故障。自费，还是欠人情？",
+   "bytes": 59526,
+   "id": "mission-radio-r12"
+  },
+  "6e517b3300bde811": {
+   "file": "6e517b3300bde811.mp3",
+   "text": "遭流寇埋伏。突围，还是硬闯？",
+   "bytes": 62406,
+   "id": "mission-radio-r13"
+  },
+  "f0628923b2e7fd72": {
+   "file": "f0628923b2e7fd72.mp3",
+   "text": "沙丘崩塌。掩埋补给，还是弃车？",
+   "bytes": 64710,
+   "id": "mission-radio-r14"
+  },
+  "c1cb9c8106d992e4": {
+   "file": "c1cb9c8106d992e4.mp3",
+   "text": "电磁脉冲。抢修，还是关机？",
+   "bytes": 77958,
+   "id": "mission-radio-r15"
+  },
+  "a35361524764f122": {
+   "file": "a35361524764f122.mp3",
+   "text": "毒蝎蛰咬。就医，还是硬挺？",
+   "bytes": 68742,
+   "id": "mission-radio-r16"
+  },
+  "5b37365aedbe5dc1": {
+   "file": "5b37365aedbe5dc1.mp3",
+   "text": "货运机器人坠毁。拆零件，还是上报坐标？",
+   "bytes": 69318,
+   "id": "mission-radio-fo76_cargobot"
+  },
+  "83dbacc57164a2d1": {
+   "file": "83dbacc57164a2d1.mp3",
+   "text": "焦化军官代码。录入，还是抹掉？",
+   "bytes": 75078,
+   "id": "mission-radio-fo76_officer"
+  },
+  "586de2a21eb73d6e": {
+   "file": "586de2a21eb73d6e.mp3",
+   "text": "反应堆抢修。抢修换盖，还是撤离？",
+   "bytes": 63558,
+   "id": "mission-radio-fo76_reactor"
+  },
+  "959b4a9672618def": {
+   "file": "959b4a9672618def.mp3",
+   "text": "爆心区余波。深入搜刮，还是绕开？",
+   "bytes": 77382,
+   "id": "mission-radio-fo76_blast"
+  },
+  "2dc6c1c8390b21be": {
+   "file": "2dc6c1c8390b21be.mp3",
+   "text": "自动化发射系统自检。记录，还是忽略？",
+   "bytes": 78534,
+   "id": "mission-radio-nuke_chain_1"
+  },
+  "aa052da0e951644f": {
+   "file": "aa052da0e951644f.mp3",
+   "text": "布拉沃井应答。回应，还是装没听见？",
+   "bytes": 69318,
+   "id": "mission-radio-nuke_chain_2"
+  },
+  "1057171f0e24600b": {
+   "file": "1057171f0e24600b.mp3",
+   "text": "查理井靶场校准。写入坐标，还是销毁？",
+   "bytes": 72774,
+   "id": "mission-radio-nuke_chain_3"
+  },
+  "b03390ec06bcd820": {
+   "file": "b03390ec06bcd820.mp3",
+   "text": "截获掠夺者暗号。记下坐标，还是当没听见？",
+   "bytes": 73350,
+   "id": "mission-radio-chain_eagle_1"
+  },
+  "b3a5246c990d446f": {
+   "file": "b3a5246c990d446f.mp3",
+   "text": "掠夺者伏击圈。硬闯，还是交钱？",
+   "bytes": 73926,
+   "id": "mission-radio-chain_eagle_2"
+  },
+  "360c808b5e3423dd": {
+   "file": "360c808b5e3423dd.mp3",
+   "text": "掠夺者末路。清算旧账，还是放行？",
+   "bytes": 62406,
+   "id": "mission-radio-chain_eagle_3"
+  },
+  "77335aa4d330e628": {
+   "file": "77335aa4d330e628.mp3",
+   "text": "医疗车队遭袭。冒险去救，还是当没听见？",
+   "bytes": 69318,
+   "id": "mission-radio-chain_med_1"
+  },
+  "2763803fb79896fb": {
+   "file": "2763803fb79896fb.mp3",
+   "text": "急救包分配。独占，还是分享？",
+   "bytes": 58374,
+   "id": "mission-radio-chain_med_2"
+  },
+  "b1c9feb1336edd2c": {
+   "file": "b1c9feb1336edd2c.mp3",
+   "text": "感恩回报。收下人情，还是婉拒？",
+   "bytes": 77958,
+   "id": "mission-radio-chain_med_3"
+  },
+  "4ad400a0c9ed2e97": {
+   "file": "4ad400a0c9ed2e97.mp3",
+   "text": "干净水源。公开消息，还是独占坐标？",
+   "bytes": 67014,
+   "id": "mission-radio-chain_water_1"
+  },
+  "d006fc88a5498a3b": {
+   "file": "d006fc88a5498a3b.mp3",
+   "text": "水源争夺战。独占，还是共享？",
+   "bytes": 76806,
+   "id": "mission-radio-chain_water_2"
+  },
+  "c5ea2bfa7741d914": {
+   "file": "c5ea2bfa7741d914.mp3",
+   "text": "尸潮预警。组织防御，还是独自逃命？",
+   "bytes": 71046,
+   "id": "mission-radio-chain_horde_1"
+  },
+  "fe19b86adfdbf8ab": {
+   "file": "fe19b86adfdbf8ab.mp3",
+   "text": "围墙攻防。死守，还是撤退？",
+   "bytes": 58374,
+   "id": "mission-radio-chain_horde_2"
+  },
+  "9beb0d50e7a06962": {
+   "file": "9beb0d50e7a06962.mp3",
+   "text": "反击时刻。追击，还是休整？",
+   "bytes": 68742,
+   "id": "mission-radio-chain_horde_3"
+  },
+  "5cb10e7b2f481fd5": {
+   "file": "5cb10e7b2f481fd5.mp3",
+   "text": "虫洞异常。穿越探索，还是标记危险？",
+   "bytes": 79110,
+   "id": "mission-radio-chain_worm_1"
+  },
+  "776bb752c35d12a2": {
+   "file": "776bb752c35d12a2.mp3",
+   "text": "虫洞的另一端。卖掉，还是研究？",
+   "bytes": 71046,
+   "id": "mission-radio-chain_worm_2"
+  },
+  "6276110bee9b4ea8": {
+   "file": "6276110bee9b4ea8.mp3",
+   "text": "翻出一箱瓶盖。独占，还是平分？",
+   "bytes": 60102,
+   "id": "mission-manual-i1"
+  },
+  "01cfcf198a5976e9": {
+   "file": "01cfcf198a5976e9.mp3",
+   "text": "流浪商人塞来补给。收下，还是让给伤员？",
+   "bytes": 72774,
+   "id": "mission-manual-i2"
+  },
+  "48027819f1993e39": {
+   "file": "48027819f1993e39.mp3",
+   "text": "废弃军械库。搬空，还是留给弱者？",
+   "bytes": 75078,
+   "id": "mission-manual-i3"
+  },
+  "f908c10dbe3f65c1": {
+   "file": "f908c10dbe3f65c1.mp3",
+   "text": "半箱还能吃的罐头。自己吃，还是分给孩童？",
+   "bytes": 75078,
+   "id": "mission-manual-i4"
+  },
+  "276d500208999f8b": {
+   "file": "276d500208999f8b.mp3",
+   "text": "黑市赌局小胜。落袋，还是收手？",
+   "bytes": 69318,
+   "id": "mission-manual-i5"
+  },
+  "72609f347a3cafc2": {
+   "file": "72609f347a3cafc2.mp3",
+   "text": "捡到前朝金条。兑换私藏，还是捐营地？",
+   "bytes": 80262,
+   "id": "mission-manual-i6"
+  },
+  "c9bf2d9ab6309c47": {
+   "file": "c9bf2d9ab6309c47.mp3",
+   "text": "修复旧发电机。卖掉，还是帮邻里？",
+   "bytes": 75078,
+   "id": "mission-manual-i7"
+  },
+  "d48167b0fc2b55ca": {
+   "file": "d48167b0fc2b55ca.mp3",
+   "text": "拾荒同伴分你战利品。收下，还是让利？",
+   "bytes": 73926,
+   "id": "mission-manual-i8"
+  },
+  "aef2b4be6c60c085": {
+   "file": "aef2b4be6c60c085.mp3",
+   "text": "地下交易网返利。独享，还是转赠？",
+   "bytes": 70470,
+   "id": "mission-manual-i9"
+  },
+  "5c6742bf5a5d3ffd": {
+   "file": "5c6742bf5a5d3ffd.mp3",
+   "text": "旧通行证。自用，还是赠人？",
+   "bytes": 61830,
+   "id": "mission-manual-i10"
+  },
+  "7ff7875ce235ecf5": {
+   "file": "7ff7875ce235ecf5.mp3",
+   "text": "废土宝库现世。满载，还是留名？",
+   "bytes": 75078,
+   "id": "mission-manual-i11"
+  },
+  "b46bd4126533ec0b": {
+   "file": "b46bd4126533ec0b.mp3",
+   "text": "军方空投补给箱。独享，还是分享？",
+   "bytes": 61830,
+   "id": "mission-manual-i12"
+  },
+  "069e46eb67373f88": {
+   "file": "069e46eb67373f88.mp3",
+   "text": "捡到芯片图纸。自用，还是赠人？",
+   "bytes": 73926,
+   "id": "mission-manual-i13"
+  },
+  "5dcdf1ed3ebaf067": {
+   "file": "5dcdf1ed3ebaf067.mp3",
+   "text": "神秘红利到账。落袋，还是分人？",
+   "bytes": 77382,
+   "id": "mission-manual-i14"
+  },
+  "0fb4024600c24628": {
+   "file": "0fb4024600c24628.mp3",
+   "text": "救援队送来物资。收下，还是让给难友？",
+   "bytes": 69894,
+   "id": "mission-manual-i15"
+  },
+  "e36f83404f81b43e": {
+   "file": "e36f83404f81b43e.mp3",
+   "text": "拾荒奇遇。独吞，还是让利？",
+   "bytes": 64710,
+   "id": "mission-manual-i16"
+  },
+  "15978ef10fad7eac": {
+   "file": "15978ef10fad7eac.mp3",
+   "text": "旧防化服里的通行证。自用，还是顺手帮人？",
+   "bytes": 77958,
+   "id": "mission-manual-i17"
+  },
+  "42d17c8a8163a0ab": {
+   "file": "42d17c8a8163a0ab.mp3",
+   "text": "温泉疗养。独享，还是邀人？",
+   "bytes": 67590,
+   "id": "mission-manual-i18"
+  },
+  "16d34d362241fa6b": {
+   "file": "16d34d362241fa6b.mp3",
+   "text": "手册残页。破译，还是随手塞回？",
+   "bytes": 74502,
+   "id": "mission-manual-chain_map_1"
+  },
+  "3ea56ce3d2842347": {
+   "file": "3ea56ce3d2842347.mp3",
+   "text": "地下库房。满载，还是留一份给后来者？",
+   "bytes": 82566,
+   "id": "mission-manual-chain_map_2"
+  },
+  "23f2f6c5d122c90b": {
+   "file": "23f2f6c5d122c90b.mp3",
+   "text": "废弃研究所。冒险深入，还是放弃？",
+   "bytes": 78534,
+   "id": "mission-manual-chain_tech_1"
+  },
+  "241defddfdcab0c1": {
+   "file": "241defddfdcab0c1.mp3",
+   "text": "终端里的秘密。读取，还是销毁？",
+   "bytes": 73350,
+   "id": "mission-manual-chain_tech_2"
+  },
+  "a0dec3402b807d10": {
+   "file": "a0dec3402b807d10.mp3",
+   "text": "危险知识。卖给政府，还是公开？",
+   "bytes": 67014,
+   "id": "mission-manual-chain_tech_3"
+  },
+  "f72e7702f3fec3a2": {
+   "file": "f72e7702f3fec3a2.mp3",
+   "text": "远方商队。欢迎，还是警惕？",
+   "bytes": 67590,
+   "id": "mission-manual-chain_trade_1"
+  },
+  "dd98591dc2775ae9": {
+   "file": "dd98591dc2775ae9.mp3",
+   "text": "商队的秘密货物。买黑，还是拒绝？",
+   "bytes": 73350,
+   "id": "mission-manual-chain_trade_2"
+  },
+  "6204250d4e1725ba": {
+   "file": "6204250d4e1725ba.mp3",
+   "text": "黑市第一桶金。高价抛售，还是平价流通？",
+   "bytes": 84870,
+   "id": "mission-manual-chain_empire_1"
+  },
+  "68d418d251cb4b1a": {
+   "file": "68d418d251cb4b1a.mp3",
+   "text": "黑市扩张。扩张，还是收手？",
+   "bytes": 64710,
+   "id": "mission-manual-chain_empire_2"
+  },
+  "2149b213377e67ab": {
+   "file": "2149b213377e67ab.mp3",
+   "text": "黑市帝国。合作，还是对抗？",
+   "bytes": 68742,
+   "id": "mission-manual-chain_empire_3"
+  },
+  "87ff898fe9a95bb3": {
+   "file": "87ff898fe9a95bb3.mp3",
+   "text": "掠夺者招募。接活，还是拒绝？",
+   "bytes": 62406,
+   "id": "mission-faction-fac_eagle_1"
+  },
+  "d0ca3581cb852598": {
+   "file": "d0ca3581cb852598.mp3",
+   "text": "响应者请愿。开门，还是惜物？",
+   "bytes": 64710,
+   "id": "mission-faction-fac_survivor_1"
+  },
+  "6a26ee5e71112b10": {
+   "file": "6a26ee5e71112b10.mp3",
+   "text": "残存政府取样。配合，还是驱赶？",
+   "bytes": 71622,
+   "id": "mission-faction-fac_tech_1"
+  },
+  "a3a478b74c3e0f76": {
+   "file": "a3a478b74c3e0f76.mp3",
+   "text": "掠夺者清账。出手，还是抽身？",
+   "bytes": 67014,
+   "id": "mission-faction-fac_eagle_2"
+  },
+  "3961bddc37605387": {
+   "file": "3961bddc37605387.mp3",
+   "text": "神秘线人。合作，还是拒绝？",
+   "bytes": 74502,
+   "id": "mission-faction-chain_spy_1"
+  },
+  "fb2d630d4bbf7d9f": {
+   "file": "fb2d630d4bbf7d9f.mp3",
+   "text": "情报交易。买情报，还是告发？",
+   "bytes": 67590,
+   "id": "mission-faction-chain_spy_2"
+  },
+  "ea32fd1249b1b217": {
+   "file": "ea32fd1249b1b217.mp3",
+   "text": "双面人生。当线人，还是当证人？",
+   "bytes": 68742,
+   "id": "mission-faction-chain_spy_3"
+  },
+  "c874e5916b414048": {
+   "file": "c874e5916b414048.mp3",
+   "text": "掠夺者的最后通牒。服从，还是抗命？",
+   "bytes": 75654,
+   "id": "mission-faction-chain_betray_1"
+  },
+  "00612b1448fddab6": {
+   "file": "00612b1448fddab6.mp3",
+   "text": "叛变者末路。复仇，还是和解？",
+   "bytes": 63558,
+   "id": "mission-faction-chain_betray_2"
+  },
+  "dec5c4d0c4531bdc": {
+   "file": "dec5c4d0c4531bdc.mp3",
+   "text": "防空洞旧档案。仔细搜索，还是粗略翻过？",
+   "bytes": 79110,
+   "id": "mission-ruins-relic_bunker"
+  },
+  "3284c07742f15f71": {
+   "file": "3284c07742f15f71.mp3",
+   "text": "终端里的 AI。交流，还是关机？",
+   "bytes": 69318,
+   "id": "mission-ruins-relic_ai"
+  },
+  "e599e788059ec649": {
+   "file": "e599e788059ec649.mp3",
+   "text": "遗迹的代价。冒险去拿，还是放弃？",
+   "bytes": 74502,
+   "id": "mission-ruins-relic_choice"
+  },
+  "d757b4a2311e44e2": {
+   "file": "d757b4a2311e44e2.mp3",
+   "text": "残破地图。按图索骥，还是卖掉？",
+   "bytes": 63558,
+   "id": "mission-ruins-relic_map"
+  },
+  "a25166fd5cce5f3b": {
+   "file": "a25166fd5cce5f3b.mp3",
+   "text": "地下缓存。暴力开锁，还是解密？",
+   "bytes": 71046,
+   "id": "mission-ruins-relic_cache"
+  },
+  "960824e1623f0578": {
+   "file": "960824e1623f0578.mp3",
+   "text": "神秘遗迹商人。换物，还是拒绝？",
+   "bytes": 83718,
+   "id": "mission-ruins-relic_merchant"
+  },
+  "8f1348b193226df6": {
+   "file": "8f1348b193226df6.mp3",
+   "text": "旧时代科技。自用，还是卖掉？",
+   "bytes": 69894,
+   "id": "mission-ruins-relic_tech"
+  },
+  "a01b9c92571991e4": {
+   "file": "a01b9c92571991e4.mp3",
+   "text": "据点求生 · 第七日。隔离区的警报还在远处嗡鸣。有人把最后半瓶水塞给你——你攥着瓶盖踏出铁门，身后是秩序，前方是废土。营地的人看着你：像领路人，而不只是独狼。",
+   "bytes": 287046,
+   "id": "chapter-0-0"
+  },
+  "ccf3a602c3eb25f3": {
+   "file": "ccf3a602c3eb25f3.mp3",
+   "text": "据点求生 · 第七日。隔离区的警报还在远处嗡鸣。你攥着最后一把瓶盖，踏出铁门——身后是秩序，前方是废土。营地的人看着你：是独狼，还是领路人？",
+   "bytes": 277254,
+   "id": "chapter-0-1"
+  },
+  "3bac941d841c0fa0": {
+   "file": "3bac941d841c0fa0.mp3",
+   "text": "据点求生 · 第七日。隔离区的警报还在远处嗡鸣。你踹开铁门，把挡路的人推进阴影——瓶盖在口袋里撞出冷响。前方是废土，而你只信自己。",
+   "bytes": 241542,
+   "id": "chapter-0-2"
+  },
+  "9c328386c2427a7d": {
+   "file": "9c328386c2427a7d.mp3",
+   "text": "垄断一方 · 公义价码。黑市开始按你的价码流通，但你也给穷人留了条活路。军阀派人带话：要么交保护费，要么交命。你意识到，「公平交易」也需要有人站出来说话。",
+   "bytes": 259398,
+   "id": "chapter-1-0"
+  },
+  "2b61a52b2b60d99f": {
+   "file": "2b61a52b2b60d99f.mp3",
+   "text": "垄断一方 · 权力真空。黑市开始按你的价码流通。军阀派人带话：要么交保护费，要么交命。你意识到，在这片土地上，「公平交易」也需要有人站出来说话。",
+   "bytes": 253638,
+   "id": "chapter-1-1"
+  },
+  "ea06c9c9e2ef89df": {
+   "file": "ea06c9c9e2ef89df.mp3",
+   "text": "垄断一方 · 新军阀。黑市开始按你的价码流通——只对你有利的那种。军阀的人来了，你让他们空手回去。营地的人不再叫你名字，他们叫你「老板」。",
+   "bytes": 231750,
+   "id": "chapter-1-2"
+  },
+  "072871acbc9c52f0": {
+   "file": "072871acbc9c52f0.mp3",
+   "text": "黑市暗流 · 账本上的名字。铁路调度员把密钥塞给你：「只给还愿意分粮给月台的人。」你明白，废土的动脉不在轨道，而在谁肯让谁活下去。",
+   "bytes": 244422,
+   "id": "chapter-2-0"
+  },
+  "7aca79f1902ba617": {
+   "file": "7aca79f1902ba617.mp3",
+   "text": "黑市暗流 · 枢纽争夺。铁路与净水站成了新的战场。每一张过路条都在标价，而你必须在扩张与声誉之间做取舍。",
+   "bytes": 200070,
+   "id": "chapter-2-1"
+  },
+  "581e61ffada10f6a": {
+   "file": "581e61ffada10f6a.mp3",
+   "text": "黑市暗流 · 断供威胁。你掐住了两条铁路的阀门。对手开始断供，营地里的抱怨声像砂纸一样磨耳朵——你知道，这局没有无辜的赢家。",
+   "bytes": 234630,
+   "id": "chapter-2-2"
+  },
+  "aee29337e2cb470d": {
+   "file": "aee29337e2cb470d.mp3",
+   "text": "废土衰减 · 共担风暴。辐射尘暴来了，不再间歇。你把储粮打开一半分给营火旁的人——风暴会刮走瓶盖，但刮不走一起扛过黑夜的名字。",
+   "bytes": 220806,
+   "id": "chapter-3-0"
+  },
+  "93b0d639ca3939ab": {
+   "file": "93b0d639ca3939ab.mp3",
+   "text": "废土衰减 · 风暴季节。辐射尘暴来了，不再间歇。每过一轮，土地就从账本上刮走一层。你得在缩水之前，把根扎得更深。",
+   "bytes": 217926,
+   "id": "chapter-3-1"
+  },
+  "a12e2cd0bca81831": {
+   "file": "a12e2cd0bca81831.mp3",
+   "text": "废土衰减 · 各自为战。辐射尘暴来了。你加固了地堡，把门闩插上——外面是谁在敲，你已经不太想分辨。每轮流失的瓶盖，是废土在收租。",
+   "bytes": 242694,
+   "id": "chapter-3-2"
+  },
+  "a15903fa802c2848": {
+   "file": "a15903fa802c2848.mp3",
+   "text": "废土传说 · 仁心账本。幸存者手册缺了最后一页——留给「传说」的名字。你回望来路：每一次抉择都在账本上留下墨迹，而人们愿意跟随你，不是因为恐惧。",
+   "bytes": 259974,
+   "id": "chapter-4-0"
+  },
+  "72737dd7cd2312f6": {
+   "file": "72737dd7cd2312f6.mp3",
+   "text": "废土传说 · 最后的账本。幸存者手册缺了最后一页——留给「传说」的名字。你回望来路：每一次抉择都在账本上留下墨迹。今天，这笔账该结了。",
+   "bytes": 269190,
+   "id": "chapter-4-1"
+  },
+  "9d279e70eb078584": {
+   "file": "9d279e70eb078584.mp3",
+   "text": "废土传说 · 新秩序。幸存者手册缺了最后一页。你回望来路：瓶盖、地盘、恐惧——它们都写进了你的名字。今天，这笔账该结了，而营地的人学会了低头。",
+   "bytes": 302022,
+   "id": "chapter-4-2"
+  },
+  "534b80cfc0e9602b": {
+   "file": "534b80cfc0e9602b.mp3",
+   "text": "废土归属 · 家园落成。你站在自己修建的围墙上，看着炊烟从营地升起。这片曾经荒芜的土地，如今有了名字、有了孩子、有了明天。",
+   "bytes": 239238,
+   "id": "chapter-5-0"
+  },
+  "81f1b7bb9fc92285": {
+   "file": "81f1b7bb9fc92285.mp3",
+   "text": "废土归属 · 终局之问。废土在你手中慢慢变样——但你开始问自己：这一切是为了谁？当最后一个目标达成，传说才真正开始。",
+   "bytes": 220230,
+   "id": "chapter-5-1"
+  },
+  "573f0259b29b224b": {
+   "file": "573f0259b29b224b.mp3",
+   "text": "废土归属 · 铁血归宿。你征服了这片土地上能征服的一切。人们在你面前低头——但没人知道你的名字背后，藏着多少未冷的血。",
+   "bytes": 211590,
+   "id": "chapter-5-2"
+  },
+  "623c441c1705bc7e": {
+   "file": "623c441c1705bc7e.mp3",
+   "text": "你不只是征服了废土——你让废土变成了家园。你的名字被刻在新建的围墙上，孩子们在你的庇护下长大。",
+   "bytes": 167238,
+   "id": "ending-0"
+  },
+  "16410b525e3da426": {
+   "file": "16410b525e3da426.mp3",
+   "text": "你的名字与道德一起被刻进手册首页——人们说，废土因你而少了几分残酷。",
+   "bytes": 124614,
+   "id": "ending-1"
+  },
+  "4122e4e6e32e012c": {
+   "file": "4122e4e6e32e012c.mp3",
+   "text": "你完成了全部章节，名字被刻进幸存者手册——你成了废土传说。",
+   "bytes": 102150,
+   "id": "ending-2"
+  },
+  "06dfc1203eb165f1": {
+   "file": "06dfc1203eb165f1.mp3",
+   "text": "你活下来了，也赢了。手册里你的名字旁边，只写了两个字：「实用」。",
+   "bytes": 121734,
+   "id": "ending-3"
+  },
+  "e8f07df22707456a": {
+   "file": "e8f07df22707456a.mp3",
+   "text": "你聚敛了财富与地盘，营地的人在背后叫你「新军阀」——传说有很多种写法。",
+   "bytes": 117702,
+   "id": "ending-4"
+  },
+  "e8279273706f60fc": {
+   "file": "e8279273706f60fc.mp3",
+   "text": "暴君余波 你上局的暴政仍在废土回响。人们记住了你的名字——这一次，他们不会轻易信任你。",
+   "bytes": 168966,
+   "id": "seed-tyrant"
+  },
+  "95ab649c00f24f49": {
+   "file": "95ab649c00f24f49.mp3",
+   "text": "仁心传承 你的善行在废土上流传。这一局，人们愿意向你伸出援手。",
+   "bytes": 120582,
+   "id": "seed-benevolent"
+  },
+  "7b9399d22e9ad2d6": {
+   "file": "7b9399d22e9ad2d6.mp3",
+   "text": "核爆余烬 蘑菇云的阴影仍未散去。辐射尘在这一局格外频繁，废土在呻吟。",
+   "bytes": 122886,
+   "id": "seed-nuke"
+  },
+  "18d19fe830ba6c99": {
+   "file": "18d19fe830ba6c99.mp3",
+   "text": "幸存者本能 你学会了如何在废土上活下去。这一局，你的直觉更加敏锐。",
+   "bytes": 118854,
+   "id": "seed-survivor"
+  },
+  "bc696ec90ec45c7e": {
+   "file": "bc696ec90ec45c7e.mp3",
+   "text": "战友情谊 上一局的战友仍在想念你。这一局，AI 会更愿意与你合作。",
+   "bytes": 118854,
+   "id": "seed-coop_victory"
+  },
+  "4f10aa95761eee21": {
+   "file": "4f10aa95761eee21.mp3",
+   "text": "生存专家 无尽的废土衰减教会了你一切。这一局，你对危险更加警觉。",
+   "bytes": 125190,
+   "id": "seed-survival"
+  },
+  "325a5e972635ea07": {
+   "file": "325a5e972635ea07.mp3",
+   "text": "命运中断 上一局的结局模糊不清。这一局，一切皆有可能。",
+   "bytes": 103878,
+   "id": "seed-draw"
+  },
+  "0ff247da1f16d859": {
+   "file": "0ff247da1f16d859.mp3",
+   "text": "章节达成，进入 第一章 · 据点求生！",
+   "bytes": 72774,
+   "id": "chapter-clear-c1"
+  },
+  "5278ce0183210969": {
+   "file": "5278ce0183210969.mp3",
+   "text": "章节达成，进入 第二章 · 垄断一方！",
+   "bytes": 63558,
+   "id": "chapter-clear-c2"
+  },
+  "bc00d090420ecc07": {
+   "file": "bc00d090420ecc07.mp3",
+   "text": "章节达成，进入 第三章 · 黑市暗流！",
+   "bytes": 70470,
+   "id": "chapter-clear-c3"
+  },
+  "b5bccd37e31dfee6": {
+   "file": "b5bccd37e31dfee6.mp3",
+   "text": "章节达成，进入 第四章 · 废土衰减！",
+   "bytes": 78534,
+   "id": "chapter-clear-c4"
+  },
+  "836e990bed6a64ac": {
+   "file": "836e990bed6a64ac.mp3",
+   "text": "章节达成，进入 第五章 · 废土传说！",
+   "bytes": 75078,
+   "id": "chapter-clear-c5"
+  },
+  "5adf0d81f5a1c9f6": {
+   "file": "5adf0d81f5a1c9f6.mp3",
+   "text": "章节达成，进入 第六章 · 废土归属！",
+   "bytes": 69894,
+   "id": "chapter-clear-c6"
+  },
+  "038b5633ddd4caa8": {
+   "file": "038b5633ddd4caa8.mp3",
+   "text": "所有幸存者都已倒下，协议中断。",
+   "bytes": 56070,
+   "id": "gameover-allDown"
+  },
+  "b3646c045d72eecb": {
+   "file": "b3646c045d72eecb.mp3",
+   "text": "你们携手完成了全部章节，废土终于有了归属。",
+   "bytes": 77958,
+   "id": "gameover-coopClear"
+  },
+  "e7a5fb3a08cb67f2": {
+   "file": "e7a5fb3a08cb67f2.mp3",
+   "text": "你在废土中倒下，闯关终止。",
+   "bytes": 52614,
+   "id": "gameover-campaignOver"
+  },
+  "9ecef3abf84a1584": {
+   "file": "9ecef3abf84a1584.mp3",
+   "text": "三座导弹井同时上电 — 扩散协议解锁",
+   "bytes": 62406,
+   "id": "cutscene-alert"
+  },
+  "5295435dc110ba8f": {
+   "file": "5295435dc110ba8f.mp3",
+   "text": "阿尔法 · 布拉沃 · 查理 — 发射授权确认",
+   "bytes": 64710,
+   "id": "cutscene-keys"
+  },
+  "7a8dcee949c3cb5b": {
+   "file": "7a8dcee949c3cb5b.mp3",
+   "text": "落点锁定：棋盘中央 · 无可拦截",
+   "bytes": 62406,
+   "id": "cutscene-launch"
+  }
+ }
+}
