@@ -1,6 +1,5 @@
-// 桌面语音链（2026-09-03 应急）：
+// 桌面语音链：
 //   minimax = 全部走 MiniMax 在线 T2A（任务 / 过场 / 动态战报）
-//   local   = 仅 Kokoro（对照）
 //   voice   = 仅 MiniMax 预录
 // 系统 speechSynthesis 已停用。默认纯 MiniMax，不与其它引擎混播。
 import { cleanVoiceText as cleanText, voiceHash, VOICE_DIR, VOICE_MANIFEST_URL } from './voice-lines.js';
@@ -36,7 +35,6 @@ let debugHidden = true;
 try { if (localStorage.getItem('ttsDebugHidden') === '0') debugHidden = false; } catch (_) {}
 let cachedZhVoice = null;
 let browserVoicesHooked = false;
-let kokoroReady = false;
 let minimaxReady = false;
 let minimaxInfo = null;
 
@@ -48,7 +46,10 @@ function loadSourcePref() {
   try {
     const s = localStorage.getItem(SOURCE_STORAGE);
     if (s === 'voice') source = 'voice';
-    else source = 'minimax';
+    else {
+      source = 'minimax';
+      if (s === 'local') localStorage.setItem(SOURCE_STORAGE, 'minimax');
+    }
   } catch (_) {}
 }
 
@@ -62,7 +63,6 @@ function loadVoicePref() {
 
 function sourceOrder() {
   if (source === 'voice') return ['voice'];
-  if (source === 'local') return ['kokoro'];
   return ['minimax'];
 }
 
@@ -163,21 +163,6 @@ async function speakBrowser(text) {
   });
 }
 
-async function ensureKokoro() {
-  const desk = desktopApi();
-  if (!desk || !desk.kokoro) return false;
-  if (kokoroReady) return true;
-  try {
-    const info = await desk.kokoro.init();
-    kokoroReady = !!(info && info.ok);
-    if (!kokoroReady) console.warn('[TTS] Kokoro init 未就绪', info && info.error);
-    return kokoroReady;
-  } catch (e) {
-    console.warn('[TTS] Kokoro init 失败', e && e.message);
-    return false;
-  }
-}
-
 async function ensureMinimax() {
   const desk = desktopApi();
   if (!desk || !desk.minimax) return false;
@@ -195,78 +180,10 @@ async function ensureMinimax() {
   }
 }
 
-function pcmToWavBlob(pcm, sampleRate) {
-  const samples = pcm instanceof Float32Array
-    ? pcm
-    : Float32Array.from(pcm && pcm.length != null ? pcm : []);
-  const n = samples.length;
-  const buf = new ArrayBuffer(44 + n * 2);
-  const view = new DataView(buf);
-  const writeStr = (off, s) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
-  writeStr(0, 'RIFF');
-  view.setUint32(4, 36 + n * 2, true);
-  writeStr(8, 'WAVE');
-  writeStr(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeStr(36, 'data');
-  view.setUint32(40, n * 2, true);
-  let o = 44;
-  for (let i = 0; i < n; i++, o += 2) {
-    const s = Math.max(-1, Math.min(1, samples[i]));
-    view.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-  }
-  return new Blob([buf], { type: 'audio/wav' });
-}
-
-function wavToBlob(wav) {
-  if (!wav) return null;
-  let u8 = null;
-  if (wav instanceof Uint8Array) u8 = wav;
-  else if (wav instanceof ArrayBuffer) u8 = new Uint8Array(wav);
-  else if (Array.isArray(wav)) u8 = Uint8Array.from(wav);
-  else if (wav.data) u8 = Uint8Array.from(wav.data);
-  if (!u8 || u8.byteLength < 64) return null;
-  return new Blob([u8], { type: 'audio/wav' });
-}
-
-function kokoroSpeedFromUi(uiRate) {
-  if (uiRate <= 0.95) return 0.85;
-  if (uiRate >= 1.3) return 1.12;
-  return 0.95;
-}
-
 function minimaxSpeedFromUi(uiRate) {
   const n = Number(uiRate);
   if (!Number.isFinite(n)) return 1;
   return Math.max(0.5, Math.min(2, n));
-}
-
-async function speakKokoro(text) {
-  const desk = desktopApi();
-  if (!desk || !desk.kokoro) return false;
-  if (!(await ensureKokoro())) return false;
-  const result = await desk.kokoro.speak(text, { speed: kokoroSpeedFromUi(rate) });
-  if (!result) return false;
-  const blob = result instanceof Blob
-    ? result
-    : (result.blob instanceof Blob ? result.blob : wavToBlob(result.wav));
-  if (blob) {
-    lastEngine = 'kokoro';
-    await playBlob(blob);
-    return true;
-  }
-  if (result.pcm && result.sampleRate) {
-    lastEngine = 'kokoro';
-    await playBlob(pcmToWavBlob(result.pcm, result.sampleRate));
-    return true;
-  }
-  return false;
 }
 
 async function speakMinimax(text) {
@@ -344,11 +261,6 @@ async function speakOne(text) {
         if (ok) return;
         continue;
       }
-      if (eng === 'kokoro') {
-        const ok = await speakKokoro(text);
-        if (ok) return;
-        continue;
-      }
       if (eng === 'voice') {
         const ok = await speakVoice(text);
         if (ok) return;
@@ -370,7 +282,6 @@ export function initTTS() {
   loadSourcePref();
   loadVoicePref();
   if (source === 'minimax') ensureMinimax().catch(() => {});
-  else if (source === 'local') ensureKokoro().catch(() => {});
   else if (source === 'voice') loadVoiceManifest();
   try {
     console.warn('[TTS] initTTS 完成, source:', source, 'desktop:', !!desktopApi());
@@ -380,7 +291,6 @@ export function initTTS() {
 
 export function preloadTTS() {
   if (source === 'voice') loadVoiceManifest();
-  else if (source === 'local') ensureKokoro().catch(() => {});
   else ensureMinimax().catch(() => {});
   return Promise.resolve(true);
 }
@@ -395,11 +305,6 @@ export function ttsEngineStatus() {
       if (voicePackState === 'ready') return 'voice-ready';
       if (voicePackState === 'none') return 'voice-none';
       return 'voice-pending';
-    }
-    if (source === 'local') {
-      if (lastEngine === 'kokoro') return 'kokoro';
-      if (desktopApi() && desktopApi().kokoro) return kokoroReady ? 'kokoro-ready' : 'kokoro-pending';
-      return 'kokoro-missing';
     }
     if (lastEngine === 'minimax') return 'minimax';
     if (desktopApi() && desktopApi().minimax) return minimaxReady ? 'minimax-ready' : 'minimax-pending';
@@ -444,7 +349,6 @@ export function updateTtsDebugPanel() {
       <div>来源: ${source}</div>
       <div>MiniMax: ${desk && desk.minimax ? (minimaxReady ? '✓ ' + ((minimaxInfo && minimaxInfo.model) || 'online') : '…') : '✗ 非桌面'}</div>
       <div>音色: ${minimaxVoice}</div>
-      <div>Kokoro: ${desk && desk.kokoro ? (kokoroReady ? '✓' : '待命') : '✗'}</div>
       <div>Voice: ${voicePackState === 'ready' ? '✓ 预录' : '✗'}</div>
       <div>状态: ${status}</div>
       <div>LastEngine: ${lastEngine || '无'}</div>
@@ -459,7 +363,7 @@ export function updateTtsDebugPanel() {
 }
 
 export function setVoiceSource(s) {
-  if (s === 'minimax' || s === 'local' || s === 'voice' || s === 'auto') {
+  if (s === 'minimax' || s === 'voice' || s === 'auto') {
     source = s === 'auto' ? 'minimax' : s;
     lastEngine = '';
     try { localStorage.setItem(SOURCE_STORAGE, source); } catch (_) {}

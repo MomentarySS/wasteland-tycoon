@@ -48,10 +48,6 @@ function updateTtsStatus() {
     if (!el) return;
     const map = {
       disabled: '🔇 已关',
-      kokoro: '✓ 本地 TTS',
-      'kokoro-ready': '✓ 本地 TTS',
-      'kokoro-pending': '… 本地 TTS',
-      'kokoro-missing': '✗ 无本地 TTS',
       minimax: '✓ MiniMax',
       'minimax-ready': '✓ MiniMax',
       'minimax-pending': '… MiniMax',

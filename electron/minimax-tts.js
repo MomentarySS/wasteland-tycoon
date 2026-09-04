@@ -1,4 +1,4 @@
-// electron/minimax-tts.js —— 运行时 MiniMax T2A（纯云端，不走 Kokoro / 系统语音）
+// electron/minimax-tts.js —— 运行时 MiniMax T2A（纯云端）
 import { existsSync, readFileSync, mkdirSync, writeFileSync, readdirSync, unlinkSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

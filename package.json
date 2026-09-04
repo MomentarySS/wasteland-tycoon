@@ -16,14 +16,12 @@
     "voice:gen": "node scripts/gen-voice.mjs",
     "tts:minimax": "node scripts/test-minimax-tts.mjs",
     "desktop:dev": "node scripts/desktop-dev.mjs",
-    "desktop:build": "node scripts/build-desktop.mjs",
-    "desktop:build:lite": "node scripts/build-desktop.mjs --lite"
+    "desktop:build": "node scripts/build-desktop.mjs"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0",
-    "onnxruntime-node": "^1.19.2",
     "sharp": "^0.34.5"
   },
   "build": {
@@ -36,15 +34,6 @@
       "electron/**/*",
       "www/**/*",
       "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "electron/resources/tts-models",
-        "to": "tts-models",
-        "filter": [
-          "**/*"
-        ]
-      }
     ],
     "win": {
       "target": [
