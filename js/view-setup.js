@@ -5,12 +5,7 @@ import { getDifficultyPreset } from './difficulty.js';
 import {
   WASTELAND_EMOJI, slotAvatarHTML, getSlotAvatarStore
 } from './view-core.js';
-import {
-  getVoiceSource, getStepApiKey, getStepVoice, getStepInstruction,
-  setStepApiKey, setStepVoice, setStepInstruction, setVoiceSource,
-  STEP_VOICES, getEdgeVoice, setEdgeVoice, EDGE_VOICES
-} from './tts.js';
-import { escapeHtml } from './view-util.js';
+import { getVoiceSource, setVoiceSource, MINIMAX_VOICES, getMinimaxVoice, setMinimaxVoice } from './tts.js';
 import { showLegacyShop } from './view-legacy.js';
 
 export function buildSetup() {
@@ -43,9 +38,9 @@ export function buildSetup() {
   }
 
   const curSrc = getVoiceSource();
-  const curVoice = getStepVoice();
-  const voiceOpts = STEP_VOICES.map((v) =>
-    '<option value="' + escapeHtml(v.id) + '"' + (v.id === curVoice ? ' selected' : '') + '>' + escapeHtml(v.label) + '</option>'
+  const curVoice = getMinimaxVoice();
+  const voiceOpts = MINIMAX_VOICES.map((v) =>
+    '<option value="' + v.id.replace(/"/g, '&quot;') + '"' + (v.id === curVoice ? ' selected' : '') + '>' + v.label + '</option>'
   ).join('');
 
   setup.innerHTML =
@@ -80,28 +75,15 @@ export function buildSetup() {
     +     '<div class="optRow"><span>语音播报</span><select id="ttsOn"><option value="on" selected>开</option><option value="off">关</option></select></div>'
     +     '<div class="optRow"><span>播报语速</span><select id="ttsRate"><option value="0.9">慢</option><option value="1.05" selected>正常</option><option value="1.5">快</option></select></div>'
     +     '<div class="optRow"><span>语音来源</span><select id="ttsSrc">'
-    +       '<option value="auto"' + (curSrc === 'auto' ? ' selected' : '') + '>自动(在线优先)</option>'
-    +       '<option value="step"' + (curSrc === 'step' ? ' selected' : '') + '>阶跃在线</option>'
-    +       '<option value="edge"' + (curSrc === 'edge' ? ' selected' : '') + '>Edge 免费(需代理)</option>'
+    +       '<option value="minimax"' + (curSrc !== 'local' && curSrc !== 'voice' ? ' selected' : '') + '>MiniMax 在线（应急，全部播报）</option>'
+    +       '<option value="local"' + (curSrc === 'local' ? ' selected' : '') + '>仅本地 Kokoro</option>'
+    +       '<option value="voice"' + (curSrc === 'voice' ? ' selected' : '') + '>仅 MiniMax 预录</option>'
     +     '</select></div>'
-    +     '<div class="edgeNote dim">Edge 档说明：微软对大陆 IP 封锁了合成接口，需开代理才可用；连接失败会自动改用系统语音。</div>'
-    +     '<div class="optRow"><span>Edge 音色</span><select id="edgeVoice">' + EDGE_VOICES.map((v) =>
-          '<option value="' + v.id + '"' + (v.id === getEdgeVoice() ? ' selected' : '') + '>' + v.name + '</option>').join('') + '</select></div>'
-    +     '<div id="ttsPanelStep" class="ttsSubPanel">'
-    +       '<div class="ttsSubHead">// 阶跃在线设置</div>'
-    +       '<div class="optRow col2"><span>阶跃 API Key</span><input id="stepApiKey" class="nameIn" type="password" autocomplete="off" placeholder="Step Plan Key，仅存本机浏览器"></div>'
-    +       '<div class="optRow"><span>阶跃音色</span><select id="stepVoice">' + voiceOpts + '</select></div>'
-    +       '<div class="optRow col2"><span>播报风格</span><input id="stepInstruction" class="nameIn" placeholder="废土电台播报员…" maxlength="200"></div>'
-    +     '</div>'
-    +     '<div class="edgeNote dim" id="ttsPanelAutoNote">自动模式：有 Key → 阶跃在线；无 Key → 系统语音（即时，无需下载）。Key 仅存本机，请勿公开部署。</div>'
+    +     '<div class="optRow"><span>MiniMax 音色</span><select id="ttsVoice">' + voiceOpts + '</select></div>'
+    +     '<div class="edgeNote dim">默认全部走 MiniMax 在线 TTS。换音色后点顶部「测音」即可试听，选择会记住。</div>'
     +   '</div>'
     + '</div>'
     + '<button class="startBtn" id="startBtn">⚙ 启 动</button>';
-
-  const keyIn = document.getElementById('stepApiKey');
-  if (keyIn) keyIn.value = getStepApiKey();
-  const instrIn = document.getElementById('stepInstruction');
-  if (instrIn) instrIn.value = getStepInstruction();
 
   setup.querySelectorAll('.slotCard').forEach(card => {
     const i = +card.dataset.i;
@@ -155,19 +137,15 @@ export function buildSetup() {
   const legacyBtn = document.getElementById('legacyShopBtn');
   if (legacyBtn) legacyBtn.onclick = () => showLegacyShop();
 
-  function updateTtsPanels() {
-    const src = document.getElementById('ttsSrc') ? document.getElementById('ttsSrc').value : 'auto';
-    setVoiceSource(src);
-    const stepPanel = document.getElementById('ttsPanelStep');
-    const autoNote = document.getElementById('ttsPanelAutoNote');
-    if (stepPanel) stepPanel.style.display = (src === 'step' || src === 'auto') ? '' : 'none';
-    if (autoNote) autoNote.style.display = src === 'auto' ? '' : 'none';
-  }
-
   const ttsSrcSel = document.getElementById('ttsSrc');
   if (ttsSrcSel) {
-    ttsSrcSel.onchange = updateTtsPanels;
-    updateTtsPanels();
+    ttsSrcSel.onchange = () => setVoiceSource(ttsSrcSel.value);
+    setVoiceSource(ttsSrcSel.value);
+  }
+  const ttsVoiceSel = document.getElementById('ttsVoice');
+  if (ttsVoiceSel) {
+    ttsVoiceSel.onchange = () => setMinimaxVoice(ttsVoiceSel.value);
+    setMinimaxVoice(ttsVoiceSel.value);
   }
 
   function applyDifficultyForm(id) {
@@ -200,12 +178,6 @@ export function buildSetup() {
 export function applyTtsSetupFromForm() {
   const ttsSrc = document.getElementById('ttsSrc');
   if (ttsSrc) setVoiceSource(ttsSrc.value);
-  const keyIn = document.getElementById('stepApiKey');
-  if (keyIn) setStepApiKey(keyIn.value.trim());
-  const voiceSel = document.getElementById('stepVoice');
-  if (voiceSel) setStepVoice(voiceSel.value);
-  const edgeVoiceSel = document.getElementById('edgeVoice');
-  if (edgeVoiceSel) setEdgeVoice(edgeVoiceSel.value);
-  const instrIn = document.getElementById('stepInstruction');
-  if (instrIn) setStepInstruction(instrIn.value.trim());
+  const ttsVoice = document.getElementById('ttsVoice');
+  if (ttsVoice) setMinimaxVoice(ttsVoice.value);
 }

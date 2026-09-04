@@ -1,8 +1,8 @@
 // 预录语音共享模块：播报文案组装 + 音频寻址 hash。
-// 运行时（tts.js / view-modal.js）与生成脚本（scripts/gen-voice.mjs）共用同一套
-// 组装与 hash 逻辑——任何一侧文案改动都会导致 hash 失配，运行时查不到音频
-// 就静默回退到普通 TTS 引擎链，不会播错旧音频。
-// 纯函数、无 DOM 依赖，Node 与浏览器均可 import。
+// 运行时与 scripts/gen-voice.mjs 共用。文案改动后必须重录，否则 hash 失配静音。
+//
+// 电台只念「节目」：任务开场、选项结果、章节/结局/过场、少数地块氛围。
+// 不念账本：买地、交租、用卡、掷骰、带玩家名的战报。
 
 export const VOICE_DIR = 'assets/voice';
 export const VOICE_MANIFEST_URL = VOICE_DIR + '/manifest.json';
@@ -16,55 +16,65 @@ export function cleanVoiceText(s) {
     .trim();
 }
 
-// 播报文案组装（各调用点保持与 ttsSpeak 原始入参一字不差，清洗在 ttsSpeak 统一做）
+/** 拼接旁白：去尾标点再以句号连接，避免「物资。。救人」这种双句号进预录。 */
+function joinSpeakParts(...parts) {
+  const cleaned = parts
+    .map((p) => String(p || '').replace(/[。．.!?！？]+$/g, '').trim())
+    .filter(Boolean);
+  return cleaned.length ? cleaned.join('。') + '。' : '';
+}
 
+/** 任务开场：标题 + 故事 + 道德钩（不含选项按钮文案） */
 export function missionSpeakText(m) {
-  return m.title + (m.moral ? '。' + m.moral : '');
+  if (!m) return '';
+  return joinSpeakParts(m.title, m.story, m.moral);
+}
+
+/** 选项结算旁白：只读 JSON 的 result，不拼玩家名 */
+export function choiceResultSpeakText(choice) {
+  return (choice && choice.result) || '';
 }
 
 export function chapterSpeakText(intro) {
-  return intro.title + '。' + intro.story;
+  return joinSpeakParts(intro.title, intro.story);
 }
 
 export function endingSpeakText(e) {
   return e.log;
 }
 
-/** 上局结局→下局开场的叙事种子播报（formatNarrativeIntro 同款组装） */
 export function narrativeSpeakText(seed) {
   return seed ? `📖 ${seed.name}\n${seed.intro}` : '';
 }
 
-/** 章节达成进入下一章的播报（章节名来自 CAMPAIGNS 固定集） */
 export function chapterClearSpeakText(name) {
   return `📖 章节达成，进入 ${name}！`;
 }
 
-/** 无插值的终局固定播报（coop 全灭 / 合作通关 / 闯关倒下），game.js 直接引用 */
 export const GAMEOVER_LINES = {
   allDown: '所有幸存者都已倒下，协议中断。',
   coopClear: '📖 你们携手完成了全部章节，废土终于有了归属。',
   campaignOver: '💀 你在废土中倒下，闯关终止。',
 };
 
-// 核弹过场分镜数据：cutscene.js 负责演出，gen-voice.mjs 按 sub 生成预录旁白。
-// 过场只读 sub（title 是屏幕字幕装饰，不进语音）。
+/** 特殊格 / 发射确认：固定氛围句 */
+export const SET_PIECE_LINES = {
+  blackMarket: '你溜进黑市，能捞点什么？',
+  radiation: '盖革计数器狂响。深采回报高，浅采省成本但会污染声誉。',
+  bunker: '厚门后是无菌空气。休整恢复士气，或就地加固一处地产。',
+  nukeConfirm: '阿尔法、布拉沃、查理三井密钥已对齐，靶场锁定棋盘中央。发射后棋盘将被核平，无论当前战局输赢，你都将获得绝对胜利。',
+};
+
 export const NUKE_SCENES = [
   { id: 'alert', title: '战略警报 · ALERT', sub: '三座导弹井同时上电 — 扩散协议解锁', ms: 2000 },
   { id: 'keys', title: '发射密钥已对齐', sub: '阿尔法 · 布拉沃 · 查理 — 发射授权确认', ms: 2000 },
   { id: 'launch', title: '弹头离井', sub: '落点锁定：棋盘中央 · 无可拦截', ms: 1800 },
 ];
 
-/** 过场分镜旁白文案（只读 sub） */
 export function cutsceneSpeakText(scene) {
   return scene ? scene.sub : '';
 }
 
-/**
- * 音频寻址 hash：key = hash(voiceId + '|' + 清洗后的文案)。
- * 双 32 位混合（FNV-1a + 乘法散列）拼成 64 bit，sync 无 crypto 依赖，
- * 千级条目碰撞概率可忽略；换音色/改文案都会得到全新 key。
- */
 export function voiceHash(voice, text) {
   const bytes = new TextEncoder().encode(String(voice) + '|' + String(text));
   let h1 = 0x811c9dc5 >>> 0;

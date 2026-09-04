@@ -310,15 +310,6 @@ export function coinRain(n = 28) {
 const VIB = { light: 12, medium: [0, 26], heavy: [0, 42, 30, 42], win: [0, 60, 40, 60, 40, 90] };
 export function haptic(kind = 'light') {
   try {
-    const cap = globalThis.Capacitor;
-    const H = cap && cap.Plugins && cap.Plugins.Haptics;
-    if (H) {
-      if (kind === 'light') H.impact({ style: 'LIGHT' });
-      else if (kind === 'medium') H.impact({ style: 'MEDIUM' });
-      else if (kind === 'win' && typeof H.vibrate === 'function') H.vibrate({ timeMs: [0, 60, 40, 60, 40, 90] });
-      else H.impact({ style: 'HEAVY' });
-      return;
-    }
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
       navigator.vibrate(VIB[kind] || 12);
     }

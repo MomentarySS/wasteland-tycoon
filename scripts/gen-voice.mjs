@@ -20,9 +20,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  missionSpeakText, chapterSpeakText, endingSpeakText,
+  missionSpeakText, choiceResultSpeakText, chapterSpeakText, endingSpeakText,
   narrativeSpeakText, chapterClearSpeakText, cutsceneSpeakText, GAMEOVER_LINES, NUKE_SCENES,
-  cleanVoiceText, voiceHash, VOICE_DIR
+  SET_PIECE_LINES, cleanVoiceText, voiceHash, VOICE_DIR
 } from '../js/voice-lines.js';
 import { CAMPAIGNS, CHAPTER_INTROS, CAMPAIGN_ENDINGS } from '../js/campaign.js';
 import { NARRATIVE_SEEDS } from '../js/narrative.js';
@@ -70,36 +70,40 @@ const SPEED = parseFloat(getArg('--speed') || '') || DEFAULT_SPEED;
 function collectLines() {
   const events = JSON.parse(fs.readFileSync(path.join(ROOT, 'content/events.json'), 'utf8'));
   const lines = [];
+  const push = (group, id, text) => lines.push({ group, id, text });
+
   for (const deck of ['radio', 'manual', 'faction', 'ruins']) {
     for (const m of events[deck] || []) {
-      lines.push({ id: `mission-${deck}-${m.id}`, text: missionSpeakText(m) });
+      push('mission-intro', `mission-${deck}-${m.id}`, missionSpeakText(m));
+      (m.choices || []).forEach((c, i) => {
+        if (c.result) push('mission-result', `mission-${deck}-${m.id}-c${i}`, choiceResultSpeakText(c));
+      });
     }
   }
   CHAPTER_INTROS.forEach((block, ci) => {
     block.variants.forEach((v, vi) => {
-      lines.push({ id: `chapter-${ci}-${vi}`, text: chapterSpeakText(v) });
+      push('chapter', `chapter-${ci}-${vi}`, chapterSpeakText(v));
     });
   });
   CAMPAIGN_ENDINGS.forEach((e, i) => {
-    lines.push({ id: `ending-${i}`, text: endingSpeakText(e) });
+    push('ending', `ending-${i}`, endingSpeakText(e));
   });
-  // 上局结局→下局开场的叙事种子（7 种固定文案）
   Object.entries(NARRATIVE_SEEDS).forEach(([key, seed]) => {
-    lines.push({ id: `seed-${key}`, text: narrativeSpeakText(seed) });
+    push('seed', `seed-${key}`, narrativeSpeakText(seed));
   });
-  // 章节达成播报（章节名固定集）
   for (const c of CAMPAIGNS) {
-    lines.push({ id: `chapter-clear-${c.id}`, text: chapterClearSpeakText(c.name) });
+    push('chapter-clear', `chapter-clear-${c.id}`, chapterClearSpeakText(c.name));
   }
-  // 终局固定播报（coop 全灭 / 合作通关 / 闯关倒下）
   Object.entries(GAMEOVER_LINES).forEach(([key, text]) => {
-    lines.push({ id: `gameover-${key}`, text });
+    push('gameover', `gameover-${key}`, text);
   });
-  // 核弹过场旁白（分镜 sub）
   NUKE_SCENES.forEach((sc) => {
-    lines.push({ id: `cutscene-${sc.id}`, text: cutsceneSpeakText(sc) });
+    push('cutscene', `cutscene-${sc.id}`, cutsceneSpeakText(sc));
   });
-  // 清洗规则与运行时 ttsSpeak 完全一致，hash 才能对上
+  Object.entries(SET_PIECE_LINES).forEach(([key, text]) => {
+    push('set-piece', `setpiece-${key}`, text);
+  });
+
   return lines.map((l) => ({ ...l, text: cleanVoiceText(l.text) })).filter((l) => l.text);
 }
 
@@ -260,8 +264,19 @@ if (hasFlag('--manifest-only') || hasFlag('--as-is')) {
 if (hasFlag('--list')) {
   const lines = collectLines();
   const chars = lines.reduce((a, l) => a + l.text.length, 0);
-  for (const l of lines) console.log(`${l.id.padEnd(24)} ${l.text.length}字  ${l.text.slice(0, 36)}…`);
-  console.log(`\n共 ${lines.length} 条 / ${chars} 字（speech-2.8-hd 约 ¥${(chars / 10000 * 3.5).toFixed(2)}）`);
+  const groups = new Map();
+  for (const l of lines) {
+    if (!groups.has(l.group)) groups.set(l.group, []);
+    groups.get(l.group).push(l);
+  }
+  for (const [g, arr] of groups) {
+    const gc = arr.reduce((a, l) => a + l.text.length, 0);
+    console.log(`\n## ${g}  (${arr.length} 条 / ${gc} 字)`);
+    for (const l of arr) console.log(`  ${l.id.padEnd(32)} ${String(l.text.length).padStart(3)}字  ${l.text.slice(0, 42)}${l.text.length > 42 ? '…' : ''}`);
+  }
+  console.log(`\n共 ${lines.length} 条 / ${chars} 字`);
+  console.log('要录：任务开场（title+story+moral）、选项 result、章节/结局/种子/过场/地块氛围。');
+  console.log('不录：选项按钮 text、结算条数字、买地/交租/用卡等带玩家名的战报。');
   process.exit(0);
 }
 

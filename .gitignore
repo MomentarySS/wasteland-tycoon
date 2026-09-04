@@ -1,56 +1,27 @@
 node_modules/
-android/app/build/
-android/.gradle/
-android/build/
-android/local.properties
-*.apk
-*.aab
 .DS_Store
 Thumbs.db
-.step-api-key
-sherpa-onnx-wasm-simd-*.tar.bz2
-_sherpa_tmp/
-_ttslab_*.tar.bz2
-_ttslab_tmp/
-# 本地 TTS 试听页模型包（体积大，npm run download:tts-lab 获取）
-vendor/tts-lab/
+.release/
 release/
-# 生图/去水印流水线临时产物（正式资源在 assets/）
 generated-images/
+generated/
 .workbuddy/
-assets/brand/preview/
-*.orig.webp
-scripts/.cache/
-
-# JDK 17 本地副本（机器要求；其他人有环境就不需要）
-jdk17/
-jdk17.zip
-
-# ZCode 工作区缓存
 .zcode/
 .cursor/
-
-# 截图文件
-screen_*.png
-
-# 在线 TTS 生成产物（若存在）
-generated/
-
-# npm 启动/打包脚本的临时日志（开发调试用）
+*.orig.webp
+scripts/.cache/
+electron/resources/
+desktop-build/
+www/
 .start.log
 .pack.log
-
-# 素材替换前的备份（一次性，恢复后即可删除）
-assets_backup_*/
-
-# Capacitor 生成的构建产物（www 会在 ci/build 时同步）
-www/
-
-# 其他敏感 / 机器特定
+.step-api-key
 .minimax-api-key
 .minimax-group-id
-
-# MiniMax 预录语音试听产物（正式包在 assets/voice/，随仓库提交）
+.minimax-tts-cache/
+assets/brand/preview/
 assets/voice-audition/
-# 外部合成任务清单（派生物，npm run voice:export 重出）
 assets/voice/agent-tasks.json
+assets_backup_*/
+Kokoro v1.1-zh FP32/
+screen_*.png

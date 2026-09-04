@@ -87,5 +87,5 @@ export function applyTrade(tr) {
   a.caps -= gc; b.caps += gc; b.caps -= wc; a.caps += wc;
   aProps.forEach(t => t.owner = b.id);
   bProps.forEach(t => t.owner = a.id);
-  log(`交易成交：${a.name} ↔ ${b.name}`, true); sfx('buy'); render();
+  log(`交易成交：${a.name} ↔ ${b.name}`); sfx('buy'); render();
 }

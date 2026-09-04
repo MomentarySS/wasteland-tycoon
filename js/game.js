@@ -22,9 +22,9 @@ import { playTileLandFx } from './fx-events.js';
 import { applyLegacyToGame, getLegacyMeta, recordRun } from './legacy.js';
 import { rollMutators, applyMutators, resetMutatorFields } from './mutators.js';
 import { getNarrativeSeed, applyNarrativeStart, formatNarrativeIntro } from './narrative.js';
-import { setTtsEnabled, setTtsRate, unlockTts, cancelTts, preloadTTS, setVoiceSource, setStepApiKey, setStepVoice, setStepInstruction } from './tts.js';
+import { setTtsEnabled, setTtsRate, unlockTts, cancelTts, preloadTTS, setVoiceSource, setMinimaxVoice, ttsSpeak } from './tts.js';
 import { canLaunchNuke, tryNukeKeyFromChipFactory, launchNuke } from './nuke.js';
-import { narrativeSpeakText, chapterClearSpeakText, GAMEOVER_LINES } from './voice-lines.js';
+import { narrativeSpeakText, chapterClearSpeakText, GAMEOVER_LINES, choiceResultSpeakText } from './voice-lines.js';
 import { giveCard, randomCardId, applyForcedRoll } from './cards.js';
 
 export function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -94,7 +94,7 @@ async function moveTokenAnim(p, steps) {
   if (old + steps >= TILES_COUNT) {
     const salary = Math.floor(G.SALARY * (G.SALARY_MULT || 1));
     p.caps += salary; sfx('good');
-    log(`${p.name} 经过据点，补给 +${salary} 瓶盖`, true);
+    log(`${p.name} 经过据点，补给 +${salary} 瓶盖`);
     renderPlayers();
   }
 }
@@ -240,7 +240,7 @@ export function humanActionUI(p) {
 }
 
 export function startGame() {
-  // 用户点击「启动」→ 立即解锁音频通道，避免 Android WebView 首音静音
+  // 用户点击「启动」→ 解锁音频通道
   try {
     const ac = new (window.AudioContext || window.webkitAudioContext)();
     if (ac.state === 'suspended') ac.resume().catch(() => {});
@@ -253,17 +253,13 @@ export function startGame() {
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
     o.start(t); o.stop(t + 0.05);
   } catch (_) { /* ignore */ }
-  // 语音播报设置（点击「启动」本身即用户手势，可在此解锁语音）
+  // 语音播报（点击「启动」即用户手势，可在此解锁）
   const ttsOn = document.getElementById('ttsOn') ? document.getElementById('ttsOn').value === 'on' : true;
   const ttsRate = document.getElementById('ttsRate') ? document.getElementById('ttsRate').value : '1.05';
-  const ttsSrc = document.getElementById('ttsSrc') ? document.getElementById('ttsSrc').value : 'auto';
+  const ttsSrc = document.getElementById('ttsSrc') ? document.getElementById('ttsSrc').value : 'minimax';
+  const ttsVoice = document.getElementById('ttsVoice') ? document.getElementById('ttsVoice').value : '';
   setVoiceSource(ttsSrc);
-  const keyIn = document.getElementById('stepApiKey');
-  if (keyIn) setStepApiKey(keyIn.value.trim());
-  const voiceSel = document.getElementById('stepVoice');
-  if (voiceSel) setStepVoice(voiceSel.value);
-  const instrIn = document.getElementById('stepInstruction');
-  if (instrIn) setStepInstruction(instrIn.value.trim());
+  if (ttsVoice) setMinimaxVoice(ttsVoice);
   setTtsEnabled(ttsOn); setTtsRate(ttsRate); cancelTts();
   if (ttsOn) {
     unlockTts();
@@ -311,7 +307,7 @@ export function startGame() {
     resetMutatorFields(G);
     applyMutators(G, mutators);
     if (mutators.length) {
-      log('☢ 突变因子：' + mutators.map(m => `${m.icon} ${m.name}`).join(' · '), true);
+      log('☢ 突变因子：' + mutators.map(m => `${m.icon} ${m.name}`).join(' · '));
     }
   }
 
@@ -371,11 +367,11 @@ export function startGame() {
         t.price = Math.max(20, Math.floor(t.price * G.priceMult));
       }
     });
-    log(`💰 地产价格 ×${G.priceMult.toFixed(1)}`, true);
+    log(`💰 地产价格 ×${G.priceMult.toFixed(1)}`);
   }
 
   log(`${GAME_TITLE} 启动，幸存者已就位。` + (G.mode === 'campaign' || G.mode === 'coop' ? ` 进入${CAMPAIGNS[0].name}。` : (G.targetWealth > 0 ? ` 目标净身家 ${G.targetWealth} 盖。` : ''))
-    + ` 难度：${getDifficultyPreset(G.difficulty).label}。`, true);
+    + ` 难度：${getDifficultyPreset(G.difficulty).label}。`);
   render();
   if (typeof requestAnimationFrame === 'function') {
     requestAnimationFrame(() => { fitBoard(); repositionAllTokens(); });
@@ -445,7 +441,7 @@ export async function resolveTile(p, opts = {}) {
     if (t.owner === null) {
       // 「拍卖狂潮」突变：所有未购地产自动进入拍卖
       if (G.auctionAll) {
-        log(`🔨 拍卖狂潮：「${t.name}」自动进入拍卖`, true);
+        log(`🔨 拍卖狂潮：「${t.name}」自动进入拍卖`);
         await auction(t);
         if (p.isAI) { endTurn(opts.turnAt); return true; }
         afterHumanAction(p);
@@ -497,7 +493,8 @@ export async function resolveTile(p, opts = {}) {
       const chainTag = isNukeMission(m) ? '☢ 机密频道' : isFactionMission(m) ? '⚑ 派系任务' : m.deck === 'ruins' ? '⛏ 遗迹猎人' : isChainMission(m) ? '🔗 连锁任务' : '迷你任务';
       if (p.isAI) {
         const c = aiMission(p, m);
-        log(`${chainTag} // ${m.title}`, true);
+        log(`${chainTag} // ${m.title}`);
+        ttsSpeak(choiceResultSpeakText(c));
         applyMissionEffects(p, c.effects, m, c);
         if (c.effects && c.effects.warp) {
           if (!G.gameOver && !p.bankrupt) await resolveTile(p, { afterWarp: true });
@@ -512,15 +509,15 @@ export async function resolveTile(p, opts = {}) {
     // 道具卡「护盾」：抵挡本次税款
     if ((p.shield || 0) > 0) {
       p.shield--;
-      log(`🛡 护盾生效：${p.name} 免缴${t.name} ${amount}盖`, true); sfx('good');
+      log(`🛡 护盾生效：${p.name} 免缴${t.name} ${amount}盖`); sfx('good');
     } else {
-      log(`${p.name} 缴纳${t.name} ${amount}盖`, true); sfx('bad'); payCaps(p, amount, t.name);
+      log(`${p.name} 缴纳${t.name} ${amount}盖`); sfx('bad'); payCaps(p, amount, t.name);
       // 「免费停车彩金」突变：税款进入奖池
       if (G.jackpot && amount > 0) { G.jackpotPool = (G.jackpotPool || 0) + amount; log(`🎁 彩金池累积至 ${G.jackpotPool} 盖`); }
     }
   } else if (t.type === 'quarantine') {
     tileLandFx(p, 'quarantine');
-    enterJail(p); log(`${p.name} 被关进隔离区`, true); sfx('bad');
+    enterJail(p); log(`${p.name} 被关进隔离区`); sfx('bad');
     screenShake(1.1); haptic('heavy');
     render(); endTurn(opts.turnAt); return true;   // 返回 true 表示本回合已在此结束
   } else if (t.type === 'safe') {
@@ -532,7 +529,7 @@ export async function resolveTile(p, opts = {}) {
       // 「免费停车彩金」突变：踩安全格卷走奖池
       if (G.jackpot && (G.jackpotPool || 0) > 0) {
         p.caps += G.jackpotPool;
-        log(`🎁 免费停车彩金：${p.name} 卷走奖池 ${G.jackpotPool} 盖！`, true);
+        log(`🎁 免费停车彩金：${p.name} 卷走奖池 ${G.jackpotPool} 盖！`);
         G.jackpotPool = 0;
       }
       log(`${p.name} 在安全地带休整`); sfx('good');
@@ -634,7 +631,7 @@ function endTurn(turnAt) {
         log(chapterClearSpeakText(CAMPAIGNS[G.campaign].name), true);
         render();
         const decay = campaignDecayPerTurn(G.campaign);
-        if (decay > 0) log(`☢ 警告：本章起每回合废土衰减 -${decay} 盖（全员）`, true);
+        if (decay > 0) log(`☢ 警告：本章起每回合废土衰减 -${decay} 盖（全员）`);
         showChapterIntro(G.campaign, () => takeTurn(), human.moral || 0);
         return;
       }
@@ -690,8 +687,8 @@ function applyWastelandDecay() {
     if (p.caps < 0) bankrupt(p);
   }
   if (any) {
-    if (amount) log(`☢ 废土衰减：全员 -${amount} 盖`, true);
-    if (leak) log(`☢ 辐射泄漏：全员额外 -${leak} 盖`, true);
+    if (amount) log(`☢ 废土衰减：全员 -${amount} 盖`);
+    if (leak) log(`☢ 辐射泄漏：全员额外 -${leak} 盖`);
   }
 }
 /** 生存模式计算当前衰减等级 */
@@ -703,7 +700,7 @@ function survivalLose(p) {
   const survived = G.turn || 0;
   showWin(p.name, `生存 ${survived} 回合`);
   haptic('heavy');
-  log(`💀 你在第 ${survived} 回合倒下了。废土记住了你的名字。`, true);
+  log(`💀 你在第 ${survived} 回合倒下了。废土记住了你的名字。`);
 }
 function setGameEnd(kind, winnerId) {
   G.endKind = kind;
@@ -744,13 +741,13 @@ function equalizeWealth() {
   const avg = Math.floor(sum / alive.length);
   if (alive.every(p => p.caps === avg)) return;
   alive.forEach(p => { p.caps = avg; });
-  log(`⚖ 均富协议：本轮结束，全体现金均分为 ${avg} 盖`, true);
+  log(`⚖ 均富协议：本轮结束，全体现金均分为 ${avg} 盖`);
 }
 function gameWin(w) {
   G.gameOver = true; setGameEnd('win', w.id); render(); sfx('win');
   showWin(w.name);
   haptic('win');
-  log('协议终止。' + w.name + ' 是最后的赢家。', true);
+  log('协议终止。' + w.name + ' 是最后的赢家。');
   if (G.mode === 'legacy') recordLegacyRun();
 }
 /** 记录遗产模式对局 */
@@ -764,7 +761,7 @@ function recordLegacyRun() {
     chaptersCompleted: G.campaign || 0,
   });
   if (result && result.pointsEarned > 0) {
-    log(`📜 获得 ${result.pointsEarned} 遗产点（共 ${result.totalPoints}）`, true);
+    log(`📜 获得 ${result.pointsEarned} 遗产点（共 ${result.totalPoints}）`);
   }
 }
 function campaignWin(p) {

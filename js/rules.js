@@ -38,14 +38,14 @@ export function enterJail(p) {
 
 export function buy(p, t) {
   if (t.owner != null || p.caps < t.price) return;
-  p.caps -= t.price; t.owner = p.id; sfx('buy'); log(`${p.name} 占领「${t.name}」 (-${t.price}盖)`, true); render();
+  p.caps -= t.price; t.owner = p.id; sfx('buy'); log(`${p.name} 占领「${t.name}」 (-${t.price}盖)`); render();
   playTileBuildFx(t.id, 'buy');
 }
 export function upgrade(p, t, free) {
   if (t.type !== 'prop' || t.level >= 2 || t.owner !== p.id) return;
   if (!free && p.caps < t.price) return;
   if (!free) p.caps -= t.price;
-  t.level++; sfx('buy'); log(`${p.name} 强化「${t.name}」至 L${t.level}${free ? '（免费）' : ''}`, true); render();
+  t.level++; sfx('buy'); log(`${p.name} 强化「${t.name}」至 L${t.level}${free ? '（免费）' : ''}`); render();
   playTileBuildFx(t.id, 'upgrade');
   floatUpgrade(t.id, t.level);
 }
@@ -85,7 +85,7 @@ export function payRent(p, t) {
   }
   // 「双倍租金」突变
   r = Math.floor(r * (G.rentMult || 1));
-  p.caps -= r; o.caps += r; sfx('rent'); log(`${p.name} 向 ${o.name} 缴租 ${r}盖`, true);
+  p.caps -= r; o.caps += r; sfx('rent'); log(`${p.name} 向 ${o.name} 缴租 ${r}盖`);
   // 「免费停车彩金」突变：租金进入奖池
   if (G.jackpot) G.jackpotPool = (G.jackpotPool || 0) + r;
   // 「血债血偿」：记下这笔记号，等对方下次踩你的地
@@ -99,7 +99,7 @@ export function payCaps(p, amount, reason) {
   if (p.caps < 0) bankrupt(p);
 }
 export function bankrupt(p, creditor) {
-  p.bankrupt = true; sfx('bad'); log(`💀 ${p.name} 破产出局！`, true);
+  p.bankrupt = true; sfx('bad'); log(`💀 ${p.name} 破产出局！`);
   if (creditor && creditor.id !== p.id) {
     TILES.forEach(t => {
       if ((t.type === 'prop' || t.type === 'rail' || t.type === 'util') && t.owner === p.id) t.owner = creditor.id;
@@ -125,7 +125,7 @@ export async function auction(t) {
   }
   if (best && bestBid > 0 && best.caps >= bestBid) {
     best.caps -= bestBid; t.owner = best.id; t.level = 0; t.mortgaged = false;
-    log(`${best.name} 拍卖购得「${t.name}」 -${bestBid}盖`, true); sfx('buy');
+    log(`${best.name} 拍卖购得「${t.name}」 -${bestBid}盖`); sfx('buy');
     playTileBuildFx(t.id, 'buy');
   } else log(`「${t.name}」拍卖流标，归银行`);
   render();
@@ -165,7 +165,7 @@ export function applyMissionEffects(p, eff, mission, choice) {
   if (eff.getOut) { p.getOut = (p.getOut || 0) + eff.getOut; log(`${p.name} 获得 ${eff.getOut} 张免罚通行证`); }
   // 事件奖励：直接发放指定道具卡
   if (eff.card) {
-    if (giveCard(p, eff.card)) log(`🃏 ${p.name} 获得「${cardName(eff.card)}」`, true);
+    if (giveCard(p, eff.card)) log(`🃏 ${p.name} 获得「${cardName(eff.card)}」`);
   }
   if (eff.skip) { p.skipNext = true; log(`${p.name} 下回合无法行动`); }
   if (eff.upgrade) {
@@ -180,11 +180,11 @@ export function applyMissionEffects(p, eff, mission, choice) {
   }
   if (eff.rep && typeof eff.rep === 'object') {
     const parts = addFactionRep(p, eff.rep, FACTION_LABELS);
-    if (parts.length) log(`${p.name} 派系声望 ${parts.join(' ')}`, true);
+    if (parts.length) log(`${p.name} 派系声望 ${parts.join(' ')}`);
   }
   if (mission) markMissionDone(p, mission);
   if (mission && mission.deck === 'manual') tryGrantNukeKey(p, 'manual');
-  if (choice && choice.result) log(`${p.name}：${choice.result}`, true);
+  if (choice && choice.result) log(`${p.name}：${choice.result}`);
 }
 
 export function aiMission(p, m) {
@@ -198,18 +198,18 @@ export function warp(p) {
   const base = 1 + Math.floor(Math.random() * (TILES_COUNT - 1));
   const dest = (p.pos + Math.floor(base * (G.warpMult || 1))) % TILES_COUNT;
   p.pos = dest; placeToken(p, dest); setActiveTile(dest); landDust(p);
-  log(`${p.name} 被卷入虫洞，传送到「${TILES[dest].name}」`, true);
+  log(`${p.name} 被卷入虫洞，传送到「${TILES[dest].name}」`);
   sfx('event'); screenShake(0.5); haptic('medium');
 }
-export function oasis(p) { gain(p, 25); sfx('good'); log(`${p.name} 在绿洲休整，补给 +25 盖`, true); }
+export function oasis(p) { gain(p, 25); sfx('good'); log(`${p.name} 在绿洲休整，补给 +25 盖`); }
 export function bounty(p) {
   const alive = G.players.filter(x => !x.bankrupt);
   const richest = alive.reduce((a, b) => netWorth(b) > netWorth(a) ? b : a);
-  if (richest.id === p.id) { gain(p, 100); log(`${p.name} 是头号通缉目标，领取赏金 +100 盖`, true); }
+  if (richest.id === p.id) { gain(p, 100); log(`${p.name} 是头号通缉目标，领取赏金 +100 盖`); }
   else {
     const fee = Math.min(60, p.caps);
     p.caps -= fee; richest.caps += fee; sfx('rent');
-    log(`${p.name} 被${richest.name}悬赏追猎，缴纳 ${fee} 盖`, true);
+    log(`${p.name} 被${richest.name}悬赏追猎，缴纳 ${fee} 盖`);
     if (p.caps < 0) bankrupt(p, richest);
   }
 }
@@ -219,7 +219,7 @@ export function blackMarketSteal(p) {
   if (!pool.length) { log(`${p.name} 黑市无隙可乘`); return; }
   const t = pool[Math.floor(Math.random() * pool.length)];
   p.caps -= 80; t.owner = p.id; t.level = 0; sfx('buy');
-  log(`${p.name} 黑市偷袭，抢下「${t.name}」(-80盖)`, true);
+  log(`${p.name} 黑市偷袭，抢下「${t.name}」(-80盖)`);
   tryGrantNukeKey(p, 'blackmarket_steal');
 }
 export function blackMarketCard(p) {
@@ -236,7 +236,7 @@ export function blackMarketBuyCard(p) {
   p.caps -= 120;
   giveCard(p, id);
   sfx('buy');
-  log(`${p.name} 在黑市淘到「${cardName(id)}」(-120盖)`, true);
+  log(`${p.name} 在黑市淘到「${cardName(id)}」(-120盖)`);
   tryGrantNukeKey(p, 'blackmarket_card');
 }
 export function aiBlackMarket(p) {
@@ -288,14 +288,14 @@ export function radiationMine(p, deep) {
   if (p.bankrupt) return;
   if (deep) {
     gain(p, 150);
-    log(`${p.name} 深采辐射矿，高风险高回报`, true);
+    log(`${p.name} 深采辐射矿，高风险高回报`);
     tryGrantNukeKey(p, 'radiation_deep');
   } else {
     gain(p, 70);
     p.moral = (p.moral || 0) - 1;
     log(`${p.name} 道德值 -1（现 ${p.moral}）`);
     tryGrantNukeKey(p, 'radiation_shallow');
-    log(`${p.name} 浅采辐射矿`, true);
+    log(`${p.name} 浅采辐射矿`);
   }
   sfx('bad');
   screenShake(0.6);
@@ -311,7 +311,7 @@ export function aiRadiation(p) {
 export function bunkerRest(p) {
   gain(p, 35);
   p.moral = (p.moral || 0) + 1;
-  log(`${p.name} 在掩体休整，道德值 +1（现 ${p.moral}）`, true);
+  log(`${p.name} 在掩体休整，道德值 +1（现 ${p.moral}）`);
   sfx('good');
 }
 
@@ -320,10 +320,10 @@ export function bunkerFortify(p) {
   if (c.length) {
     const t = c[Math.floor(Math.random() * c.length)];
     upgrade(p, t, true);
-    log(`${p.name} 在掩体内免费加固「${t.name}」`, true);
+    log(`${p.name} 在掩体内免费加固「${t.name}」`);
   } else {
     gain(p, 20);
-    log(`${p.name} 掩体应急补给 +20 盖`, true);
+    log(`${p.name} 掩体应急补给 +20 盖`);
   }
   sfx('good');
 }

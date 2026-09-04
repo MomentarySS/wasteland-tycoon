@@ -119,11 +119,11 @@ export async function playCutscene(scenes, opts) {
         subEl.classList.add('in');
       }
       sfx('tick');
-      // 旁白：只走预录包（无包时立即 resolve，分镜节奏不变）；语音没播完则续等，点击过场层可跳过
+      // 旁白：与游戏内同一条 TTS 链（默认本地 Kokoro）；没播完则续等，点击过场层可跳过
       const voiceP = ttsSpeakPrerecorded(cutsceneSpeakText(sc));
       await waitOrSkip(Math.max(420, (sc.ms || 1600) * speed), skip);
       if (!skip.flag) {
-        await Promise.race([voiceP, waitOrSkip(60000, skip)]);
+        await Promise.race([voiceP, waitOrSkip(12000, skip)]);
       }
       if (skip.flag && titleEl) titleEl.textContent = sc.title;
     }

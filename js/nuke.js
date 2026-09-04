@@ -85,7 +85,7 @@ export function tryGrantNukeKey(p, source) {
   if (chance <= 0 || Math.random() >= chance) return false;
   addPlayerFlags(p, [need]);
   const hint = SOURCE_HINT[source] || '废土深处';
-  log(`☢ ${p.name} 在${hint}截获发射密钥 ${KEY_LABEL[need] || need}`, true);
+  log(`☢ ${p.name} 在${hint}截获发射密钥 ${KEY_LABEL[need] || need}`);
   return true;
 }
 
@@ -123,7 +123,7 @@ export async function launchNuke(p) {
   setActionsHTML('');
   const modal = document.getElementById('modal');
   if (modal) modal.style.display = 'none';
-  log(`☢ ${p.name} 启动三座导弹井，靶场锁定棋盘中央！`, true);
+  log(`☢ ${p.name} 启动三座导弹井，靶场锁定棋盘中央！`);
   render();
   sfx('nukeLaunch');
   await sleep(NUKE_LAUNCH_SFX_MS);
@@ -132,7 +132,7 @@ export async function launchNuke(p) {
   await playNukeStrike();
   showNukeWin(p.name);
   haptic('heavy');
-  log(`☢ 蘑菇云在阿帕拉契亚升起——无论战局如何，${p.name} 以绝对火力终结协议。`, true);
+  log(`☢ 蘑菇云在阿帕拉契亚升起——无论战局如何，${p.name} 以绝对火力终结协议。`);
   // 遗产模式：核弹结局同样结算遗产点（awardLegacyPoints 对 nuke 有 +100）
   if (G.mode === 'legacy') {
     const human = G.players.find(x => !x.isAI) || G.players[0];
@@ -144,7 +144,7 @@ export async function launchNuke(p) {
       chaptersCompleted: G.campaign || 0,
     });
     if (result && result.pointsEarned > 0) {
-      log(`📜 获得 ${result.pointsEarned} 遗产点（共 ${result.totalPoints}）`, true);
+      log(`📜 获得 ${result.pointsEarned} 遗产点（共 ${result.totalPoints}）`);
     }
   }
   return true;

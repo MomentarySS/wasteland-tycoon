@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Game theme: wasteland dark -->
-    <color name="colorPrimary">#14181a</color>
-    <color name="colorPrimaryDark">#0c0e0d</color>
-    <color name="colorAccent">#c9a227</color>
-</resources>

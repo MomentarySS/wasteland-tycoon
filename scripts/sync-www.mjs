@@ -8,10 +8,14 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = join(HERE, '..');
 const DST = join(SRC, 'www');
 const INCLUDE = new Set([
-  'index.html', 'manifest.json', 'service-worker.js',
-  'logo.svg', 'icon.svg', 'icon-192.png', 'icon-512.png',
-  'css', 'js', 'content', 'vendor', 'assets'
+  'index.html', 'logo.svg', 'icon.svg',
+  'css', 'js', 'content', 'assets'
 ]);
+
+function rmQuiet(p) {
+  try { rmSync(p, { recursive: true, force: true }); }
+  catch (e) { console.warn('  跳过无法删除:', p, e && e.code); }
+}
 
 function cpFiltered(from, to) {
   mkdirSync(to, { recursive: true });
@@ -31,13 +35,13 @@ function pruneMirror(from, to) {
   for (const name of readdirSync(to)) {
     // 历史拷贝的流水线备份文件一律清除（源文件存在但被 cpFiltered 排除）
     if (name.endsWith('.orig.webp')) {
-      rmSync(join(to, name), { recursive: true, force: true });
+      rmQuiet(join(to, name));
       continue;
     }
     const srcPath = join(from, name);
     const dstPath = join(to, name);
     if (!existsSync(srcPath)) {
-      rmSync(dstPath, { recursive: true, force: true });
+      rmQuiet(dstPath);
       continue;
     }
     if (statSync(srcPath).isDirectory() && statSync(dstPath).isDirectory()) {
@@ -51,7 +55,7 @@ function pruneTopLevel() {
   if (!existsSync(DST)) return;
   for (const name of readdirSync(DST)) {
     if (INCLUDE.has(name) && existsSync(join(SRC, name))) continue;
-    rmSync(join(DST, name), { recursive: true, force: true });
+    rmQuiet(join(DST, name));
   }
 }
 

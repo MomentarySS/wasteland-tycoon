@@ -82,25 +82,25 @@ export function canUseCard(p, id) {
 
 export function applyPass(p) {
   p.getOut = (p.getOut || 0) + 1;
-  log(`🎁 ${p.name} 使用通行证，获得 1 张出狱卡`, true);
+  log(`🎁 ${p.name} 使用通行证，获得 1 张出狱卡`);
   return true;
 }
 
 export function applyMarch(p) {
   p.marchBonus = (p.marchBonus || 0) + 2;
-  log(`🏃 ${p.name} 使用急行军，本回合掷骰 +2 步`, true);
+  log(`🏃 ${p.name} 使用急行军，本回合掷骰 +2 步`);
   return true;
 }
 
 export function applyShield(p) {
   p.shield = (p.shield || 0) + 1;
-  log(`🛡 ${p.name} 展开护盾，下次被收租/缴税全额免除`, true);
+  log(`🛡 ${p.name} 展开护盾，下次被收租/缴税全额免除`);
   return true;
 }
 
 export function applyPardon(p) {
   p.moral = (p.moral || 0) + 2;
-  log(`🕊 ${p.name} 使用特赦令，道德 +2（现 ${p.moral}）`, true);
+  log(`🕊 ${p.name} 使用特赦令，道德 +2（现 ${p.moral}）`);
   return true;
 }
 
@@ -110,7 +110,7 @@ export function applyPlunder(p) {
   const richest = targets.reduce((a, b) => (b.caps > a.caps ? b : a));
   const amount = Math.min(100, Math.max(richest.caps, 0));
   richest.caps -= amount; p.caps += amount;
-  log(`💸 ${p.name} 掠夺了 ${richest.name} ${amount} 盖！`, true);
+  log(`💸 ${p.name} 掠夺了 ${richest.name} ${amount} 盖！`);
   return amount > 0;
 }
 
@@ -118,7 +118,7 @@ export function applyDeed(p) {
   const t = TILES[p.pos];
   if (!t || (t.type !== 'prop' && t.type !== 'rail' && t.type !== 'util') || t.owner != null) return false;
   t.owner = p.id; t.mortgaged = false;
-  log(`🏴 ${p.name} 使用购地卡，免费获得「${t.name}」！`, true);
+  log(`🏴 ${p.name} 使用购地卡，免费获得「${t.name}」！`);
   return true;
 }
 
@@ -126,7 +126,7 @@ export function applyDemolish(p, tile) {
   if (!tile || tile.owner == null || tile.owner === p.id || (tile.level || 0) <= 0) return false;
   const ownerName = G.players[tile.owner] ? G.players[tile.owner].name : '?';
   tile.level -= 1;
-  log(`💣 ${p.name} 用拆迁令拆毁 ${ownerName} 的「${tile.name}」→ Lv${tile.level}`, true);
+  log(`💣 ${p.name} 用拆迁令拆毁 ${ownerName} 的「${tile.name}」→ Lv${tile.level}`);
   return true;
 }
 
@@ -135,7 +135,7 @@ export function applySwap(p, myTile, theirTile) {
   const theirOwner = G.players[theirTile.owner];
   myTile.owner = theirTile.owner;
   theirTile.owner = p.id;
-  log(`🔄 ${p.name} 用换地卡：「${myTile.name}」 ⇄ ${theirOwner ? theirOwner.name + ' 的' : ''}「${theirTile.name}」`, true);
+  log(`🔄 ${p.name} 用换地卡：「${myTile.name}」 ⇄ ${theirOwner ? theirOwner.name + ' 的' : ''}「${theirTile.name}」`);
   return true;
 }
 
@@ -146,7 +146,7 @@ export function applyEqualizer(p) {
   const avg = Math.floor(sum / alive.length);
   if (alive.every(x => x.caps === avg)) return false;
   alive.forEach(x => { x.caps = avg; });
-  log(`⚖ ${p.name} 使用均富卡！全体现金均分为 ${avg} 盖`, true);
+  log(`⚖ ${p.name} 使用均富卡！全体现金均分为 ${avg} 盖`);
   return true;
 }
 
@@ -154,7 +154,7 @@ export function applyEqualizer(p) {
 export function applyRemoteDice(p, sum) {
   const v = Math.min(12, Math.max(2, sum | 0));
   G.forcedRoll = v;
-  log(`🎲 ${p.name} 使用遥控骰，下一次掷骰锁定为 ${v} 点`, true);
+  log(`🎲 ${p.name} 使用遥控骰，下一次掷骰锁定为 ${v} 点`);
   return true;
 }
 

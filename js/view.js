@@ -48,21 +48,23 @@ function updateTtsStatus() {
     if (!el) return;
     const map = {
       disabled: '🔇 已关',
-      capacitor: '✓ 原生语音',
-      'capacitor-ready': '✓ 原生语音就绪',
-      step: '✓ 阶跃在线',
-      edge: '✓ Edge语音',
-      'edge-ready': '✓ Edge在线',
-      'step-ready': '✓ 阶跃就绪',
-      browser: '✓ 系统语音',
-      'browser-ready': '✓ 系统语音',
-      'no-key': '⚠ 未填 Key',
+      kokoro: '✓ 本地 TTS',
+      'kokoro-ready': '✓ 本地 TTS',
+      'kokoro-pending': '… 本地 TTS',
+      'kokoro-missing': '✗ 无本地 TTS',
+      minimax: '✓ MiniMax',
+      'minimax-ready': '✓ MiniMax',
+      'minimax-pending': '… MiniMax',
+      'minimax-missing': '✗ 无 MiniMax',
+      voice: '✓ 预录',
+      'voice-ready': '✓ 预录就绪',
+      'voice-pending': '… 预录',
+      'voice-none': '✗ 无预录',
       pending: '待加载…',
       none: '无语音'
     };
     const status = ttsEngineStatus();
     el.textContent = map[status] || '';
-    console.warn('[UI] updateTtsStatus:', status, '=>', el.textContent);
     try { updateTtsDebugPanel(); } catch (_) {}
   } catch (e) {
     console.warn('[UI] updateTtsStatus 异常:', e && e.message);
@@ -97,6 +99,7 @@ export function wireTopButtons() {
         const engine = await testTts();
         console.warn('[UI] testTts 完成，引擎:', engine);
         updateTtsStatus();
+        if (!engine) testBtn.textContent = '未出声';
       } catch (e) {
         console.warn('[UI] testTts 异常:', e && e.message);
       }
@@ -108,6 +111,10 @@ export function wireTopButtons() {
   }
   updateTtsStatus();
   ttsStatusTimer = setInterval(updateTtsStatus, 3000);
+  if (!window.__wastelandTtsStatusHooked) {
+    window.__wastelandTtsStatusHooked = true;
+    window.addEventListener('wasteland-tts-changed', updateTtsStatus);
+  }
   const sb = document.getElementById('saveBtn'); if (sb) sb.onclick = saveGame;
   const lb = document.getElementById('loadBtn'); if (lb) lb.onclick = loadGame;
   const rb = document.getElementById('restartBtn'); if (rb) rb.onclick = restart;

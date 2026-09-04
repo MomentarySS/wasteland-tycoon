@@ -9,8 +9,8 @@ import { TILES } from './data.js';
 import { sfx } from './audio.js';
 import { flashScreen, screenShake, haptic, coinRain } from './fx.js';
 import { playEventIntro, showChoiceResult, formatChoiceResult } from './fx-events.js';
-import { ttsSpeak } from './tts.js';
-import { missionSpeakText, chapterSpeakText } from './voice-lines.js';
+import { ttsSpeak, cancelTts } from './tts.js';
+import { missionSpeakText, chapterSpeakText, choiceResultSpeakText, SET_PIECE_LINES } from './voice-lines.js';
 import { escapeHtml } from './view-util.js';
 import { getChapterIntro, getCampaignEnding } from './campaign.js';
 import { isChainMission, isFactionMission, isNukeMission } from './missions.js';
@@ -37,7 +37,11 @@ export function openModal(html, opts) {
   if (o.bad) modalBox.classList.add('badEvt');
 }
 
-export function closeModal() { modal.style.display = 'none'; }
+export function closeModal() {
+  if (!modal) return;
+  modal.style.display = 'none';
+  modal.classList.remove('open');
+}
 
 export function showWin(name, sub) {
   const box = winEl ? winEl.querySelector('.box') : null;
@@ -91,6 +95,7 @@ export function showNukeLaunchConfirm(p, onCancel) {
   openModal(html, { bad: true });
   screenShake(0.5);
   haptic('medium');
+  ttsSpeak(SET_PIECE_LINES.nukeConfirm);
   document.getElementById('nukeGo').onclick = () => { closeModal(); void launchNuke(p); };
   document.getElementById('nukeWait').onclick = () => {
     closeModal();
@@ -134,6 +139,8 @@ export function showMission(m, p) {
         if (b) b.disabled = true;
       });
       const summary = formatChoiceResult(c.effects);
+      cancelTts();
+      ttsSpeak(choiceResultSpeakText(c));
       await showChoiceResult(modalBox, summary, m.bad, null);
       closeModal();
       // 坏事件有闪屏/震动特效，稍作等待避免 modal 与 render() 在同一帧内切换造成闪屏
@@ -264,6 +271,7 @@ export function showBlackMarket(p) {
     </div>`;
   openModal(html);
   haptic('medium');
+  ttsSpeak(SET_PIECE_LINES.blackMarket);
   document.getElementById('bmSteal').onclick = () => {
     closeModal(); blackMarketSteal(p); render();
     if (canLaunchNuke(p)) showNukeLaunchConfirm(p, () => afterHumanAction(p));
@@ -295,6 +303,7 @@ export function showRadiation(p) {
     </div>`;
   openModal(html);
   haptic('medium');
+  ttsSpeak(SET_PIECE_LINES.radiation);
   document.getElementById('radDeep').onclick = () => {
     closeModal(); radiationMine(p, true); render();
     if (canLaunchNuke(p)) showNukeLaunchConfirm(p, () => afterHumanAction(p));
@@ -320,6 +329,7 @@ export function showBunker(p) {
     </div>`;
   openModal(html);
   haptic('medium');
+  ttsSpeak(SET_PIECE_LINES.bunker);
   document.getElementById('bkRest').onclick = () => { closeModal(); bunkerRest(p); render(); afterHumanAction(p); };
   document.getElementById('bkFort').onclick = () => { closeModal(); bunkerFortify(p); render(); afterHumanAction(p); };
   document.getElementById('bkLeave').onclick = () => { closeModal(); afterHumanAction(p); };
