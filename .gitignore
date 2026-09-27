@@ -20,6 +20,22 @@ www/
 .mimo-api-key
 .minimax-group-id
 .minimax-tts-cache/
+
+# Local environment files and credentials (never commit these)
+.env
+.env.*
+!.env.example
+*.local
+*.secret
+*.secrets
+*.pem
+*.p12
+*.pfx
+*.key
+*.crt
+*.cer
+.npmrc
+
 assets/brand/preview/
 assets/voice-audition/
 assets/voice/agent-tasks.json
