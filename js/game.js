@@ -16,8 +16,8 @@ import { CAMPAIGNS, evaluateCampaign, campaignCount, campaignDecayPerTurn } from
 import { applyDifficulty, getDifficultyPreset } from './difficulty.js';
 import { pickMission, isChainMission, isFactionMission, isNukeMission } from './missions.js';
 import { sfx, NUKE_LAUNCH_SFX_MS } from './audio.js';
-import { rollDice3D, hopToken, landDust, haptic, screenShake, footprint } from './fx.js';
-import { playTileLandFx } from './fx-events.js';
+import { rollDice3D, hopToken, landDust, haptic, screenShake, footprint, pathGhost } from './fx.js';
+import { formatChoiceResult, playTileLandFx, showEventSummary } from './fx-events.js';
 // playNukeCutscene / playNukeStrike 已随 launchNuke 迁至 nuke.js
 import { applyLegacyToGame, getLegacyMeta, recordRun } from './legacy.js';
 import { rollMutators, applyMutators, resetMutatorFields } from './mutators.js';
@@ -70,6 +70,7 @@ async function moveTokenAnim(p, steps) {
     p.pos = (old + i) % TILES_COUNT;
     leanToken(p, from, p.pos);
     footprint(p, from);
+    pathGhost(p, from, p.pos);
     if (typeof placeToken === 'function') {
       if (metrics) placeToken(p, p.pos, metrics);
       else placeToken(p, p.pos);
@@ -481,6 +482,7 @@ export async function resolveTile(p, opts = {}) {
       if (!p.isAI) { afterHumanAction(p); return; }
     } else { payRent(p, t); }
   } else if (t.type === 'event') {
+    const eventTileId = p.pos;
     tileLandFx(p, 'event');
     // 突变/叙事种子调整坏事件概率（尸潮频发 +30%、暴君余波 +30%、仁心传承 -30% 等）
     const badP = Math.min(0.6, Math.max(0.05, 0.30 + (G.badEventBonus || 0) - (G.goodEventBonus || 0)));
@@ -490,6 +492,7 @@ export async function resolveTile(p, opts = {}) {
     if (!m) {
       // 牌堆任务全部 once 且已完成：播放空频道提示，回合照常继续（不重放、不重复结算）
       log(`${p.name} 调频到空频道，只有杂音…`);
+      showEventSummary(eventTileId, '频道杂音');
       sfx('event');
     } else {
       const chainTag = isNukeMission(m) ? '☢ 机密频道' : isFactionMission(m) ? '⚑ 派系任务' : m.deck === 'ruins' ? '⛏ 遗迹猎人' : isChainMission(m) ? '🔗 连锁任务' : '迷你任务';
@@ -499,11 +502,13 @@ export async function resolveTile(p, opts = {}) {
         ttsSpeak(choiceResultSpeakText(c));
         applyMissionEffects(p, c.effects, m, c);
         if (c.effects && c.effects.warp) {
+          showEventSummary(eventTileId, formatChoiceResult(c.effects), m.bad);
           if (!G.gameOver && !p.bankrupt) await resolveTile(p, { afterWarp: true });
           return;
         }
         sfx(m.bad ? 'bad' : 'good'); render();
-      } else { render(); showMission(m, p); return; }
+        showEventSummary(eventTileId, formatChoiceResult(c.effects), m.bad);
+      } else { render(); showMission(m, p, { tileId: eventTileId }); return; }
     }
   } else if (t.type === 'tax') {
     tileLandFx(p, 'tax');

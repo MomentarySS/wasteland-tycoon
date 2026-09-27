@@ -203,11 +203,11 @@ export function playTileBuildFx(tileId, kind = 'buy', label = '', ownerColor = '
 }
 
 /** 在事件发生位置显示短标签，让粒子动效对应到具体结果。 */
-function showFxLabel(x, y, text, tone = 'event', staticMotion = false) {
+function showFxLabel(x, y, text, tone = 'event', staticMotion = false, extraClass = '') {
   const layer = fxLayer();
   if (!layer || !text) return;
   const d = document.createElement('div');
-  d.className = `fxLabel fxLabel-${tone}`;
+  d.className = `fxLabel fxLabel-${tone}${extraClass ? ' ' + extraClass : ''}`;
   d.textContent = text;
   d.style.left = `${x}px`;
   d.style.top = `${y}px`;
@@ -225,6 +225,22 @@ function showFxLabel(x, y, text, tone = 'event', staticMotion = false) {
     ], { duration: 1050, easing: 'cubic-bezier(.2,.7,.3,1)' });
     an.onfinish = () => d.remove();
   } else setTimeout(() => d.remove(), 1100);
+}
+
+/** 事件结算后在触发格保留一次短摘要，避免结果只存在于弹窗和战报中。 */
+export function showEventSummary(tileId, summary, bad = false) {
+  if (!ENABLED || !summary) return;
+  const r = getTileRect(tileId);
+  if (!r) return;
+  const text = String(summary).replace(/\s+/g, ' ').trim();
+  showFxLabel(
+    r.left + r.width / 2,
+    r.top + r.height / 2,
+    (bad ? '警报 · ' : '结果 · ') + text,
+    bad ? 'bad' : 'event',
+    RM,
+    'fxEventSummary'
+  );
 }
 
 /** 升级飘字：说明地块现在建成了什么。 */

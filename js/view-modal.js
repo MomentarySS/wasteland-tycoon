@@ -8,7 +8,7 @@ import { G } from './state.js';
 import { TILES } from './data.js';
 import { sfx } from './audio.js';
 import { flashScreen, screenShake, haptic, coinRain } from './fx.js';
-import { playEventIntro, showChoiceResult, formatChoiceResult } from './fx-events.js';
+import { playEventIntro, showChoiceResult, formatChoiceResult, showEventSummary } from './fx-events.js';
 import { ttsSpeak, cancelTts } from './tts.js';
 import { missionSpeakText, chapterSpeakText, choiceResultSpeakText, SET_PIECE_LINES } from './voice-lines.js';
 import { escapeHtml } from './view-util.js';
@@ -114,7 +114,8 @@ function continueAfterMission(p, c) {
   afterHumanAction(p);
 }
 
-export function showMission(m, p) {
+export function showMission(m, p, opts = {}) {
+  const eventTileId = opts.tileId == null ? p.pos : opts.tileId;
   const col = m.bad ? 'var(--gang)' : 'var(--phos)';
   const chain = isChainMission(m);
   const tagLabel = isNukeMission(m) ? '☢ 机密频道' : isFactionMission(m) ? '⚑ 派系密使' : (chain ? '🔗 连锁任务' : escapeHtml(m.deckName));
@@ -148,6 +149,7 @@ export function showMission(m, p) {
       applyMissionEffects(p, c.effects, m, c);
       sfx(m.bad ? 'bad' : 'good');
       render();
+      showEventSummary(eventTileId, summary, m.bad);
       if (canLaunchNuke(p)) {
         showNukeLaunchConfirm(p, () => continueAfterMission(p, c));
         return;

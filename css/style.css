@@ -583,6 +583,7 @@ body.weather-dusk::after {
 .fxLabel-warp{color:#6ec4d8;}
 .fxLabel-facility{color:#91c9c4;}
 .fxLabel-event{color:#c49be0;}
+.fxEventSummary{font-size:11px;padding:4px 8px;letter-spacing:.35px;opacity:.92;}
 .fxRing{position:absolute;width:26px;height:26px;border:2px solid;border-radius:50%;opacity:.8;will-change:transform,opacity;}
 .fxFlash{position:absolute;inset:0;}
 
@@ -711,6 +712,7 @@ body.weather-dusk::after {
 .fxSig-wormhole{color:#6ec4d8;border-color:#6ec4d8 transparent #9a7bff transparent;border-width:2px;box-shadow:0 0 10px #6ec4d844;}
 /* 2.5D：棋子足迹残影 + 落地碎片 */
 .fxFootprint{position:absolute;width:16px;height:9px;border-radius:50%;opacity:0;filter:blur(1px);pointer-events:none;will-change:transform,opacity;}
+.fxPathGhost{position:absolute;height:2px;border-radius:999px;opacity:0;pointer-events:none;filter:drop-shadow(0 0 4px currentColor);will-change:transform,opacity;}
 .fxDebris{position:absolute;width:4px;height:4px;border-radius:1px;opacity:0;pointer-events:none;will-change:transform,opacity;}
 
 /* ===== Tier B：事件 art 叠加 / 买地建造 ===== */
@@ -757,6 +759,7 @@ body.weather-dusk::after {
   .amb-dust,.amb-dust2,.amb-glow,body.weather-dust::after,body.weather-acid::after{animation:none!important;}
   #log .logEntry{opacity:1;transform:none;transition:none;}
   .evtFxLayer,.fxChoiceResult{animation:none!important;transition:none!important;opacity:1!important;transform:none!important;}
+  .fxPathGhost{display:none;}
   .evtParticle,.evtArtOverlay,.artMote{display:none;}
   .tile.tbuild-buy,.tile.tbuild-up{animation:none;}
   .evtArt.has-img .evtImg{animation:none!important;}

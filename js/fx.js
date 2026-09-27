@@ -194,6 +194,41 @@ export function footprint(p, fromIdx) {
   } else setTimeout(() => d.remove(), 470);
 }
 
+/** 2.5D：把相邻落点连接成短线段，形成可读的移动路径残影。 */
+export function pathGhost(p, fromIdx, toIdx) {
+  if (!ENABLED || !fxLayer || RM || !p) return;
+  const a = getTileRect(fromIdx);
+  const b = getTileRect(toIdx);
+  if (!a || !b) return;
+  const x0 = a.left + a.width / 2;
+  const y0 = a.top + a.height / 2;
+  const x1 = b.left + b.width / 2;
+  const y1 = b.top + b.height / 2;
+  const length = Math.hypot(x1 - x0, y1 - y0);
+  // 起点回到终点时不要跨棋盘画一条对角线，只保留各段短残影。
+  const viewportMin = Math.min(window.innerWidth || 1280, window.innerHeight || 720);
+  if (length > Math.max(260, viewportMin * .75)) return;
+  const line = document.createElement('div');
+  line.className = 'fxPathGhost';
+  line.style.left = x0 + 'px';
+  line.style.top = y0 + 'px';
+  line.style.width = Math.max(8, length) + 'px';
+  line.style.background = p.color || '#7fae6e';
+  const angle = Math.atan2(y1 - y0, x1 - x0) * 180 / Math.PI;
+  const base = `translateY(-50%) rotate(${angle}deg)`;
+  line.style.transformOrigin = '0 50%';
+  trimFxLayer();
+  fxLayer.appendChild(line);
+  if (canAnimate(line)) {
+    const an = line.animate([
+      { transform: `${base} scaleX(.15)`, opacity: .65 },
+      { transform: `${base} scaleX(1)`, opacity: .42, offset: .32 },
+      { transform: `${base} scaleX(1.04)`, opacity: 0 },
+    ], { duration: 560 * SPEED, easing: 'cubic-bezier(.2,.7,.3,1)' });
+    an.onfinish = () => line.remove();
+  } else setTimeout(() => line.remove(), 600);
+}
+
 // ---------------- 金币 / 飘字 ----------------
 function rectOf(el) {
   if (!el || typeof el.getBoundingClientRect !== 'function') return null;
