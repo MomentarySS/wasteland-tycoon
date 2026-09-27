@@ -37,6 +37,8 @@ let hoverIdx = -1;
 let onHover = null;
 let monopolySet = new Set();   // 垄断组地块 idx 集合（view-core 注入）
 let redrawScheduled = false;
+let tilePulse = null;
+let tilePulseRaf = 0;
 
 const imgCache = new Map();    // 贴图 url -> Image
 const svgCache = new Map();    // svg+color -> Image（图标按色缓存）
@@ -118,6 +120,43 @@ export function drawBoard() {
   return true;
 }
 
+/** Canvas 主路径的占领/建造瞬态反馈；DOM 降级路径由 fx-events 自己处理。 */
+export function pulseTile(tileId, color = '#d18b4b', mode = 'claim', accentColor = '') {
+  if (!isCanvasMode()) return false;
+  tilePulse = {
+    tileId,
+    color: resolveColor(color),
+    accentColor: resolveColor(accentColor || color),
+    mode,
+    started: nowMs(),
+    progress: 0,
+    duration: 620,
+  };
+  if (!tilePulseRaf) tilePulseRaf = requestAnimationFrame(tickTilePulse);
+  return true;
+}
+
+function nowMs() {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now() : Date.now();
+}
+
+function tickTilePulse(now) {
+  if (!tilePulse || !isCanvasMode()) {
+    tilePulseRaf = 0;
+    if (isCanvasMode()) renderAll();
+    return;
+  }
+  tilePulse.progress = Math.min(1, Math.max(0, (now - tilePulse.started) / tilePulse.duration));
+  renderAll();
+  if (tilePulse.progress < 1) tilePulseRaf = requestAnimationFrame(tickTilePulse);
+  else {
+    tilePulse = null;
+    tilePulseRaf = 0;
+    renderAll();
+  }
+}
+
 // ---------------- 交互：命中检测 ----------------
 function hitTest(px, py) {
   buildPosIndex();
@@ -185,6 +224,7 @@ function renderAll() {
     if (r == null) continue;
     drawStateOverlay(TILES[i], i, r, c, activeIdx);
   }
+  if (tilePulse) drawTilePulse(tilePulse);
 }
 
 function tileXY(r, c) {
@@ -398,6 +438,11 @@ function drawTileHud(t, x, y, w, h) {
   }
   if (owner) {
     const oc = resolveColor(owner.color);
+    // 产权常驻侧边：比整块染色更安静，但能在棋盘上快速扫出归属。
+    ctx.fillStyle = oc;
+    ctx.globalAlpha = 0.72;
+    ctx.fillRect(x + 1, y + 4, Math.max(1.5, Math.min(2.5, w * 0.045)), Math.max(2, h - 5));
+    ctx.globalAlpha = 1;
     ctx.beginPath();
     ctx.arc(xr - dotS / 2, y + 1 + dotS / 2, dotS / 2, 0, Math.PI * 2);
     ctx.fillStyle = oc;
@@ -447,4 +492,87 @@ function drawStateOverlay(t, i, r, c, activeIdx) {
     ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
     ctx.restore();
   }
+}
+
+/** 地产占领协议：中心雷达发出信号，目标地块以玩家色锁定。 */
+function drawTilePulse(pulse) {
+  const t = TILES[pulse.tileId];
+  const pos = positions[pulse.tileId];
+  if (!t || !pos) return;
+  const { x, y, w, h } = tileXY(pos[0], pos[1]);
+  const p = pulse.progress;
+  const fade = 1 - p;
+  const color = pulse.color || '#d18b4b';
+  const accent = pulse.accentColor || color;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  if (pulse.mode === 'claim') {
+    ctx.globalAlpha = 0.72 * fade;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([4, 4]);
+    ctx.lineDashOffset = -p * 24;
+    ctx.beginPath();
+    ctx.moveTo(boardW / 2, boardH / 2);
+    ctx.lineTo(cx, cy);
+    ctx.stroke();
+  }
+
+  if (pulse.mode === 'upgrade' || pulse.mode === 'upgrade-free') {
+    // 设施线框从地块底部向上展开，不缩放/重绘整张地块插画。
+    const buildP = Math.min(1, p * 1.25);
+    const baseY = y + h - 4;
+    const topY = baseY - Math.max(4, h * 0.46 * buildP);
+    const bw = Math.max(6, w * 0.42);
+    const bx = cx - bw / 2;
+    ctx.globalAlpha = 0.78 * Math.min(1, buildP * 1.4) * Math.max(0.35, fade);
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(bx, baseY);
+    ctx.lineTo(bx, topY + 3);
+    ctx.lineTo(cx, topY);
+    ctx.lineTo(bx + bw, topY + 3);
+    ctx.lineTo(bx + bw, baseY);
+    ctx.moveTo(bx - 2, baseY);
+    ctx.lineTo(bx + bw + 2, baseY);
+    ctx.moveTo(cx, topY + 1);
+    ctx.lineTo(cx, baseY);
+    ctx.stroke();
+    ctx.globalAlpha = 0.55 * Math.min(1, p * 1.5);
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x + 1, y + 4);
+    ctx.lineTo(x + 1, y + h - 4);
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = 0.95 * Math.max(0.2, fade);
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 12 * fade + 2;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5 + 1.3 * fade;
+  const growX = w * 0.10 * p;
+  const growY = h * 0.16 * p;
+  ctx.strokeRect(x - growX + 0.5, y - growY + 0.5, w + growX * 2 - 1, h + growY * 2 - 1);
+  ctx.shadowBlur = 0;
+
+  if (p < 0.78) {
+    const marker = pulse.mode === 'claim' ? 'LOCKED' : 'BUILD';
+    const fs = Math.max(7, Math.min(11, Math.min(w * 0.18, h * 0.24)));
+    ctx.globalAlpha = Math.min(1, (0.78 - p) * 2.2);
+    ctx.font = `700 ${fs}px "Courier New", monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const labelW = Math.min(w - 4, fs * marker.length * 0.72 + 6);
+    const labelH = fs + 5;
+    ctx.fillStyle = 'rgba(8, 11, 10, 0.84)';
+    ctx.fillRect(cx - labelW / 2, cy - labelH / 2, labelW, labelH);
+    ctx.fillStyle = color;
+    ctx.fillText(marker, cx, cy + 0.5);
+  }
+  ctx.restore();
 }

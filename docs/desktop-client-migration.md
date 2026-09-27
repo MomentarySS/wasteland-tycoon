@@ -1,42 +1,59 @@
-# Windows 桌面方向
+# Windows 桌面客户端
 
-> 日期：2026-09-02（二次确认，不再是「临时暂停网页/Android」）
-> 状态：**现行开发方向**
-> 产品：仅 Windows Electron
+> 当前实现说明：v1.7.1。本文以仓库代码和 `package.json` 为准。
 
----
+## 产品范围
 
-## 决策
+当前产品是 Windows x64 Electron 桌面客户端。Web / PWA 与 Android 已停止维护并移除启动工程；macOS 和 Linux 不在支持范围内。
 
-1. **主力攻坚 Windows 桌面**。网页版、Android **停做**，相关工程与启动通道已从仓库移除。
-2. **游戏内建语音全面转向本地 TTS**（Kokoro Node + `assets/tts-models/`）。
-3. **MiniMax 预录 `assets/voice/` 保留作兜底**（固定文案 0ms / 5★）。
-4. **Plan B**：若本地 TTS 音质或延迟不理想，再做**用户可配置的网上 TTS 模型接口**（自备 URL / Key / 音色）。现在不接线、不进设置面板。
+## 运行方式
 
-HTML/CSS/JS 内核仍在，只作为 Electron 的渲染层（`sync-www` → `www/` → BrowserWindow）。这不是网页产品。
+Electron 主进程创建窗口并加载 `www/index.html`。`www/` 是生成目录：`npm run sync:www` 会从项目根目录复制 HTML、JavaScript、CSS、内容数据和资源。请修改源目录，不要直接编辑 `www/`。
 
-## 语音链（以 `js/tts.js` 为准）
+```bash
+npm install
+npm run desktop:dev
+```
 
-| 优先级 | 引擎 | 现状 |
-|---|---|---|
-| 1 | 本地 Kokoro（`electron/kokoro-node.js`） | **已出声**（FP32 `model.onnx`，默认 `zm_045`）。覆盖动态战报；过场旁白仍走预录 |
-| 2 | MiniMax 预录 | **在用**，124 条 |
-| 3 | 系统 `speechSynthesis` | 临时档：本地未就绪且预录未命中 |
-| — | 阶跃 / Edge / Capacitor | **已删** |
-| — | 自定义远程 TTS | Plan B，未做 |
+构建 Windows x64 NSIS 安装包：
 
-过场旁白仍只走预录（`ttsSpeakPrerecorded`），避免推理/网络打乱分镜。
+```bash
+npm run desktop:build
+```
 
-## 已落地 / 未做
+打包脚本会先同步 `www/`，再调用 Electron Builder。安装包和解包目录位于 `release/`，该目录不提交到仓库。
 
-| 项 | 状态 |
+## 语音
+
+`js/tts.js` 当前提供三种来源：
+
+| 来源 | 行为 |
 |---|---|
-| Electron 壳 + Windows 打包脚本 | ✅ |
-| 预录兜底 + 去掉在线/Android TTS | ✅ |
-| Kokoro Node 真正推理 | ✅ 无窗烟测已出声；待游戏内测音验收 |
-| `desktop:build` 打出验收过的 .exe | ❌ |
-| 自定义远程 TTS 接口 | ❌ Plan B |
+| MiniMax 在线 | 默认来源；通过 Electron 主进程调用 MiniMax T2A，覆盖动态播报和固定旁白 |
+| 小米 MiMo 在线 | 通过 Xiaomi MiMo-V2.5-TTS OpenAI 兼容接口合成完整播报；支持内置中文音色 |
+| MiniMax 预录 | 只播放随包语音清单中已录制的固定语句；缺少对应录音时不会自动切换到在线或系统语音 |
 
-## 回滚
+系统 `speechSynthesis` 不作为运行时降级链路。在线语音需要有效的服务商 API Key 和网络连接。开局配置可录入并清除 MiniMax / MiMo Key；Electron 主进程使用 `safeStorage` 加密后保存在当前用户的应用数据目录，不传回页面、不进入存档。也可通过 `MINIMAX_API_KEY` / `MIMO_API_KEY` 环境变量，或本地 `.minimax-api-key` / `.mimo-api-key` 文件配置；这些文件已被 `.gitignore` 排除，切勿提交密钥。
 
-网页/Android **不回滚**。若本地 TTS 失败，走 Plan B 远程接口，而不是恢复阶跃/Edge。
+MiniMax IPC 通过 `electron/preload.cjs` 暴露的受限接口调用；渲染进程不直接读取密钥。
+
+## 主要目录
+
+- `electron/main.js`：窗口、应用生命周期和语音 IPC
+- `electron/preload.cjs`：向渲染进程提供受限桌面接口
+- `electron/minimax-tts.js`、`electron/mimo-tts.js`：在线合成、音频缓存和服务商调用
+- `js/`、`css/`、`content/`、`assets/`：游戏渲染内容和数据
+- `scripts/sync-www.mjs`：生成 Electron 页面镜像
+- `scripts/build-desktop.mjs`：Windows 安装包构建入口
+
+## 验收提示
+
+`npm test` 运行仓库冒烟检查。每次发布仍需在目标 Windows 环境检查安装、启动、存档和语音；构建成功本身不代表安装包已完成用户环境验收。
+
+## v1.7.1 发布候选验收（2026-09-27）
+
+- `npm run desktop:build` 已生成 `release/废土大亨 Setup 1.7.1.exe`（Windows x64 NSIS）。
+- 已在工作区隔离目录完成静默安装，安装程序退出码为 0。
+- 已从安装目录启动客户端并确认 Electron 进程正常运行，随后关闭验收进程。
+- `npm test` 已通过，覆盖回合流程、买地/升级、存档与剧情模块。
+- 在线 MiniMax / MiMo 合成仍需要用户自己的 API Key 和网络；本轮确认 IPC、预加载和配置链路存在，没有伪造在线服务成功。

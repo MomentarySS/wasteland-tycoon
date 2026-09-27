@@ -1,51 +1,84 @@
-# 废土大亨：末世大富翁 Wasteland Tycoon
+# 废土大亨：末世大富翁 · Wasteland Tycoon
 
-废土末世题材的 **2D 大富翁类桌游**。内核是原生 ES Module，**唯一产品形态是 Windows Electron 桌面客户端**。网页版与 Android 已停做、工程已移除。
+> 当前版本：v1.7.1
 
-> **📌 2026-09-02 方向**：攻坚 Windows 桌面。语音 = 本地 TTS + MiniMax 预录兜底；本地不理想时再上用户自定义远程 TTS 接口。详见 `docs/desktop-client-migration.md`。
+《废土大亨》是一款 Windows 桌面末世主题大富翁游戏，使用原生 JavaScript ES Modules 和 Electron。网页和 Android 版本已停止维护。
 
-## 特性
+## 游戏内容
 
-- **2D 阿帕拉契亚棋盘**：44 格环形路径，Canvas 格子层，棋子与特效走 DOM
-- **四种游戏模式**：对抗 / 单人闯关 / 合作闯关 / 遗产模式
-- **16 条任务链 + 四牌堆**、道具卡、核弹结局、战报面板、遗产 / 肉鸽 / 叙事传承
-- **语音**：本地 Kokoro FP32（桌面 Node）→ MiniMax 预录 124 条 → 系统语音（临时）。无阶跃 / Edge / Capacitor
+- 44 格环形棋盘，支持随机重排地点
+- 对抗、单人闯关、合作闯关、生存和遗产五种模式
+- 事件任务、道德选择、派系声望、道具卡与核弹结局
+- 可选择 MiniMax 在线语音、小米 MiMo 在线语音，或仅播放随包提供的预录语音
 
-## 运行
+## 开发环境
+
+- Windows x64
+- Node.js 20 或更新版本
+- npm
 
 ```bash
 npm install
-npm run desktop:dev    # 同步 www/ → 开 Electron
-npm run desktop:build  # Windows NSIS 安装包 → release/
+npm run desktop:dev
 ```
+
+构建 Windows 安装包：
+
+```bash
+npm run desktop:build
+```
+
+安装包输出到 `release/`。运行自动化冒烟检查：
 
 ```bash
 npm test
 ```
 
-## 平台
+在线语音可在开局配置中选择服务并录入 API Key；密钥由 Electron `safeStorage` 加密后保存在当前 Windows 用户的应用数据目录，不进入存档或 GitHub。也可通过 `MINIMAX_API_KEY` / `MIMO_API_KEY` 环境变量，或本地 `.minimax-api-key` / `.mimo-api-key` 文件配置。不要提交密钥。选择“仅 MiniMax 预录”时，只能播放预录包中已有的固定语句。
+
+## 平台支持
 
 | 平台 | 状态 |
 |---|---|
-| **Windows 桌面（Electron）** | 唯一产品线。本地 Kokoro 已能推理出声，安装包尚未验收 |
-| 网页 / PWA | 停做，已拆 Service Worker 与网页启动通道 |
-| Android | 停做，`android/` 已删 |
-| macOS / Linux | 不做 |
+| Windows x64 / Electron | 当前产品 |
+| Web / PWA | 已停止，启动入口已移除 |
+| Android | 已停止，工程已移除 |
+| macOS / Linux | 不支持 |
 
-## 目录
+## 项目结构
 
-```
-electron/          Windows 壳（main / preload / kokoro-node 推理）
-js/ css/ content/  游戏内核（Electron 渲染进 www/）
-assets/voice/      MiniMax 预录（兜底，保留）
-assets/tts-models/ Kokoro-82M 本地模型
-scripts/           desktop-dev / build-desktop / sync-www / 生图 / 预录生成
-www/               同步镜像（gitignore），Electron 加载这里
+```text
+electron/   Electron 主进程、预加载脚本与 MiniMax / MiMo TTS
+js/         游戏规则、回合流程、视图和语音
+css/        游戏界面样式
+content/    棋盘和事件数据
+assets/     游戏插画、音效与预录语音
+scripts/    开发、打包、语音和素材工具
+www/        sync:www 生成的 Electron 页面镜像，不提交
 ```
 
 ## 文档
 
-- [开发备忘.md](开发备忘.md)
-- [游玩手册.md](游玩手册.md)
-- [docs/desktop-client-migration.md](docs/desktop-client-migration.md)
-- [封包说明.md](封包说明.md)
+### 开始使用
+
+- [游玩手册](游玩手册.md)
+- [Windows 桌面构建与语音配置](docs/desktop-client-migration.md)
+- [Windows 封包说明](封包说明.md)
+
+### 开发与设计
+
+- [开发备忘](开发备忘.md)
+- [文档索引](docs/README.md)
+- [单人剧情闯关设计](单人剧情闯关设计.md)
+- [废土大亨世界观正典](世界观/修复版/游戏世界观/世界观设定_废土大亨.md)
+- [预录语音清单](docs/voice-pack.md)
+- [视觉特效与背景计划](docs/visual-effects-plan.md)
+- [地形变种研究（未实现）](docs/terrain-variants.md)
+
+### 调研与规划
+
+- [新功能调研与待办](新功能调研_未做升级.md)
+- [UI 与视觉升级建议](升级建议.md)
+- [同类游戏对比（历史调研）](竞品对比.md)
+- [资产生成清单（历史记录）](混元资产生成清单.md)
+- [世界观文档索引与草案归档说明](世界观/README.md)

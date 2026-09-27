@@ -1,15 +1,25 @@
-// 本地存档 / 读档（v3：含回合 UI 状态 + 校验）
+// 本地存档 / 读档（v4：含回合 UI、规则状态、地块价格 + 校验）
 import { G } from './state.js';
-import { TILES, restoreBoardOrder } from './data.js';
+import { TILES, restoreBoardOrder, resetTiles } from './data.js';
 import { TILES_COUNT } from './config.js';
 import { buildTokens, render, log } from './view-core.js';
 import { hideWin, showWin, showNukeWin, showCampaignEnding } from './view-modal.js';
 import { restoreTurnUI } from './game.js';
 import { netWorth } from './rules.js';
 import { evaluateCampaign, evaluateCampaignCoop, campaignCount } from './campaign.js';
+import { MUTATOR_FIELDS, MUTATOR_POOL, resetMutatorFields } from './mutators.js';
 
 const SAVE_KEY = 'wasteland_save';
-const SAVE_VERSION = 3;
+const SAVE_VERSION = 4;
+const SAVE_RULE_FIELDS = [
+  ...Object.keys(MUTATOR_FIELDS),
+  'goodEventBonus', 'aiCoopBonus', 'randomStart', 'startRepPenalty', 'narrativeSeed',
+];
+
+function cloneSaveValue(value) {
+  if (value == null || typeof value !== 'object') return value;
+  return JSON.parse(JSON.stringify(value));
+}
 
 function pendingTilePos() {
   if (!G.pendingTile) return null;
@@ -19,7 +29,7 @@ function pendingTilePos() {
 
 function validateSave(d) {
   if (!d || typeof d !== 'object') return '存档格式无效';
-  if (d.v !== 2 && d.v !== 3) return '存档版本不支持（v' + d.v + '）';
+  if (d.v !== 2 && d.v !== 3 && d.v !== 4) return '存档版本不支持（v' + d.v + '）';
   if (!Array.isArray(d.tiles) || d.tiles.length !== TILES.length) {
     return '地块数据与当前棋盘不匹配（期望 ' + TILES.length + ' 格）';
   }
@@ -134,8 +144,10 @@ export function saveGame() {
     pendingTilePos: pendingTilePos(),
     turnPlayerId: G.turnPlayer ? G.turnPlayer.id : null,
     lastRoll: G.lastRoll || 0,
+    activeMutatorIds: Array.isArray(G.activeMutators) ? G.activeMutators.map(m => m.id).filter(Boolean) : [],
+    ruleState: Object.fromEntries(SAVE_RULE_FIELDS.map(k => [k, cloneSaveValue(G[k])])),
     boardArtOrder: TILES.map(t => t.artIndex ?? t.id),
-    tiles: TILES.map(t => ({ owner: t.owner, level: t.level, mortgaged: t.mortgaged })),
+    tiles: TILES.map(t => ({ owner: t.owner, level: t.level, mortgaged: t.mortgaged, price: t.price })),
     players: G.players.map(p => ({
       id: p.id, name: p.name, short: p.short, isAI: p.isAI, color: p.color,
       caps: p.caps, pos: p.pos, skipNext: p.skipNext, bankrupt: p.bankrupt,
@@ -171,6 +183,14 @@ export function loadGame() {
   const err = validateSave(d);
   if (err) { alert('无法读档：' + err); return; }
 
+  // 读档会替换当前内存局面；先清掉当前局规则，缺少 v4 字段的旧档按基础规则兼容。
+  resetMutatorFields(G);
+  G.goodEventBonus = 0;
+  G.aiCoopBonus = 0;
+  G.randomStart = false;
+  G.startRepPenalty = null;
+  G.narrativeSeed = null;
+
   G.mode = d.mode || 'versus';
   G.campaign = d.campaign != null ? d.campaign : 0;
   G.turn = d.turn || 0;
@@ -188,6 +208,20 @@ export function loadGame() {
   G.awaitingRoll = !!d.awaitingRoll;
   G.lastRoll = d.lastRoll || 0;
 
+  if (d.ruleState && typeof d.ruleState === 'object') {
+    for (const key of SAVE_RULE_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(d.ruleState, key)) {
+        G[key] = cloneSaveValue(d.ruleState[key]);
+      }
+    }
+  }
+  const mutatorIds = Array.isArray(d.activeMutatorIds) ? d.activeMutatorIds : [];
+  G.activeMutators = mutatorIds
+    .map(id => MUTATOR_POOL.find(m => m.id === id))
+    .filter(Boolean);
+
+  // 还原地块模板价格，避免从遗产局读档时沿用当前局的突变价格。
+  resetTiles();
   if (Array.isArray(d.boardArtOrder) && d.boardArtOrder.length === TILES.length) {
     restoreBoardOrder(d.boardArtOrder);
   }
@@ -196,6 +230,7 @@ export function loadGame() {
     t.owner = d.tiles[i].owner;
     t.level = d.tiles[i].level;
     t.mortgaged = !!d.tiles[i].mortgaged;
+    if (Number.isFinite(d.tiles[i].price) && d.tiles[i].price > 0) t.price = d.tiles[i].price;
   });
 
   // 必须在 restoreBoardOrder 之后取值：否则引用的是被替换掉的旧 TILES 数组中的对象

@@ -3,7 +3,7 @@ import { G } from './state.js';
 import { TILES, positions } from './data.js';
 import { N, CELL, COLORS, GROUPS, TOKEN_SLOT } from './config.js';
 import { playerPortrait, tileIcon, iconColor, buildingSVG } from './icons.js';
-import { netWorth, rentDisplay, isMonopoly } from './rules-core.js';
+import { netWorth, rentDisplay, isMonopoly, canUpgrade } from './rules-core.js';
 import { evaluateCampaign, evaluateCampaignCoop, campaignDecayPerTurn } from './campaign.js';
 import { formatFactionRep } from './missions.js';
 import { nukeKeyBadgeHtml } from './view-nuke.js';
@@ -137,6 +137,81 @@ function tileTip(t) {
   return tip;
 }
 
+function commandWeatherLabel() {
+  if (typeof document === 'undefined' || !document.body || !document.body.classList) return '常态';
+  if (document.body.classList.contains('weather-dust')) return '沙尘暴';
+  if (document.body.classList.contains('weather-acid')) return '酸雨';
+  if (document.body.classList.contains('weather-dusk')) return '暮色';
+  return '常态';
+}
+
+function commandTileHint(t, p) {
+  if (!t || !p) return '等待落点信号';
+  if (t.type === 'prop') {
+    if (t.owner == null) {
+      return p.caps >= t.price ? `可购买 · ${t.price}盖` : `资金不足 · 需要 ${t.price}盖`;
+    }
+    if (t.owner === p.id) {
+      if (t.mortgaged) return '已抵押 · 可在资产面板赎回';
+      if (canUpgrade(p, t)) return `可升级 · ${t.price}盖`;
+      return t.level >= 2 ? '设施已满级 · 产权稳定' : '等待同组地产归属';
+    }
+    return t.mortgaged ? '抵押地块 · 本次免租' : `对手产权 · 租金 ${rentDisplay(t)}盖`;
+  }
+  const hints = {
+    start: '补给站 · 经过获得瓶盖', event: '事件频道 · 等待选择', tax: '税务节点 · 准备结算',
+    quarantine: '隔离区 · 可能跳过回合', safe: '安全地带 · 暂时喘息', rail: '哨站 · 过路费随线路增长',
+    util: '设施 · 租金随骰点变化', wormhole: '虫洞 · 位置将被改写', blackmarket: '黑市 · 可交易或淘卡',
+    bounty: '赏金任务 · 领取额外目标', oasis: '绿洲 · 补给恢复', radiation: '辐射矿 · 高风险收益',
+    bunker: '国会掩体 · 休整或加固',
+  };
+  return hints[t.type] || '已抵达 · 等待行动';
+}
+
+function commandGoal(p) {
+  if (!p) return '从右侧设置开始一局';
+  if (G.mode === 'campaign' || G.mode === 'coop') {
+    const human = G.players.find(x => !x.isAI) || p;
+    const ally = G.players.find(x => x.isAI);
+    const r = G.mode === 'coop'
+      ? evaluateCampaignCoop(human, ally, { TILES, netWorth }, G.campaign)
+      : evaluateCampaign(human, { TILES, netWorth }, G.campaign);
+    const current = r.objs.find(o => !o.done) || r.objs[r.objs.length - 1];
+    return `${r.name} · ${current ? `${current.text} ${current.value}/${current.goal}` : '章节目标已完成'}`;
+  }
+  if (G.mode === 'survival') {
+    const next = 8 - ((G.turn || 0) % 8);
+    return `生存 ${G.turn || 0} 回合 · ${next} 回合后衰减升级`;
+  }
+  return G.targetWealth > 0 ? `净身家 ${netWorth(p)} / ${G.targetWealth}盖` : `第 ${G.turn || 0} 回合 · 自由经营`;
+}
+
+/** 中央废土指挥中枢：只显示当前决策所需的态势、落点提示和目标进度。 */
+export function updateCommandCenter() {
+  const turnEl = document.getElementById('ccTurn');
+  const weatherEl = document.getElementById('ccWeather');
+  const mutEl = document.getElementById('ccMutators');
+  const actionEl = document.getElementById('ccAction');
+  const goalEl = document.getElementById('ccGoal');
+  if (!turnEl || !weatherEl || !actionEl || !goalEl) return;
+  const p = G.players && G.players[G.current];
+  if (!p) {
+    turnEl.textContent = '待开局';
+    weatherEl.textContent = '—';
+    actionEl.textContent = '等待幸存者就位';
+    goalEl.textContent = '从右侧设置开始一局';
+    if (mutEl) mutEl.textContent = '';
+    return;
+  }
+  turnEl.textContent = `第 ${G.turn || 0} 回合 · ${p.isAI ? 'AI' : '玩家'} ${p.short || ''}`;
+  weatherEl.textContent = commandWeatherLabel();
+  const muts = Array.isArray(G.activeMutators) ? G.activeMutators.slice(0, 2) : [];
+  if (mutEl) mutEl.textContent = muts.length ? ` · ${muts.map(m => `${m.icon || '☢'} ${m.name || m.id}`).join(' / ')}` : '';
+  const t = TILES[p.pos];
+  actionEl.textContent = commandTileHint(t, p);
+  goalEl.textContent = commandGoal(p);
+}
+
 function buildStripTileHTML(t) {
   const name = tileDisplayName(t);
   const plainLen = name.replace(/\s/g, '').length;
@@ -231,6 +306,7 @@ export function initView() {
   actionsEl = document.getElementById('actions');
   diceEl = document.getElementById('diceSum') || document.getElementById('dice');
   previewEl = document.getElementById('tilePreview');
+  updateCommandCenter();
   initFx();
   initLogPanel();
   startAmbience();
@@ -390,7 +466,9 @@ export function renderPlayers() {
       const avCount = (avHtml.match(/class="pva"/g) || []).length;
       if (avCount > 1) console.debug('[renderPlayers] 玩家', p.name, '头像重复', avCount, '次:', avHtml);
     }
-    div.innerHTML = `<span>${avHtml}${escapeHtml(p.name)}${p.isAI ? ' <span class="aiTag">AI</span>' : ''}${tag}${nukeHtml}${handHtml}</span>
+    div.title = p.name || ('玩家' + (p.short || ''));
+    div.setAttribute('aria-label', div.title);
+    div.innerHTML = `<span>${avHtml}${p.isAI ? ' <span class="aiTag">AI</span>' : ''}${tag}${nukeHtml}${handHtml}</span>
       <span><span class="cap">${Math.max(p.caps, 0)}</span>盖 · <span class="nw">净${netWorth(p)}</span> · 产${owned} · <span class="moral">德${p.moral || 0}</span>${repHtml}</span>`;
 
     // 地块缩略条：每个拥有产权格一个小色块
@@ -522,6 +600,7 @@ export function render() {
   fxMoney(G.players);
   repositionAllTokens();
   syncActivePreview();
+  updateCommandCenter();
   markMonopolyTiles();
 }
 

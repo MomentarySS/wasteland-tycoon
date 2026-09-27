@@ -119,7 +119,7 @@ export async function playCutscene(scenes, opts) {
         subEl.classList.add('in');
       }
       sfx('tick');
-      // 旁白：与游戏内同一条 MiniMax TTS 链；没播完则续等，点击过场层可跳过
+      // 旁白：与游戏内同一条在线语音链；没播完则续等，点击过场层可跳过
       const voiceP = ttsSpeakPrerecorded(cutsceneSpeakText(sc));
       await waitOrSkip(Math.max(420, (sc.ms || 1600) * speed), skip);
       if (!skip.flag) {

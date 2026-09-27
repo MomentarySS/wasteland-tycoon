@@ -33,6 +33,7 @@ body.board-v2 #boardCenter {
   overflow: visible;
   background: transparent;
   box-shadow: none;
+  container-type: size;
 }
 
 /* 彻底关闭正式版雷达扫光 / 圆环动画 */
@@ -43,6 +44,19 @@ body.board-v2 #boardCenter::after {
   animation: none !important;
   background: none !important;
 }
+
+/* ---------- 废土指挥中枢：当前决策信息，不复制右侧战报 ---------- */
+body.board-v2 #commandCenter{position:absolute;inset:4% 5%;z-index:3;display:grid;grid-template-rows:auto 1fr auto;align-items:stretch;pointer-events:none;color:#d6e4d8;text-shadow:0 1px 4px #000;}
+body.board-v2 .ccStatus,body.board-v2 .ccGoal,body.board-v2 .ccAction{max-width:min(92%,520px);margin:0 auto;min-width:0;}
+body.board-v2 .ccStatus{display:flex;align-items:center;gap:8px;width:100%;padding:5px 9px;border:1px solid rgba(127,174,110,.3);background:rgba(6,11,9,.72);font-size:clamp(9px,1.45cqw,12px);line-height:1.25;letter-spacing:.5px;white-space:nowrap;overflow:hidden;}
+body.board-v2 .ccLead{color:var(--amber);font-weight:bold;letter-spacing:1.5px;flex:0 0 auto;}
+body.board-v2 #ccTurn{color:#eff7ef;overflow:hidden;text-overflow:ellipsis;}
+body.board-v2 #ccWeather{color:var(--haz);flex:0 0 auto;}
+body.board-v2 #ccMutators{color:#9bc28d;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+body.board-v2 .ccAction{align-self:end;width:max-content;max-width:92%;padding:4px 9px;margin-bottom:8%;border:1px solid rgba(201,162,39,.38);background:rgba(8,12,10,.78);color:#e7d39b;font-size:clamp(9px,1.5cqw,12px);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+body.board-v2 .ccGoal{align-self:end;width:100%;padding:5px 9px;border-top:1px solid rgba(127,174,110,.3);background:rgba(6,11,9,.66);color:#aebcb4;font-size:clamp(9px,1.4cqw,11px);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;}
+body.board-v2 .ccGoal::before{content:'目标 // ';color:#7fae6e;letter-spacing:1px;}
+@media (prefers-reduced-motion: reduce){body.board-v2 .boardBgAsset{transition:none;}}
 
 body.board-v2 .tilePreview {
   position: absolute;

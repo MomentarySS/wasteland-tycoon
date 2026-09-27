@@ -102,15 +102,14 @@ async function postSynth(url, text, speed, voice) {
 export async function init(opts = {}) {
   const root = opts.root || DEFAULT_ROOT;
   cacheDir = opts.cacheDir || path.join(root, '.minimax-tts-cache');
-  const keyFiles = [
-    path.join(root, '.minimax-api-key'),
-    path.join(process.cwd(), '.minimax-api-key'),
-  ];
-  if (opts.userData) keyFiles.push(path.join(opts.userData, '.minimax-api-key'));
-  apiKey = '';
-  for (const f of keyFiles) {
-    apiKey = readSecret('MINIMAX_API_KEY', f);
-    if (apiKey) break;
+  // 游戏内用户密钥优先；环境变量和项目目录密钥用于开发 / 部署回退。
+  apiKey = String(opts.userDataApiKey || process.env.MINIMAX_API_KEY || '').trim();
+  const keyFiles = [path.join(root, '.minimax-api-key'), path.join(process.cwd(), '.minimax-api-key')];
+  if (!apiKey) {
+    for (const f of keyFiles) {
+      try { apiKey = readFileSync(f, 'utf8').trim(); } catch (_) { apiKey = ''; }
+      if (apiKey) break;
+    }
   }
   groupId = readSecret('MINIMAX_GROUP_ID', path.join(root, '.minimax-group-id'));
   if (!groupId && opts.userData) {

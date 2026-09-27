@@ -59,6 +59,7 @@ export function resetSession() {
   G.SALARY_MULT = 1;
   G.START_MORAL = 0;
   G.START_GETOUT = 0;
+  G.START_CARDS = 0;
   G.MUTATOR_REROLL = 0;
   G.activeMutators = [];
   G.narrativeSeed = null;

@@ -1,11 +1,12 @@
 // 桌面语音链：
-//   minimax = 全部走 MiniMax 在线 T2A（任务 / 过场 / 动态战报）
+//   minimax / mimo = 对应在线 TTS（任务 / 过场 / 动态战报）
 //   voice   = 仅 MiniMax 预录
 // 系统 speechSynthesis 已停用。默认纯 MiniMax，不与其它引擎混播。
 import { cleanVoiceText as cleanText, voiceHash, VOICE_DIR, VOICE_MANIFEST_URL } from './voice-lines.js';
 
 const SOURCE_STORAGE = 'wasteland_tts_source';
 const VOICE_STORAGE = 'wasteland_tts_minimax_voice';
+const MIMO_VOICE_STORAGE = 'wasteland_tts_mimo_voice';
 
 export const MINIMAX_VOICES = [
   { id: 'male-qn-jingying', label: '精英青年（默认）' },
@@ -22,12 +23,20 @@ export const MINIMAX_VOICES = [
   { id: 'Chinese (Mandarin)_Wise_Women', label: '阅历姐姐' },
 ];
 const DEFAULT_MINIMAX_VOICE = MINIMAX_VOICES[0].id;
+export const MIMO_VOICES = [
+  { id: '苏打', label: '苏打（男声）' },
+  { id: '白桦', label: '白桦（男声）' },
+  { id: '冰糖', label: '冰糖（女声）' },
+  { id: '茉莉', label: '茉莉（女声）' },
+];
+const DEFAULT_MIMO_VOICE = MIMO_VOICES[0].id;
 
 let enabled = true;
 let rate = 1.05;
 let volume = 1.0;
 let source = 'minimax';
 let minimaxVoice = DEFAULT_MINIMAX_VOICE;
+let mimoVoice = DEFAULT_MIMO_VOICE;
 let lastEngine = '';
 let audioCtx = null;
 let currentAudio = null;
@@ -37,6 +46,8 @@ let cachedZhVoice = null;
 let browserVoicesHooked = false;
 let minimaxReady = false;
 let minimaxInfo = null;
+let mimoReady = false;
+let mimoInfo = null;
 
 function desktopApi() {
   try { return (typeof window !== 'undefined' && window.wastelandDesktop) || null; } catch (_) { return null; }
@@ -46,6 +57,7 @@ function loadSourcePref() {
   try {
     const s = localStorage.getItem(SOURCE_STORAGE);
     if (s === 'voice') source = 'voice';
+    else if (s === 'mimo') source = 'mimo';
     else {
       source = 'minimax';
       if (s === 'local') localStorage.setItem(SOURCE_STORAGE, 'minimax');
@@ -61,9 +73,17 @@ function loadVoicePref() {
   } catch (_) {}
 }
 
+function loadMimoVoicePref() {
+  try {
+    const v = localStorage.getItem(MIMO_VOICE_STORAGE);
+    if (v && MIMO_VOICES.some((x) => x.id === v)) mimoVoice = v;
+    else mimoVoice = DEFAULT_MIMO_VOICE;
+  } catch (_) {}
+}
+
 function sourceOrder() {
   if (source === 'voice') return ['voice'];
-  return ['minimax'];
+  return source === 'mimo' ? ['mimo'] : ['minimax'];
 }
 
 function pickZhVoice() {
@@ -116,22 +136,22 @@ function playBlob(blob) {
   });
 }
 
-function mp3ToBlob(mp3) {
-  if (!mp3) return null;
-  if (mp3 instanceof Blob) return mp3;
-  if (mp3 instanceof ArrayBuffer) return new Blob([mp3], { type: 'audio/mpeg' });
-  if (mp3 instanceof Uint8Array) {
-    const copy = mp3.byteOffset === 0 && mp3.byteLength === mp3.buffer.byteLength
-      ? mp3
-      : mp3.slice();
-    return new Blob([copy], { type: 'audio/mpeg' });
+function audioToBlob(data, type = 'audio/mpeg') {
+  if (!data) return null;
+  if (data instanceof Blob) return data;
+  if (data instanceof ArrayBuffer) return new Blob([data], { type });
+  if (data instanceof Uint8Array) {
+    const copy = data.byteOffset === 0 && data.byteLength === data.buffer.byteLength
+      ? data
+      : data.slice();
+    return new Blob([copy], { type });
   }
-  if (ArrayBuffer.isView(mp3)) return new Blob([mp3], { type: 'audio/mpeg' });
-  if (Array.isArray(mp3)) return new Blob([Uint8Array.from(mp3)], { type: 'audio/mpeg' });
-  if (mp3.type === 'Buffer' && Array.isArray(mp3.data)) {
-    return new Blob([Uint8Array.from(mp3.data)], { type: 'audio/mpeg' });
+  if (ArrayBuffer.isView(data)) return new Blob([data], { type });
+  if (Array.isArray(data)) return new Blob([Uint8Array.from(data)], { type });
+  if (data.type === 'Buffer' && Array.isArray(data.data)) {
+    return new Blob([Uint8Array.from(data.data)], { type });
   }
-  if (mp3.data) return new Blob([Uint8Array.from(mp3.data)], { type: 'audio/mpeg' });
+  if (data.data) return new Blob([Uint8Array.from(data.data)], { type });
   return null;
 }
 
@@ -198,12 +218,51 @@ async function speakMinimax(text) {
     console.warn('[TTS] MiniMax 合成失败', result && result.error);
     return false;
   }
-  const blob = mp3ToBlob(result.mp3);
+  const blob = audioToBlob(result.mp3, 'audio/mpeg');
   if (!blob || blob.size < 64) {
     console.warn('[TTS] MiniMax 音频为空');
     return false;
   }
   lastEngine = 'minimax';
+  await playBlob(blob);
+  return true;
+}
+
+async function ensureMimo() {
+  const desk = desktopApi();
+  if (!desk || !desk.mimo) return false;
+  if (mimoReady) return true;
+  try {
+    const info = await desk.mimo.init();
+    mimoInfo = info || null;
+    mimoReady = !!(info && info.ok);
+    if (!mimoReady) console.warn('[TTS] MiMo init 未就绪', info && info.error);
+    else console.warn('[TTS] MiMo 就绪', info.model, info.voice);
+    return mimoReady;
+  } catch (e) {
+    console.warn('[TTS] MiMo init 失败', e && e.message);
+    return false;
+  }
+}
+
+async function speakMimo(text) {
+  const desk = desktopApi();
+  if (!desk || !desk.mimo) {
+    console.warn('[TTS] MiMo 不可用：非桌面壳');
+    return false;
+  }
+  if (!(await ensureMimo())) return false;
+  const result = await desk.mimo.speak(text, { speed: Math.max(0.5, Math.min(2, Number(rate) || 1)), voice: mimoVoice });
+  if (!result || !result.ok) {
+    console.warn('[TTS] MiMo 合成失败', result && result.error);
+    return false;
+  }
+  const blob = audioToBlob(result.audio, 'audio/wav');
+  if (!blob || blob.size < 64) {
+    console.warn('[TTS] MiMo 音频为空');
+    return false;
+  }
+  lastEngine = 'mimo';
   await playBlob(blob);
   return true;
 }
@@ -261,6 +320,11 @@ async function speakOne(text) {
         if (ok) return;
         continue;
       }
+      if (eng === 'mimo') {
+        const ok = await speakMimo(text);
+        if (ok) return;
+        continue;
+      }
       if (eng === 'voice') {
         const ok = await speakVoice(text);
         if (ok) return;
@@ -281,7 +345,9 @@ let _chain = Promise.resolve();
 export function initTTS() {
   loadSourcePref();
   loadVoicePref();
+  loadMimoVoicePref();
   if (source === 'minimax') ensureMinimax().catch(() => {});
+  else if (source === 'mimo') ensureMimo().catch(() => {});
   else if (source === 'voice') loadVoiceManifest();
   try {
     console.warn('[TTS] initTTS 完成, source:', source, 'desktop:', !!desktopApi());
@@ -291,6 +357,7 @@ export function initTTS() {
 
 export function preloadTTS() {
   if (source === 'voice') loadVoiceManifest();
+  else if (source === 'mimo') ensureMimo().catch(() => {});
   else ensureMinimax().catch(() => {});
   return Promise.resolve(true);
 }
@@ -305,6 +372,11 @@ export function ttsEngineStatus() {
       if (voicePackState === 'ready') return 'voice-ready';
       if (voicePackState === 'none') return 'voice-none';
       return 'voice-pending';
+    }
+    if (source === 'mimo') {
+      if (lastEngine === 'mimo') return 'mimo';
+      if (desktopApi() && desktopApi().mimo) return mimoReady ? 'mimo-ready' : 'mimo-pending';
+      return 'mimo-missing';
     }
     if (lastEngine === 'minimax') return 'minimax';
     if (desktopApi() && desktopApi().minimax) return minimaxReady ? 'minimax-ready' : 'minimax-pending';
@@ -348,6 +420,7 @@ export function updateTtsDebugPanel() {
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:2px"><span>TTS 调试面板</span><span id="ttsDbgClose" title="关闭调试面板" style="cursor:pointer;padding:0 4px;border:1px solid #0f0;border-radius:2px;line-height:1.3">✕</span></div>
       <div>来源: ${source}</div>
       <div>MiniMax: ${desk && desk.minimax ? (minimaxReady ? '✓ ' + ((minimaxInfo && minimaxInfo.model) || 'online') : '…') : '✗ 非桌面'}</div>
+      <div>小米 MiMo: ${desk && desk.mimo ? (mimoReady ? '✓ ' + ((mimoInfo && mimoInfo.model) || 'online') : '…') : '✗ 非桌面'}</div>
       <div>音色: ${minimaxVoice}</div>
       <div>Voice: ${voicePackState === 'ready' ? '✓ 预录' : '✗'}</div>
       <div>状态: ${status}</div>
@@ -363,12 +436,13 @@ export function updateTtsDebugPanel() {
 }
 
 export function setVoiceSource(s) {
-  if (s === 'minimax' || s === 'voice' || s === 'auto') {
+  if (s === 'minimax' || s === 'mimo' || s === 'voice' || s === 'auto') {
     source = s === 'auto' ? 'minimax' : s;
     lastEngine = '';
     try { localStorage.setItem(SOURCE_STORAGE, source); } catch (_) {}
     try { window.dispatchEvent(new Event('wasteland-tts-changed')); } catch (_) {}
     if (source === 'minimax') ensureMinimax().catch(() => {});
+    else if (source === 'mimo') ensureMimo().catch(() => {});
   }
 }
 export function getVoiceSource() { return source; }
@@ -381,6 +455,44 @@ export function setMinimaxVoice(id) {
   try { window.dispatchEvent(new Event('wasteland-tts-changed')); } catch (_) {}
 }
 export function getMinimaxVoice() { return minimaxVoice; }
+
+export function setMimoVoice(id) {
+  mimoVoice = MIMO_VOICES.some((x) => x.id === id) ? id : DEFAULT_MIMO_VOICE;
+  lastEngine = '';
+  try { localStorage.setItem(MIMO_VOICE_STORAGE, mimoVoice); } catch (_) {}
+  try { window.dispatchEvent(new Event('wasteland-tts-changed')); } catch (_) {}
+}
+export function getMimoVoice() { return mimoVoice; }
+
+export async function onlineKeyStatus(provider = source) {
+  const desk = desktopApi();
+  const api = provider === 'mimo' ? desk && desk.mimo : desk && desk.minimax;
+  if (!api || !api.status) return { ok: false, available: false };
+  try { return { ...(await api.status()), available: true }; }
+  catch (_) { return { ok: false, available: true }; }
+}
+
+export async function saveOnlineKey(provider, key) {
+  const desk = desktopApi();
+  const api = provider === 'mimo' ? desk && desk.mimo : desk && desk.minimax;
+  if (!api || !api.saveKey) return { ok: false, error: '此功能需要 Windows 桌面版' };
+  const result = await api.saveKey(key);
+  if (provider === 'mimo') { mimoReady = !!(result && result.ok); mimoInfo = result || null; }
+  else { minimaxReady = !!(result && result.ok); minimaxInfo = result || null; }
+  try { window.dispatchEvent(new Event('wasteland-tts-changed')); } catch (_) {}
+  return result;
+}
+
+export async function clearOnlineKey(provider) {
+  const desk = desktopApi();
+  const api = provider === 'mimo' ? desk && desk.mimo : desk && desk.minimax;
+  if (!api || !api.clearKey) return { ok: false, error: '此功能需要 Windows 桌面版' };
+  const result = await api.clearKey();
+  if (provider === 'mimo') { mimoReady = !!(result && result.ok); mimoInfo = result || null; }
+  else { minimaxReady = !!(result && result.ok); minimaxInfo = result || null; }
+  try { window.dispatchEvent(new Event('wasteland-tts-changed')); } catch (_) {}
+  return result;
+}
 
 export function setTtsEnabled(v) { enabled = !!v; if (!enabled) cancelTts(); }
 export function isTtsEnabled() { return enabled; }
@@ -419,7 +531,7 @@ export function ttsSpeak(text) {
   return _chain;
 }
 
-/** 过场 / 固定旁白：与 ttsSpeak 同一条 MiniMax 链，不受队列上限丢弃 */
+/** 过场 / 固定旁白：与 ttsSpeak 使用同一语音来源，不受队列上限丢弃 */
 export function ttsSpeakPrerecorded(text) {
   const t = cleanText(text);
   if (!enabled || !t) return Promise.resolve(false);

@@ -385,6 +385,10 @@ if (fxEv.resolveEventFx({ bad: true, art: 'horde' }) !== 'burst') throw new Erro
 if (fxEv.resolveEventFx({ bad: false, deck: 'manual', art: 'med' }) !== 'static') throw new Error('med 应为 static');
 if (fxEv.resolveEventFx({ deck: 'faction', art: 'bandit' }) !== 'burst') throw new Error('派系 bandit art 优先 burst');
 if (fxEv.resolveEventFx({ deck: 'faction', fx: 'smoke' }) !== 'smoke') throw new Error('显式 fx 应优先');
+if (fxEv.resolveEventChannel({ bad: true, deck: 'radio' }) !== 'alert') throw new Error('坏事件应进入 alert 频道');
+if (fxEv.resolveEventChannel({ bad: false, deck: 'faction' }) !== 'faction') throw new Error('派系事件频道解析失败');
+if (fxEv.resolveEventChannel({ bad: false, deck: 'ruins' }) !== 'ruins') throw new Error('遗迹事件频道解析失败');
+if (fxEv.resolveEventChannel({ bad: false, deck: 'manual' }) !== 'manual') throw new Error('手册事件频道解析失败');
 if (fxEv.classifyLogKind('玩家甲 占领「摩根镇废场」 (-60盖)') !== 'buy') throw new Error('战报 buy 分类失败');
 if (fxEv.classifyLogKind('💀 玩家乙 破产出局！') !== 'warn') throw new Error('战报 warn 分类失败');
 const choiceTxt = fxEv.formatChoiceResult({ caps: -80, moral: 1 });
@@ -431,11 +435,11 @@ const t2 = Date.now();
 while (!state.G.gameOver && Date.now() - t2 < 15000) await tick();
 console.log('闯关调度:', state.G.campaign, '| gameOver:', state.G.gameOver);
 
-// ---------------- 存读档 v3 ----------------
+// ---------------- 存读档 v4 ----------------
 const saveMod = await import(pathToFileURL(join(HERE, 'js', 'view-save.js')).href);
 saveMod.saveGame();
 const snap = JSON.parse(store.wasteland_save);
-if (snap.v !== 3) throw new Error('存档版本应为 3');
+if (snap.v !== 4) throw new Error('存档版本应为 4');
 if (!snap.players[0].factionRep || snap.players[0].factionRep.eagle !== 0) throw new Error('存档应含 factionRep');
 if (snap.mode !== 'campaign') throw new Error('存档未保存 mode');
 if (typeof snap.campaign !== 'number') throw new Error('存档未保存 campaign');

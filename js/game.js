@@ -269,6 +269,8 @@ export function startGame() {
   // 随机棋盘：每局开局重排格子位置（保持「据点」起点固定）
   const randomBoard = document.getElementById('randBoard') ? document.getElementById('randBoard').value === 'on' : true;
   resetSession();
+  // 所有模式都先清除上一局突变；之后再叠加难度、遗产、叙事和本局突变效果。
+  resetMutatorFields(G);
   if (randomBoard) shuffleBoard();
   else resetTiles();
 
@@ -304,7 +306,6 @@ export function startGame() {
       rerolls--;
       mutators = rollMutators(3, unlockedMuts);
     }
-    resetMutatorFields(G);
     applyMutators(G, mutators);
     if (mutators.length) {
       log('☢ 突变因子：' + mutators.map(m => `${m.icon} ${m.name}`).join(' · '));
@@ -438,6 +439,7 @@ export async function resolveTile(p, opts = {}) {
   }
 
   if (t.type === 'prop' || t.type === 'rail' || t.type === 'util') {
+    tileLandFx(p, t.type);
     if (t.owner === null) {
       // 「拍卖狂潮」突变：所有未购地产自动进入拍卖
       if (G.auctionAll) {
@@ -591,10 +593,40 @@ export function afterHumanAction(p) {
 
 const WEATHER_CLASSES = ['weather-dust', 'weather-acid', 'weather-dusk'];
 let _weatherTimer = null;
+let _weatherClass = null;
+let _weatherUntil = 0;
+
+function expireWeather() {
+  WEATHER_CLASSES.forEach(c => document.body.classList.remove(c));
+  _weatherClass = null;
+  _weatherUntil = 0;
+  _weatherTimer = null;
+}
+
+function scheduleWeatherExpiry() {
+  if (_weatherTimer) { clearTimeout(_weatherTimer); _weatherTimer = null; }
+  if (!_weatherClass || document.hidden === true) return;
+  const left = Math.max(0, _weatherUntil - Date.now());
+  _weatherTimer = setTimeout(() => {
+    if (document.hidden === true) { _weatherTimer = null; return; }
+    expireWeather();
+  }, left);
+}
+
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden === true) {
+      if (_weatherTimer) { clearTimeout(_weatherTimer); _weatherTimer = null; }
+    } else scheduleWeatherExpiry();
+  });
+}
+
 function triggerWeather() {
   if (G.gameOver) return;
   if (_weatherTimer) { clearTimeout(_weatherTimer); _weatherTimer = null; }
   WEATHER_CLASSES.forEach(c => document.body.classList.remove(c));
+  _weatherClass = null;
+  _weatherUntil = 0;
   const roll = Math.random();
   let cls = null;
   if (roll < 0.45) cls = 'weather-dust';
@@ -603,10 +635,9 @@ function triggerWeather() {
   if (cls) {
     document.body.classList.add(cls);
     const duration = 4000 + Math.random() * 5000;
-    _weatherTimer = setTimeout(() => {
-      document.body.classList.remove(cls);
-      _weatherTimer = null;
-    }, duration);
+    _weatherClass = cls;
+    _weatherUntil = Date.now() + duration;
+    scheduleWeatherExpiry();
   }
 }
 function endTurn(turnAt) {

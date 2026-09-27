@@ -1,0 +1,170 @@
+﻿[
+    {
+        "id":  0,
+        "name":  "避难所出口",
+        "img":  "assets/tiles/tile-00-start.webp",
+        "tag":  "系统"
+    },
+    {
+        "id":  1,
+        "name":  "摩根镇废场",
+        "img":  "assets/tiles/tile-01-feiche.webp",
+        "tag":  "探索"
+    },
+    {
+        "id":  2,
+        "name":  "森林断墙",
+        "img":  "assets/tiles/tile-02-duanbi.webp",
+        "tag":  "事件"
+    },
+    {
+        "id":  3,
+        "name":  "莫诺加矿洞",
+        "img":  "assets/tiles/tile-03-event.webp",
+        "tag":  "产权"
+    },
+    {
+        "id":  4,
+        "name":  "锈蚀管道",
+        "img":  "assets/tiles/tile-04-shuiguan.webp",
+        "tag":  "建造"
+    },
+    {
+        "id":  5,
+        "name":  "断裂天桥",
+        "img":  "assets/tiles/tile-05-tax.webp",
+        "tag":  "产权"
+    },
+    {
+        "id":  6,
+        "name":  "旧警备所",
+        "img":  "assets/tiles/tile-06-tianqiao.webp",
+        "tag":  "建造"
+    },
+    {
+        "id":  7,
+        "name":  "响应者摊位",
+        "img":  "assets/tiles/tile-07-xianbing.webp",
+        "tag":  "探索"
+    },
+    {
+        "id":  8,
+        "name":  "毒谷枪铺",
+        "img":  "assets/tiles/tile-08-event.webp",
+        "tag":  "资金"
+    },
+    {
+        "id":  9,
+        "name":  "格拉夫顿补给",
+        "img":  "assets/tiles/tile-09-heishi.webp",
+        "tag":  "产权"
+    },
+    {
+        "id":  10,
+        "name":  "改装工坊",
+        "img":  "assets/tiles/tile-10-wuqi.webp",
+        "tag":  "产权"
+    },
+    {
+        "id":  11,
+        "name":  "阿尔法哨",
+        "img":  "assets/tiles/tile-11-jail.webp",
+        "tag":  "悬赏"
+    },
+    {
+        "id":  12,
+        "name":  "灰堆掠夺堡",
+        "img":  "assets/tiles/tile-13-buji.webp",
+        "tag":  "产权"
+    },
+    {
+        "id":  13,
+        "name":  "掠夺者军阀",
+        "img":  "assets/tiles/tile-14-gaizhuang.webp",
+        "tag":  "系统"
+    },
+    {
+        "id":  14,
+        "name":  "布拉沃哨",
+        "img":  "assets/tiles/tile-15-event.webp",
+        "tag":  "产权"
+    },
+    {
+        "id":  15,
+        "name":  "森林加油站",
+        "img":  "assets/tiles/tile-15-rail-s.webp",
+        "tag":  "事件"
+    },
+    {
+        "id":  16,
+        "name":  "裂谷电站",
+        "img":  "assets/tiles/tile-16-lueduo.webp",
+        "tag":  "产权"
+    },
+    {
+        "id":  17,
+        "name":  "灰堆毒巢",
+        "img":  "assets/tiles/tile-17-tax.webp",
+        "tag":  "产权"
+    },
+    {
+        "id":  18,
+        "name":  "毒谷情报商",
+        "img":  "assets/tiles/tile-18-junfa.webp",
+        "tag":  "产权"
+    },
+    {
+        "id":  19,
+        "name":  "裂谷数据塔",
+        "img":  "assets/tiles/tile-19-rail-e.webp",
+        "tag":  "产权"
+    },
+    {
+        "id":  20,
+        "name":  "隔离电台阵列",
+        "img":  "assets/tiles/tile-20-jiayou.webp",
+        "tag":  "产权"
+    },
+    {
+        "id":  21,
+        "name":  "国会掩体",
+        "img":  "assets/tiles/tile-21-power.webp",
+        "tag":  "税收"
+    },
+    {
+        "id":  22,
+        "name":  "裂隙培养池",
+        "img":  "assets/tiles/tile-22-safe.webp",
+        "tag":  "系统"
+    },
+    {
+        "id":  23,
+        "name":  "沼泽样本库",
+        "img":  "assets/tiles/tile-23-event.webp",
+        "tag":  "系统"
+    },
+    {
+        "id":  24,
+        "name":  "查理哨",
+        "img":  "assets/tiles/tile-24-duxiao.webp",
+        "tag":  "探索"
+    },
+    {
+        "id":  25,
+        "name":  "沼泽净水站",
+        "img":  "assets/tiles/tile-25-qingbao.webp",
+        "tag":  "探索"
+    },
+    {
+        "id":  26,
+        "name":  "裂谷量子站",
+        "img":  "assets/tiles/tile-26-tax.webp",
+        "tag":  "系统"
+    },
+    {
+        "id":  27,
+        "name":  "蔓越莓基因场",
+        "img":  "assets/tiles/tile-27-shuju.webp",
+        "tag":  "产权"
+    }
+]

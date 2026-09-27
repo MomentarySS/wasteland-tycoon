@@ -17,10 +17,15 @@ www/
 .pack.log
 .step-api-key
 .minimax-api-key
+.mimo-api-key
 .minimax-group-id
 .minimax-tts-cache/
 assets/brand/preview/
 assets/voice-audition/
 assets/voice/agent-tasks.json
+test/layout-b-preview/.server.log
+test/layout-b-preview/.server.pid
+test/layout-c-preview/.server.log
+test/layout-c-preview/.server.pid
 assets_backup_*/
 screen_*.png

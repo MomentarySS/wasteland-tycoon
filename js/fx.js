@@ -17,6 +17,7 @@ const RM = ENABLED && reducedMotion();
 const SPEED = RM ? 0.25 : 1;           // 降低动效偏好下整体提速收敛
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const canAnimate = el => el && typeof el.animate === 'function';
+const FX_NODE_LIMIT = 120;
 
 let fxLayer = null;
 
@@ -29,6 +30,21 @@ export function initFx() {
     document.body.appendChild(fxLayer);
   }
   buildDice();
+}
+
+/** 限制装饰特效节点数量，优先淘汰粒子/环，不挤掉结果标签和数值反馈。 */
+export function trimFxLayer(limit = FX_NODE_LIMIT) {
+  const layer = fxLayer || (ENABLED ? document.getElementById('fxLayer') : null);
+  if (!layer || !layer.children) return;
+  while (layer.children.length >= limit) {
+    const nodes = Array.from(layer.children);
+    const candidate = nodes.find(el => {
+      const cls = typeof el.className === 'string' ? el.className : '';
+      return !cls.includes('fxLabel') && !cls.includes('fxFloat');
+    }) || nodes[0];
+    if (!candidate || typeof candidate.remove !== 'function') break;
+    candidate.remove();
+  }
 }
 
 // ---------------- 3D 骰子 ----------------
@@ -118,6 +134,15 @@ export function landDust(p) {
   ring.style.left = cx + 'px';
   ring.style.top = cy + 'px';
   ring.style.borderColor = p.color || '#c9a227';
+  if (RM) {
+    trimFxLayer();
+    fxLayer.appendChild(ring);
+    ring.style.transform = 'translate(-50%,-50%) scale(1.15)';
+    ring.style.opacity = '.65';
+    setTimeout(() => ring.remove(), 260);
+    return;
+  }
+  trimFxLayer();
   fxLayer.appendChild(ring);
   if (canAnimate(ring)) {
     const an = ring.animate(
@@ -133,6 +158,7 @@ export function landDust(p) {
     d.style.left = cx + 'px';
     d.style.top = cy + 'px';
     d.style.background = p.color || '#7fae6e';
+    trimFxLayer();
     fxLayer.appendChild(d);
     if (canAnimate(d)) {
       const ang = Math.PI * (0.55 + 0.22 * i) + (Math.random() - 0.5) * 0.4;
@@ -157,6 +183,7 @@ export function footprint(p, fromIdx) {
   d.style.left = (r.left + r.width / 2) + 'px';
   d.style.top = (r.top + r.height / 2) + 'px';
   d.style.background = p.color || '#7fae6e';
+  trimFxLayer();
   fxLayer.appendChild(d);
   if (canAnimate(d)) {
     const an = d.animate(
@@ -186,6 +213,7 @@ export function coinsBetween(fromEl, toEl, count = 8) {
   for (let i = 0; i < n; i++) {
     const c = document.createElement('div');
     c.className = 'fxCoin';
+    trimFxLayer();
     fxLayer.appendChild(c);
     if (!canAnimate(c)) { c.remove(); continue; }
     const lift = 40 + Math.random() * 55;
@@ -200,16 +228,17 @@ export function coinsBetween(fromEl, toEl, count = 8) {
 }
 
 /** 在元素右侧冒出 ±N 飘字 */
-export function floatDelta(el, amount) {
+export function floatDelta(el, amount, context = '') {
   if (!ENABLED || !fxLayer || !amount) return;
   const r = rectOf(el);
   if (!r) return;
   const up = amount > 0;
   const d = document.createElement('div');
   d.className = 'fxFloat ' + (up ? 'up' : 'down');
-  d.textContent = (up ? '+' : '') + amount;
+  d.textContent = (up ? '+' : '') + amount + (context ? ` · ${context}` : '');
   d.style.left = (r.right - 14) + 'px';
   d.style.top = (r.top + r.height / 2) + 'px';
+  trimFxLayer();
   fxLayer.appendChild(d);
   if (canAnimate(d)) {
     const an = d.animate([
@@ -240,13 +269,14 @@ export function fxMoney(players) {
   });
   if (!changed.length) return;
   const losers = changed.filter(x => x.d < 0), gainers = changed.filter(x => x.d > 0);
-  if (losers.length === 1 && gainers.length === 1 && Math.abs(losers[0].d) === gainers[0].d) {
+  const isTransfer = losers.length === 1 && gainers.length === 1
+    && Math.abs(losers[0].d) === gainers[0].d;
+  if (isTransfer) {
     coinsBetween(getPlayerRowEl(losers[0].p), getPlayerRowEl(gainers[0].p), Math.min(14, 4 + Math.floor(gainers[0].d / 40)));
-  } else {
-    gainers.forEach(g => coinsBetween(null, getPlayerRowEl(g.p), 0));
   }
   changed.forEach(x => {
-    floatDelta(getPlayerRowEl(x.p), x.d);
+    const context = isTransfer ? (x.d > 0 ? '转入' : '转出') : (x.d > 0 ? '收入' : '支出');
+    floatDelta(getPlayerRowEl(x.p), x.d, context);
     pulseRow(getPlayerRowEl(x.p), x.d > 0);
   });
   if (losers.some(x => x.d <= -100)) { screenShake(.6); haptic('medium'); }
@@ -279,6 +309,7 @@ export function flashScreen(color = 'rgba(163,21,21,.34)') {
   const f = document.createElement('div');
   f.className = 'fxFlash';
   f.style.background = color;
+  trimFxLayer();
   fxLayer.appendChild(f);
   if (canAnimate(f)) {
     const an = f.animate([{ opacity: 0 }, { opacity: 1, offset: .18 }, { opacity: 0 }],
@@ -295,6 +326,7 @@ export function coinRain(n = 28) {
   for (let i = 0; i < n; i++) {
     const c = document.createElement('div');
     c.className = 'fxCoin';
+    trimFxLayer();
     fxLayer.appendChild(c);
     if (!canAnimate(c)) { c.remove(); continue; }
     const x = Math.random() * W, s = .7 + Math.random() * .7;

@@ -62,6 +62,10 @@ export const UI_ART = {
   boardCenter: 'assets/ui/board-center-radar.webp',
   dust: 'assets/ui/bg-dust-layer.webp',
   lightning: 'assets/ui/bg-lightning.webp',
+  boardContours: 'assets/ui/bg-board-contours.webp',
+  boardIndustrial: 'assets/ui/bg-board-industrial.webp',
+  boardRadiation: 'assets/ui/bg-board-radiation.webp',
+  dustSpecks: 'assets/ui/fx-dust-specks.webp',
 };
 
 /** 核弹专用插画（SVG 内置；webp 可由 step-image-jobs 生成后自动优先） */
@@ -87,7 +91,7 @@ export function nukeArtHtml(kind = 'strike') {
 
 export function tileArtUrl(index) {
   const rel = TILE_ART[index];
-  return rel ? assetUrl(rel) : '';
+  return rel ? assetUrl(rel.replace('assets/tiles/', 'assets/tiles-redrawn/')) : '';
 }
 
 export function zoneTexUrl(group) {

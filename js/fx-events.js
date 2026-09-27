@@ -1,8 +1,9 @@
 // 事件 / 落地分级动效（与 fx.js 并列，只做表现）
-import { haptic, flashScreen, screenShake } from './fx.js';
+import { haptic, flashScreen, screenShake, trimFxLayer } from './fx.js';
 import { flashLightning, nukeArtHtml } from './assets-art.js';
 import { sfx } from './audio.js';
 import { getTileRect } from './board-metrics.js';
+import { pulseTile } from './board-canvas.js';
 
 const ENABLED = typeof document !== 'undefined' && !!document.documentElement;
 
@@ -21,6 +22,33 @@ const ART_MOTES = {
 };
 
 let ambTimer = null;
+
+function scheduleAmbience() {
+  if (!ENABLED || RM || document.hidden === true || ambTimer) return;
+  ambTimer = setInterval(() => {
+    if (Math.random() < 0.14) flashLightning(320);
+  }, 42000);
+}
+
+function pausePageMotion(hidden) {
+  if (!ENABLED || !document.body) return;
+  document.body.classList.toggle('page-hidden', hidden);
+  if (typeof document.getAnimations === 'function') {
+    document.getAnimations().forEach(animation => {
+      try { hidden ? animation.pause() : animation.play(); } catch (e) { /* 单个动画失败不影响页面 */ }
+    });
+  }
+}
+
+if (ENABLED && typeof document.addEventListener === 'function') {
+  document.addEventListener('visibilitychange', () => {
+    const hidden = document.hidden === true;
+    pausePageMotion(hidden);
+    if (hidden) {
+      if (ambTimer) { clearInterval(ambTimer); ambTimer = null; }
+    } else if (document.body.classList.contains('amb-on')) scheduleAmbience();
+  });
+}
 
 /** 战报条目分类（Tier B icon） */
 export function classifyLogKind(msg) {
@@ -55,6 +83,16 @@ export function resolveEventFx(m) {
   return 'static';
 }
 
+/** 事件频道：先表达内容来源，坏事件再覆盖为警报频道。 */
+export function resolveEventChannel(m) {
+  if (!m) return 'manual';
+  if (m.bad) return 'alert';
+  if (m.deck === 'faction') return 'faction';
+  if (m.deck === 'ruins') return 'ruins';
+  if (m.deck === 'radio') return 'radio';
+  return 'manual';
+}
+
 /** 选支后果摘要（用于 slide-in 条） */
 export function formatChoiceResult(eff) {
   eff = eff || {};
@@ -84,14 +122,20 @@ function fxLayer() {
 
 /** 事件弹窗分级粒子入场 */
 export function playEventIntro(modalBox, m) {
-  if (!modalBox || RM) return;
+  if (!modalBox || !m) return;
   const fx = resolveEventFx(m);
+  const channel = resolveEventChannel(m);
   modalBox.classList.remove('evtFx-burst', 'evtFx-smoke', 'evtFx-static', 'evtFx-warp');
+  modalBox.classList.remove('evtChannel-alert', 'evtChannel-radio', 'evtChannel-manual', 'evtChannel-faction', 'evtChannel-ruins');
   modalBox.classList.add('evtFx-' + fx);
+  modalBox.classList.add('evtChannel-' + channel);
+  const artEl = modalBox.querySelector('.evtArt');
+  if (artEl) artEl.dataset.channel = channel;
+  if (RM) return;
   const old = modalBox.querySelector('.evtFxLayer');
   if (old) old.remove();
   const layer = document.createElement('div');
-  layer.className = 'evtFxLayer evtFxLayer-' + fx + (m.bad ? ' bad' : ' good');
+  layer.className = 'evtFxLayer evtFxLayer-' + fx + ' evtChannelFx-' + channel + (m.bad ? ' bad' : ' good');
   const n = fx === 'static' ? 6 : fx === 'smoke' ? 10 : fx === 'warp' ? 14 : 12;
   for (let i = 0; i < n; i++) {
     const p = document.createElement('span');
@@ -129,41 +173,70 @@ export function playEventArtFx(modalBox, m) {
 
 /** Tier B：背景氛围 — 慢渐变 + 偶发远距闪电 */
 export function startAmbience() {
-  if (!ENABLED || RM || ambTimer) return;
+  if (!ENABLED || RM) return;
   document.body.classList.add('amb-on');
-  ambTimer = setInterval(() => {
-    if (Math.random() < 0.14) flashLightning(320);
-  }, 42000);
+  scheduleAmbience();
 }
 
 /** Tier B：买地 / 升级 brief 建造动效 */
-export function playTileBuildFx(tileId, kind = 'buy') {
-  if (!ENABLED || RM) return;
+export function playTileBuildFx(tileId, kind = 'buy', label = '', ownerColor = '', freeUpgrade = false) {
+  if (!ENABLED) return;
   const tileEl = document.querySelector(`.tile[data-i="${tileId}"]`);
   const r = getTileRect(tileId);
   if (!r) return;
-  if (tileEl) {
+  if (!RM && tileEl) {
     tileEl.classList.remove('tbuild-buy', 'tbuild-up');
     void tileEl.offsetWidth;
     tileEl.classList.add(kind === 'upgrade' ? 'tbuild-up' : 'tbuild-buy');
   }
   const x = r.left + r.width / 2;
   const y = r.top + r.height / 2;
-  const col = kind === 'upgrade' ? '#c9a227' : '#7fae6e';
-  spawnRing(x, y, col, 2.4, 520);
-  spawnBurst(x, y, col, kind === 'upgrade' ? 10 : 7);
-  if (tileEl) setTimeout(() => tileEl.classList.remove('tbuild-buy', 'tbuild-up'), 680);
+  const col = kind === 'upgrade' ? (freeUpgrade ? '#d8edf1' : '#e6b45d') : '#d18b4b';
+  if (!RM) {
+    spawnRing(x, y, col, 2.4, 520);
+    spawnBurst(x, y, col, kind === 'upgrade' ? 10 : 7);
+    pulseTile(tileId, ownerColor || col, kind === 'upgrade'
+      ? (freeUpgrade ? 'upgrade-free' : 'upgrade') : 'claim', col);
+  }
+  if (label) showFxLabel(x, y, label, kind === 'upgrade' ? 'build' : 'buy', RM);
+  if (!RM && tileEl) setTimeout(() => tileEl.classList.remove('tbuild-buy', 'tbuild-up'), 680);
 }
 
-/** 升级飘字：格子上冒出 +Lv1 / +Lv2 浮动文字 */
-export function floatUpgrade(tileId, level) {
+/** 在事件发生位置显示短标签，让粒子动效对应到具体结果。 */
+function showFxLabel(x, y, text, tone = 'event', staticMotion = false) {
+  const layer = fxLayer();
+  if (!layer || !text) return;
+  const d = document.createElement('div');
+  d.className = `fxLabel fxLabel-${tone}`;
+  d.textContent = text;
+  d.style.left = `${x}px`;
+  d.style.top = `${y}px`;
+  trimFxLayer();
+  layer.appendChild(d);
+  if (staticMotion) {
+    d.style.transform = 'translate(-50%,-50%)';
+    d.style.opacity = '1';
+    setTimeout(() => d.remove(), 700);
+  } else if (d.animate) {
+    const an = d.animate([
+      { transform: 'translate(-50%,-50%) translateY(5px) scale(.86)', opacity: 0 },
+      { transform: 'translate(-50%,-50%) translateY(-5px) scale(1)', opacity: 1, offset: .2 },
+      { transform: 'translate(-50%,-50%) translateY(-28px) scale(.96)', opacity: 0 },
+    ], { duration: 1050, easing: 'cubic-bezier(.2,.7,.3,1)' });
+    an.onfinish = () => d.remove();
+  } else setTimeout(() => d.remove(), 1100);
+}
+
+/** 升级飘字：说明地块现在建成了什么。 */
+export function floatUpgrade(tileId, level, free = false) {
   if (!ENABLED || !fxLayer()) return;
   const r = getTileRect(tileId);
   if (!r) return;
   const d = document.createElement('div');
   d.className = 'fxFloat';
   d.style.cssText = `position:fixed;left:${r.left + r.width / 2}px;top:${r.top + r.height / 2}px;color:#c9a227;font-size:13px;font-weight:bold;font-family:"Courier New",monospace;letter-spacing:1px;text-shadow:0 0 8px #c9a227,0 1px 2px #000;white-space:nowrap;pointer-events:none;z-index:85;`;
-  d.textContent = level >= 2 ? '+Lv2' : '+Lv1';
+  d.textContent = `${free ? '免费建成' : '建成'}${level >= 2 ? '地堡' : '棚户'}`;
+  trimFxLayer();
   fxLayer().appendChild(d);
   if (d.animate) {
     const an = d.animate([
@@ -181,7 +254,7 @@ export function floatUpgrade(tileId, level) {
 
 /** 选支后结果条 slide-in，再执行 cb */
 export function showChoiceResult(modalBox, summary, bad, cb) {
-  if (!modalBox || RM) { if (cb) cb(); return Promise.resolve(); }
+  if (!modalBox) { if (cb) cb(); return Promise.resolve(); }
   return new Promise(resolve => {
     const done = () => { if (cb) cb(); resolve(); };
     const bar = document.createElement('div');
@@ -191,6 +264,10 @@ export function showChoiceResult(modalBox, summary, bad, cb) {
     void bar.offsetWidth;
     bar.classList.add('in');
     haptic(bad ? 'medium' : 'light');
+    if (RM) {
+      setTimeout(() => { bar.remove(); done(); }, 700);
+      return;
+    }
     setTimeout(() => {
       bar.classList.add('out');
       setTimeout(() => { bar.remove(); done(); }, 280);
@@ -206,6 +283,7 @@ function spawnRing(x, y, color, scale = 2.2, ms = 480) {
   ring.style.left = x + 'px';
   ring.style.top = y + 'px';
   ring.style.borderColor = color;
+  trimFxLayer();
   layer.appendChild(ring);
   if (ring.animate) {
     ring.animate(
@@ -227,6 +305,7 @@ function spawnBurst(x, y, color, count = 8) {
     dot.style.background = color;
     const ang = (Math.PI * 2 * i) / n + Math.random() * .4;
     const dist = 28 + Math.random() * 36;
+    trimFxLayer();
     layer.appendChild(dot);
     if (dot.animate) {
       dot.animate(
@@ -240,12 +319,33 @@ function spawnBurst(x, y, color, count = 8) {
 
 /** 落地按地块类型短效反馈 */
 export function playTileLandFx(type, tokenEl) {
-  if (!ENABLED || RM || !tokenEl) return;
+  if (!ENABLED || !tokenEl) return;
   const r = rectOf(tokenEl);
   if (!r) return;
   const x = r.left + r.width / 2;
   const y = r.top + r.height / 2;
+  const labels = {
+    prop: ['地产', 'facility'], rail: ['铁路', 'facility'], util: ['能源设施', 'facility'], tax: ['税务关卡', 'bad'],
+    oasis: ['获得补给', 'good'], event: ['事件频道', 'event'], wormhole: ['虫洞跃迁', 'warp'],
+    radiation: ['辐射区', 'bad'], bunker: ['进入避难所', 'facility'], blackmarket: ['黑市交易', 'event'],
+    bounty: ['悬赏判定', 'event'], safe: ['安全地带', 'good'], quarantine: ['进入隔离区', 'bad'],
+  };
+  const label = labels[type];
+  if (label) showFxLabel(x, y, label[0], label[1], RM);
+  if (RM) return;
+  if (type === 'safe' || type === 'radiation' || type === 'wormhole') spawnLandSignature(x, y, type);
   switch (type) {
+    case 'prop':
+      spawnRing(x, y, '#d18b4b', 2.2, 460);
+      spawnBurst(x, y, '#e6b45d', 5);
+      break;
+    case 'rail':
+      spawnRing(x, y, '#91a7a8', 2.0, 430);
+      break;
+    case 'util':
+      spawnRing(x, y, '#56b9b2', 2.5, 500);
+      spawnBurst(x, y, '#8ad7c8', 5);
+      break;
     case 'tax':
       spawnRing(x, y, '#e0574a', 2.6, 520);
       spawnBurst(x, y, '#a31515', 6);
@@ -286,6 +386,24 @@ export function playTileLandFx(type, tokenEl) {
     default:
       break;
   }
+}
+
+/** P2：用轮廓语言区分安全、辐射和虫洞，不增加图片资源。 */
+function spawnLandSignature(x, y, type) {
+  const layer = fxLayer();
+  if (!layer || RM) return;
+  const mark = document.createElement('div');
+  mark.className = `fxLandSignature fxSig-${type}`;
+  mark.style.left = x + 'px';
+  mark.style.top = y + 'px';
+  trimFxLayer();
+  layer.appendChild(mark);
+  if (mark.animate) {
+    mark.animate([
+      { transform: 'translate(-50%,-50%) scale(.55) rotate(0deg)', opacity: .8 },
+      { transform: `translate(-50%,-50%) scale(${type === 'wormhole' ? 1.9 : 1.45}) rotate(${type === 'wormhole' ? 160 : 24}deg)`, opacity: 0 },
+    ], { duration: type === 'wormhole' ? 680 : 560, easing: 'ease-out' }).onfinish = () => mark.remove();
+  } else setTimeout(() => mark.remove(), 720);
 }
 
 /** 隐藏结局：棋盘中央蘑菇云核爆 */
@@ -337,18 +455,21 @@ export async function playNukeStrike() {
     stem.className = 'fxMushStem';
     stem.style.left = cx + 'px';
     stem.style.top = cy + 'px';
+    trimFxLayer();
     layer.appendChild(stem);
 
     const cap = document.createElement('div');
     cap.className = 'fxMushCap';
     cap.style.left = cx + 'px';
     cap.style.top = (cy - 40) + 'px';
+    trimFxLayer();
     layer.appendChild(cap);
 
     const ring = document.createElement('div');
     ring.className = 'fxNukeRing';
     ring.style.left = cx + 'px';
     ring.style.top = cy + 'px';
+    trimFxLayer();
     layer.appendChild(ring);
 
     // P8: shockwave SVG ring
@@ -366,6 +487,7 @@ export async function playNukeStrike() {
     circle.setAttribute('stroke', '#ffe9a3');
     circle.setAttribute('stroke-dasharray', '12 8');
     shockwave.appendChild(circle);
+    trimFxLayer();
     layer.appendChild(shockwave);
     if (shockwave.animate) {
       shockwave.animate(

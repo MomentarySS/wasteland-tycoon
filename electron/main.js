@@ -1,9 +1,9 @@
 // electron/main.js —— 桌面客户端主进程
-// 把 www/ 装进 BrowserWindow；语音走 MiniMax 在线 TTS
-import { app, BrowserWindow, ipcMain, dialog, shell, Menu } from 'electron';
+// 把 www/ 装进 BrowserWindow；在线语音走 MiniMax 或小米 MiMo TTS
+import { app, BrowserWindow, ipcMain, dialog, shell, Menu, safeStorage } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -61,14 +61,55 @@ async function getMinimax() {
   return minimaxTts;
 }
 
+function userKeyPath(provider, userData = app.getPath('userData')) {
+  return path.join(userData, provider === 'mimo' ? '.mimo-api-key' : '.minimax-api-key');
+}
+
+function readUserApiKey(provider, userData) {
+  try {
+    const stored = readFileSync(userKeyPath(provider, userData), 'utf8').trim();
+    if (!stored.startsWith('safe-v1:') || !safeStorage.isEncryptionAvailable()) return '';
+    return safeStorage.decryptString(Buffer.from(stored.slice(8), 'base64'));
+  } catch (_) { return ''; }
+}
+
+function saveUserApiKey(provider, key, userData) {
+  if (!safeStorage.isEncryptionAvailable()) return { ok: false, error: 'Windows 安全存储当前不可用，未保存 Key' };
+  try {
+    mkdirSync(userData, { recursive: true });
+    const encrypted = safeStorage.encryptString(key).toString('base64');
+    writeFileSync(userKeyPath(provider, userData), `safe-v1:${encrypted}`, { encoding: 'utf8', mode: 0o600 });
+    return { ok: true };
+  } catch (_) { return { ok: false, error: '保存失败，请检查应用数据目录权限' }; }
+}
+
+function deleteUserApiKey(provider, userData) {
+  try { unlinkSync(userKeyPath(provider, userData)); }
+  catch (e) { if (e && e.code !== 'ENOENT') return { ok: false, error: '清除失败，请检查应用数据目录权限' }; }
+  return { ok: true };
+}
+
+function providerOptions(provider) {
+  const userData = app.getPath('userData');
+  return {
+    root: ROOT,
+    userData,
+    userDataApiKey: readUserApiKey(provider, userData),
+    cacheDir: path.join(userData, provider === 'mimo' ? 'mimo-tts-cache' : 'minimax-tts-cache'),
+  };
+}
+
+function normalizeApiKey(value) {
+  if (typeof value !== 'string') return '';
+  const key = value.trim();
+  if (!key || key.length > 512 || /[\r\n\0]/.test(key)) return '';
+  return key;
+}
+
 ipcMain.handle('minimax:init', async () => {
   try {
     const m = await getMinimax();
-    return await m.init({
-      root: ROOT,
-      userData: app.getPath('userData'),
-      cacheDir: path.join(app.getPath('userData'), 'minimax-tts-cache'),
-    });
+    return await m.init(providerOptions('minimax'));
   } catch (e) {
     console.error('[minimax:init] 失败:', e);
     return { ok: false, error: String(e && e.message || e) };
@@ -92,9 +133,101 @@ ipcMain.handle('minimax:speak', async (_evt, text, opts) => {
 ipcMain.handle('minimax:status', async () => {
   try {
     const m = await getMinimax();
-    return m.status();
+    return await m.init(providerOptions('minimax'));
   } catch (_) {
     return { ok: false };
+  }
+});
+
+ipcMain.handle('minimax:saveKey', async (_evt, key) => {
+  try {
+    const normalized = normalizeApiKey(key);
+    if (!normalized) return { ok: false, error: '请输入有效的 MiniMax API Key' };
+    const options = providerOptions('minimax');
+    const saved = saveUserApiKey('minimax', normalized, options.userData);
+    if (!saved.ok) return saved;
+    const m = await getMinimax();
+    return await m.init({ ...options, userDataApiKey: normalized });
+  } catch (e) {
+    console.error('[minimax:saveKey] 失败:', e && e.message);
+    return { ok: false, error: '保存 MiniMax API Key 失败' };
+  }
+});
+
+ipcMain.handle('minimax:clearKey', async () => {
+  try {
+    const m = await getMinimax();
+    const options = providerOptions('minimax');
+    const deleted = deleteUserApiKey('minimax', options.userData);
+    if (!deleted.ok) return deleted;
+    return await m.init({ ...options, userDataApiKey: '' });
+  } catch (e) {
+    console.error('[minimax:clearKey] 失败:', e && e.message);
+    return { ok: false, error: '清除 MiniMax API Key 失败' };
+  }
+});
+
+let mimoTts = null;
+async function getMimo() {
+  if (!mimoTts) mimoTts = await import('./mimo-tts.js');
+  return mimoTts;
+}
+
+function mimoOptions() {
+  return providerOptions('mimo');
+}
+
+ipcMain.handle('mimo:init', async () => {
+  try { return await (await getMimo()).init(mimoOptions()); }
+  catch (e) {
+    console.error('[mimo:init] 失败:', e && e.message);
+    return { ok: false, error: 'MiMo 初始化失败' };
+  }
+});
+
+ipcMain.handle('mimo:status', async () => {
+  try { return await (await getMimo()).init(mimoOptions()); }
+  catch (_) { return { ok: false }; }
+});
+
+ipcMain.handle('mimo:saveKey', async (_evt, key) => {
+  try {
+    const normalized = normalizeApiKey(key);
+    if (!normalized) return { ok: false, error: '请输入有效的小米 MiMo API Key' };
+    const opts = mimoOptions();
+    const saved = saveUserApiKey('mimo', normalized, opts.userData);
+    if (!saved.ok) return saved;
+    const m = await getMimo();
+    return await m.init({ ...opts, userDataApiKey: normalized });
+  } catch (e) {
+    console.error('[mimo:saveKey] 失败:', e && e.message);
+    return { ok: false, error: '保存小米 MiMo API Key 失败' };
+  }
+});
+
+ipcMain.handle('mimo:clearKey', async () => {
+  try {
+    const opts = mimoOptions();
+    const deleted = deleteUserApiKey('mimo', opts.userData);
+    if (!deleted.ok) return deleted;
+    return await (await getMimo()).init({ ...opts, userDataApiKey: '' });
+  }
+  catch (e) {
+    console.error('[mimo:clearKey] 失败:', e && e.message);
+    return { ok: false, error: '清除小米 MiMo API Key 失败' };
+  }
+});
+
+ipcMain.handle('mimo:speak', async (_evt, text, opts) => {
+  try {
+    const m = await getMimo();
+    const result = await m.speak(text, { ...mimoOptions(), ...(opts || {}) });
+    if (!result || !result.ok) return { ok: false, error: (result && result.error) || 'MiMo synthesis failed' };
+    const audio = result.audio instanceof Uint8Array ? new Uint8Array(result.audio) : Uint8Array.from(result.audio || []);
+    return { ok: true, audio, format: result.format || 'wav', cached: !!result.cached, voice: result.voice };
+  } catch (e) {
+    console.error('[mimo:speak] 失败:', e && e.message);
+    return { ok: false, error: 'MiMo 语音合成失败' };
   }
 });
 
@@ -102,11 +235,7 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   createWindow();
   getMinimax().then((m) => {
-    m.init({
-      root: ROOT,
-      userData: app.getPath('userData'),
-      cacheDir: path.join(app.getPath('userData'), 'minimax-tts-cache'),
-    }).catch((e) => console.error('[minimax] 预热失败', e));
+    m.init(providerOptions('minimax')).catch((e) => console.error('[minimax] 预热失败', e));
   }).catch((e) => console.error('[minimax] 模块加载失败', e));
 });
 

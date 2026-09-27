@@ -39,15 +39,15 @@ export function enterJail(p) {
 export function buy(p, t) {
   if (t.owner != null || p.caps < t.price) return;
   p.caps -= t.price; t.owner = p.id; sfx('buy'); log(`${p.name} 占领「${t.name}」 (-${t.price}盖)`); render();
-  playTileBuildFx(t.id, 'buy');
+  playTileBuildFx(t.id, 'buy', '占领地块', p.color);
 }
 export function upgrade(p, t, free) {
   if (t.type !== 'prop' || t.level >= 2 || t.owner !== p.id) return;
   if (!free && p.caps < t.price) return;
   if (!free) p.caps -= t.price;
   t.level++; sfx('buy'); log(`${p.name} 强化「${t.name}」至 L${t.level}${free ? '（免费）' : ''}`); render();
-  playTileBuildFx(t.id, 'upgrade');
-  floatUpgrade(t.id, t.level);
+  playTileBuildFx(t.id, 'upgrade', '', p.color, free);
+  floatUpgrade(t.id, t.level, free);
 }
 export function mortgage(p, t, silent) {
   if (t.owner !== p.id || t.mortgaged || t.level > 0) return;
@@ -126,7 +126,7 @@ export async function auction(t) {
   if (best && bestBid > 0 && best.caps >= bestBid) {
     best.caps -= bestBid; t.owner = best.id; t.level = 0; t.mortgaged = false;
     log(`${best.name} 拍卖购得「${t.name}」 -${bestBid}盖`); sfx('buy');
-    playTileBuildFx(t.id, 'buy');
+    playTileBuildFx(t.id, 'buy', '拍卖购得', best.color);
   } else log(`「${t.name}」拍卖流标，归银行`);
   render();
 }

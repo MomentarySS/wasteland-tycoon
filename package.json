@@ -1,6 +1,6 @@
 {
   "name": "wasteland-tycoon",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "废土大亨：末世大富翁 · Windows 桌面客户端（Electron）",
   "private": true,
   "type": "module",
@@ -44,7 +44,7 @@
           ]
         }
       ],
-      "icon": "logo.svg"
+      "icon": "logo.png"
     },
     "nsis": {
       "oneClick": false,
