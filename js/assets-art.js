@@ -1,4 +1,4 @@
-// 生图资源路径（与 scripts/step-image-jobs.json 一致）
+// 游戏插画资源路径
 import { assetUrl } from './paths.js';
 import { eventArt } from './icons.js';
 
@@ -68,7 +68,7 @@ export const UI_ART = {
   dustSpecks: 'assets/ui/fx-dust-specks.webp',
 };
 
-/** 核弹专用插画（SVG 内置；webp 可由 step-image-jobs 生成后自动优先） */
+/** 核弹专用插画（SVG 内置；存在 WebP 时自动优先） */
 export const NUKE_ART = {
   launch: 'assets/ui/nuke-launch.webp',
   strike: 'assets/ui/nuke-strike.webp',
@@ -104,7 +104,7 @@ export function eventArtUrl(eventId) {
   return assetUrl(`assets/events/evt-${eventId}.webp`);
 }
 
-/** 已生成 16:9 位图的事件 id（与 scripts/step-image-jobs.json 的 assets/events/ 输出一致）。
+/** 已生成 16:9 位图的事件 id（对应 assets/events/ 下的文件）。
  *  未在表内的事件（如 chain 系 / fac 系剧情与派系任务）回退 EVENT_ARTS SVG，避免弹窗破图。 */
 const EVENT_ART_GENERATED = new Set([
   'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'r16',

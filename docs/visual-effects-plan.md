@@ -230,7 +230,7 @@ R1–R4 已进入开发版，并在 Electron 实机窗口确认文字、棋子�
 - 新行动格、第六组地产、战役专属地块和 mutator 专属换皮。
 - 更大规模的角色骨骼动画或全套新地块美术。
 
-以上提案仍记录在 [`docs/terrain-variants.md`](terrain-variants.md) 和 [`新功能调研_未做升级.md`](../新功能调研_未做升级.md)，不代表当前视觉升级缺项。
+以上提案仍记录在 [`docs/terrain-variants.md`](terrain-variants.md)，不代表当前视觉升级缺项。
 
 ### 发布边界
 
