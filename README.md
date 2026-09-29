@@ -70,7 +70,7 @@ www/        sync:www 生成的 Electron 页面镜像，不提交
 - [开发备忘](开发备忘.md)
 - [文档索引](docs/README.md)
 - [单人剧情闯关设计](单人剧情闯关设计.md)
-- [废土大亨世界观正典](世界观/修复版/游戏世界观/世界观设定_废土大亨.md)
+- [废土大亨世界观正典](世界观/世界观设定_废土大亨.md)
 - [预录语音清单](docs/voice-pack.md)
 - [视觉特效与背景计划](docs/visual-effects-plan.md)
 - [地形变种研究（未实现）](docs/terrain-variants.md)
