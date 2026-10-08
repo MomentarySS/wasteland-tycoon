@@ -7,13 +7,17 @@ import { fileURLToPath, pathToFileURL } from 'url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 const errors = [];
+// 关键：装上处理器后 Node 不会再用退出码 1 结束，进程会继续跑到底部那句
+// `process.exit(0)` —— 于是「测试崩了但退出码是 0」，闸门形同虚设。
+// 这里显式写 process.exitCode = 1，底部改为 process.exit(process.exitCode || 0)，
+// 两条路径（正常走到底 / 中途崩了靠处理器兜底）都能落到非零退出码。
 process.on('unhandledRejection', e => {
   const s = 'unhandledRejection: ' + ((e && e.stack) || e);
-  errors.push(s); console.error(s);
+  errors.push(s); console.error(s); process.exitCode = 1;
 });
 process.on('uncaughtException', e => {
   const s = 'uncaughtException: ' + ((e && e.stack) || e);
-  errors.push(s); console.error(s);
+  errors.push(s); console.error(s); process.exitCode = 1;
 });
 
 // 加速：所有 setTimeout 走 setImmediate（Node 会把 setTimeout(fn,0) 钳到 1ms，太慢）
@@ -563,7 +567,75 @@ if (freeProp) {
 
 console.log('买地/升级 纯函数校验通过');
 
+// ---------------- 场景 6：mutator 视觉族（v1.8.0，纯表现层）----------------
+const mutMod = await load('mutators.js');
+const { resolveMutatorVisualFamily, MUTATOR_VISUAL_FAMILY, VISUAL_FAMILY_PRIORITY } = mutMod;
+const mById = id => mutMod.MUTATOR_POOL.find(m => m.id === id);
+
+// 映射表自身必须自洽：引用的 id 真实存在、族名在优先级表里
+for (const [id, fam] of Object.entries(MUTATOR_VISUAL_FAMILY)) {
+  if (!mById(id)) throw new Error(`MUTATOR_VISUAL_FAMILY 引用了不存在的 mutator: ${id}`);
+  if (!VISUAL_FAMILY_PRIORITY.includes(fam)) throw new Error(`未知视觉族: ${fam} (${id})`);
+}
+// 口径守卫：只映射「带灾害语义的少数 mutator」。若将来被扩成全量 25 个映射，
+// 说明口径已被推翻，必须先改 docs/v1.8.0-plan.md §4 再改代码，这里直接拦住。
+const mapped = Object.keys(MUTATOR_VISUAL_FAMILY).length;
+if (mapped > 8) throw new Error(`视觉族映射膨胀到 ${mapped} 个，与「只映射少数灾害类 mutator」口径冲突（见 docs/v1.8.0-plan.md §4）`);
+
+if (resolveMutatorVisualFamily([]) !== null) throw new Error('无突变时应返回 null');
+if (resolveMutatorVisualFamily(null) !== null) throw new Error('null 输入应返回 null');
+if (resolveMutatorVisualFamily(undefined) !== null) throw new Error('undefined 输入应返回 null');
+const pick = (...ids) => ids.map(id => mById(id));
+
+if (resolveMutatorVisualFamily(pick('nuke_race')) !== 'fire') throw new Error('nuke_race 应解析为 fire');
+if (resolveMutatorVisualFamily(pick('land_tax')) !== 'fire') throw new Error('land_tax 应解析为 fire');
+if (resolveMutatorVisualFamily(pick('radiation_leak')) !== 'flood') throw new Error('radiation_leak 应解析为 flood');
+if (resolveMutatorVisualFamily(pick('horde_frequent')) !== 'flood') throw new Error('horde_frequent 应解析为 flood');
+if (resolveMutatorVisualFamily(pick('wormhole_chaos')) !== 'dust') throw new Error('wormhole_chaos 应解析为 dust');
+
+// 固定优先级：同局多族只取最高那一族（顺序无关）
+if (resolveMutatorVisualFamily(pick('wormhole_chaos', 'radiation_leak', 'nuke_race')) !== 'fire') throw new Error('三族同场应取 fire');
+if (resolveMutatorVisualFamily(pick('radiation_leak', 'wormhole_chaos')) !== 'flood') throw new Error('缺 fire 时应取 flood');
+if (resolveMutatorVisualFamily(pick('wormhole_chaos', 'wormhole_chaos')) !== 'dust') throw new Error('仅 dust 时应取 dust');
+
+// 口径核心：纯经济/抽象类 mutator 必须保持安静（返回 null）
+const QUIET = ['double_rent', 'expensive_land', 'equal_wealth', 'speed_die', 'bank_interest', 'jackpot', 'lucky_start', 'pacifist', 'no_jail', 'vendetta'];
+for (const id of QUIET) {
+  if (!mById(id)) throw new Error(`QUIET 列表引用了不存在的 mutator: ${id}`);
+  if (resolveMutatorVisualFamily(pick(id)) !== null) throw new Error(`${id} 不该产生视觉族（口径要求保持安静）`);
+}
+// 且静默类与灾害类混在一起时，仍只由灾害类决定
+if (resolveMutatorVisualFamily(pick('double_rent', 'double_salary', 'nuke_race')) !== 'fire') throw new Error('静默类不应干扰优先级');
+
+// 表现层集成：body class 跟随 G.activeMutators，且不得改任何规则字段
+// 注意：走 view-core.js 而不是 view.js —— updateCommandCenter 未被 view.js 再导出，
+// 不为了测试去扩大公共 API 面。
+const viewCore = await load('view-core.js');
+const mutRuleSnapshot = JSON.stringify(Object.keys(state.G).sort().map(k => [k, state.G[k]]).filter(([k]) => k in mutMod.MUTATOR_FIELDS));
+const setMuts = ids => { state.G.activeMutators = pick(...ids); viewCore.updateCommandCenter(); };
+const bodyHas = c => document.body.classList.contains(c);
+
+setMuts(['nuke_race']);
+if (!bodyHas('mutviz-fire')) throw new Error('nuke_race 应点亮 mutviz-fire');
+if (bodyHas('mutviz-flood') || bodyHas('mutviz-dust')) throw new Error('同局不应同时点亮多族');
+
+setMuts(['wormhole_chaos', 'radiation_leak', 'nuke_race']);
+if (!bodyHas('mutviz-fire')) throw new Error('三族同场应只保留优先级最高的 fire');
+if (bodyHas('mutviz-flood') || bodyHas('mutviz-dust')) throw new Error('被压制的族必须被清掉，不能残留');
+
+// 换局 / 读档后清空：视觉族必须跟着 G.activeMutators 一起消失
+setMuts([]);
+if (bodyHas('mutviz-fire') || bodyHas('mutviz-flood') || bodyHas('mutviz-dust')) throw new Error('清空突变后视觉族必须全部移除');
+
+// 规则数值零影响：走完一轮切换，所有 mutator 规则字段必须逐个未变
+const mutRuleAfter = JSON.stringify(Object.keys(state.G).sort().map(k => [k, state.G[k]]).filter(([k]) => k in mutMod.MUTATOR_FIELDS));
+if (mutRuleSnapshot !== mutRuleAfter) throw new Error('mutator 视觉族改动了规则数值，违反「只做表现层」不变量');
+
+console.log(`mutator 视觉族校验通过（映射 ${mapped} 个，其余 ${mutMod.MUTATOR_POOL.length - mapped} 个保持安静）`);
+
 if (errors.length) { console.error('运行期错误:\n' + errors.join('\n')); process.exit(1); }
 console.log('\n✅ SMOKE TEST PASSED');
-// buildSetup() 会注册 setInterval（TTS 状态轮询），必须显式退出，否则进程永不结束、CI 挂死
-process.exit(0);
+// buildSetup() 会注册 setInterval（TTS 状态轮询），必须显式退出，否则进程永不结束、CI 挂死。
+// 用 process.exitCode 兜底：若中途抛异常被上面的处理器接住而没走到这里，
+// 前面写下的 exitCode=1 仍会在事件循环排空后生效，不会退化成 0。
+process.exit(process.exitCode || 0);
