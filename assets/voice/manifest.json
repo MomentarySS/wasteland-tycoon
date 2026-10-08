@@ -5,16 +5,1462 @@
   "speed": 1,
   "sampleRate": 32000,
   "bitrate": 64000,
-  "count": 41,
-  "totalBytes": 6455286,
-  "generatedAt": "2026-10-08T11:45:44.090Z"
+  "count": 286,
+  "totalBytes": 16405050,
+  "generatedAt": "2026-10-08T12:30:10.612Z"
  },
  "lines": {
+  "911cdcbe2a78da89": {
+   "file": "911cdcbe2a78da89.mp3",
+   "text": "小型尸潮来袭。东区的铁栅栏被撞开，腐尸潮水般涌来，你只能护住一部分物资。救人是本能，但物资有限。",
+   "bytes": 73428,
+   "id": "mission-radio-r1"
+  },
+  "252770353def23d1": {
+   "file": "252770353def23d1.mp3",
+   "text": "你护住了大部分补给，但付出了代价。",
+   "bytes": 25908,
+   "id": "mission-radio-r1-c0"
+  },
+  "d9e1cefdfb0de1ff": {
+   "file": "d9e1cefdfb0de1ff.mp3",
+   "text": "你活下来了，但留下的人记住了你的背影。",
+   "bytes": 26484,
+   "id": "mission-radio-r1-c1"
+  },
+  "6653dd7647a8feda": {
+   "file": "6653dd7647a8feda.mp3",
+   "text": "掠夺者收保护费。灰堆掠夺者堵在路口，咧嘴笑着伸手要钱。屈服，还是反抗。",
+   "bytes": 70836,
+   "id": "mission-radio-r2"
+  },
+  "ea59d8a24c29dafe": {
+   "file": "ea59d8a24c29dafe.mp3",
+   "text": "破财消灾，你咬牙记下这笔账。",
+   "bytes": 21300,
+   "id": "mission-radio-r2-c0"
+  },
+  "81526620c07a26bc": {
+   "file": "81526620c07a26bc.mp3",
+   "text": "你打退了他们，赢得喘息，也赢得敬意。",
+   "bytes": 29940,
+   "id": "mission-radio-r2-c1"
+  },
+  "af0e771eb96789d2": {
+   "file": "af0e771eb96789d2.mp3",
+   "text": "踩中诱杀陷阱。脚下的铁夹咔哒一声——同伴正落在陷阱范围里。自保，还是救人。",
+   "bytes": 67380,
+   "id": "mission-radio-r3"
+  },
+  "31dc9923ed2561a0": {
+   "file": "31dc9923ed2561a0.mp3",
+   "text": "你抽身而出，心跳如鼓。",
+   "bytes": 23892,
+   "id": "mission-radio-r3-c0"
+  },
+  "d4e528fd4c5c14c3": {
+   "file": "d4e528fd4c5c14c3.mp3",
+   "text": "你拽回同伴，他欠你一条命。",
+   "bytes": 21012,
+   "id": "mission-radio-r3-c1"
+  },
+  "745e4a106498e713": {
+   "file": "745e4a106498e713.mp3",
+   "text": "辐射病发作。皮肤开始溃烂，你发着高烧，眼前发黑。硬扛，还是隔离。",
+   "bytes": 65940,
+   "id": "mission-radio-r4"
+  },
+  "7c8f24b2e7846d62": {
+   "file": "7c8f24b2e7846d62.mp3",
+   "text": "你在地窖里昏睡了一整天。",
+   "bytes": 16404,
+   "id": "mission-radio-r4-c0"
+  },
+  "b4fbe8bf819af3af": {
+   "file": "b4fbe8bf819af3af.mp3",
+   "text": "你强撑上路，却抛下了病重的同伴。",
+   "bytes": 27924,
+   "id": "mission-radio-r4-c1"
+  },
+  "e77502a4ab7ce1b9": {
+   "file": "e77502a4ab7ce1b9.mp3",
+   "text": "沙暴卷来。地平线腾起黄墙，能见度瞬间归零。护车，还是弃货。",
+   "bytes": 58452,
+   "id": "mission-radio-r5"
+  },
+  "03f416ee5c511bb8": {
+   "file": "03f416ee5c511bb8.mp3",
+   "text": "你裹紧篷布，零件没被刮飞。",
+   "bytes": 22740,
+   "id": "mission-radio-r5-c0"
+  },
+  "2a4e14571c0d95b3": {
+   "file": "2a4e14571c0d95b3.mp3",
+   "text": "你丢下货箱逃命，良心有点沉。",
+   "bytes": 24756,
+   "id": "mission-radio-r5-c1"
+  },
+  "e19ba9780e31edf8": {
+   "file": "e19ba9780e31edf8.mp3",
+   "text": "帮派上门收钱。三个纹身壮汉把你堵在墙角，笑得很瘆人。破财，还是拼命。",
+   "bytes": 65940,
+   "id": "mission-radio-r6"
+  },
+  "891596c9105c7ab6": {
+   "file": "891596c9105c7ab6.mp3",
+   "text": "钱没了，人还在。",
+   "bytes": 18708,
+   "id": "mission-radio-r6-c0"
+  },
+  "fc1c5c7d55750ba2": {
+   "file": "fc1c5c7d55750ba2.mp3",
+   "text": "你抄起铁管，他们再没回来。",
+   "bytes": 21876,
+   "id": "mission-radio-r6-c1"
+  },
+  "fc65aa58ac6293e9": {
+   "file": "fc65aa58ac6293e9.mp3",
+   "text": "误入毒气带。绿雾贴着地面漫过来，喉咙像吞了砂纸。就医，还是硬抗。",
+   "bytes": 62772,
+   "id": "mission-radio-r7"
+  },
+  "fe91910be17e62b0": {
+   "file": "fe91910be17e62b0.mp3",
+   "text": "解毒剂很贵，但命更贵。",
+   "bytes": 18996,
+   "id": "mission-radio-r7-c0"
+  },
+  "49394cdc481e5bc1": {
+   "file": "49394cdc481e5bc1.mp3",
+   "text": "你憋着气跑出来，留下同伴咳嗽。",
+   "bytes": 25620,
+   "id": "mission-radio-r7-c1"
+  },
+  "63cd3265d317d7cd": {
+   "file": "63cd3265d317d7cd.mp3",
+   "text": "设卡强征过路费。临时路障后伸出一只戴手套的手。缴费，还是绕路。",
+   "bytes": 56436,
+   "id": "mission-radio-r8"
+  },
+  "794ed9033e467aa6": {
+   "file": "794ed9033e467aa6.mp3",
+   "text": "你交了买路钱，顺利过关。",
+   "bytes": 19284,
+   "id": "mission-radio-r8-c0"
+  },
+  "d458defb3e56e23c": {
+   "file": "d458defb3e56e23c.mp3",
+   "text": "你多耗了油，也躲开了他们。",
+   "bytes": 21300,
+   "id": "mission-radio-r8-c1"
+  },
+  "edda94d5a542df4c": {
+   "file": "edda94d5a542df4c.mp3",
+   "text": "仓库失火。火舌舔着货架，有人在里间拍窗。抢货，还是救人。",
+   "bytes": 50964,
+   "id": "mission-radio-r9"
+  },
+  "e050dfb7b4f2de1b": {
+   "file": "e050dfb7b4f2de1b.mp3",
+   "text": "你抢出大半存货。",
+   "bytes": 14100,
+   "id": "mission-radio-r9-c0"
+  },
+  "7fa13de2f7c8116a": {
+   "file": "7fa13de2f7c8116a.mp3",
+   "text": "你背出伤者，仓库塌了，但人活着。",
+   "bytes": 32532,
+   "id": "mission-radio-r9-c1"
+  },
+  "1128583d5b1d24e3": {
+   "file": "1128583d5b1d24e3.mp3",
+   "text": "辐射风暴笼罩。盖革计数器尖啸，设备屏幕一片雪花。护核，还是保命。",
+   "bytes": 65940,
+   "id": "mission-radio-r10"
+  },
+  "d3a4e7e508633b39": {
+   "file": "d3a4e7e508633b39.mp3",
+   "text": "你裹严密封，核心保住了。",
+   "bytes": 23028,
+   "id": "mission-radio-r10-c0"
+  },
+  "f42fe35a05e3ccc9": {
+   "file": "f42fe35a05e3ccc9.mp3",
+   "text": "你逃出机房，留下了设备。",
+   "bytes": 22164,
+   "id": "mission-radio-r10-c1"
+  },
+  "d9fa01611c1267dc": {
+   "file": "d9fa01611c1267dc.mp3",
+   "text": "帮派火并殃及。两伙人在街口交火，流弹擦着你耳边过。躲开，还是劝架。",
+   "bytes": 63348,
+   "id": "mission-radio-r11"
+  },
+  "b6ef59bf97c38d90": {
+   "file": "b6ef59bf97c38d90.mp3",
+   "text": "你低头走开，枪声在背后响。",
+   "bytes": 21876,
+   "id": "mission-radio-r11-c0"
+  },
+  "1c5c4398cb5e4e8d": {
+   "file": "1c5c4398cb5e4e8d.mp3",
+   "text": "你扑倒一个孩子，自己挂了彩。",
+   "bytes": 21300,
+   "id": "mission-radio-r11-c1"
+  },
+  "d1fdc334d41deb92": {
+   "file": "d1fdc334d41deb92.mp3",
+   "text": "机械故障。引擎发出不祥的金属摩擦声。自费，还是欠人情。",
+   "bytes": 52404,
+   "id": "mission-radio-r12"
+  },
+  "ecd8217b247cfd04": {
+   "file": "ecd8217b247cfd04.mp3",
+   "text": "你掏钱换了零件。",
+   "bytes": 13236,
+   "id": "mission-radio-r12-c0"
+  },
+  "60282faabd6c5336": {
+   "file": "60282faabd6c5336.mp3",
+   "text": "你欠了人情，记在账上。",
+   "bytes": 19572,
+   "id": "mission-radio-r12-c1"
+  },
+  "e247f69eaea8b759": {
+   "file": "e247f69eaea8b759.mp3",
+   "text": "遭流寇埋伏。绳子从树上甩下，套住了你的脚踝。突围，还是硬闯。",
+   "bytes": 60180,
+   "id": "mission-radio-r13"
+  },
+  "95bd8e2ca009d4ea": {
+   "file": "95bd8e2ca009d4ea.mp3",
+   "text": "你割断绳结，躲进灌木。",
+   "bytes": 19284,
+   "id": "mission-radio-r13-c0"
+  },
+  "0eb8f516b633cabc": {
+   "file": "0eb8f516b633cabc.mp3",
+   "text": "你抡起铁锹开路，救下同伴。",
+   "bytes": 23604,
+   "id": "mission-radio-r13-c1"
+  },
+  "26b151215647b629": {
+   "file": "26b151215647b629.mp3",
+   "text": "沙丘崩塌。整面沙墙朝车队倾泻而下。掩埋补给，还是弃车。",
+   "bytes": 59028,
+   "id": "mission-radio-r14"
+  },
+  "dd042036ecaee687": {
+   "file": "dd042036ecaee687.mp3",
+   "text": "你保住车厢，丢了货。",
+   "bytes": 18708,
+   "id": "mission-radio-r14-c0"
+  },
+  "bd5865945cebc5e3": {
+   "file": "bd5865945cebc5e3.mp3",
+   "text": "你跳车滚开，车被吞没。",
+   "bytes": 20148,
+   "id": "mission-radio-r14-c1"
+  },
+  "3dae1a7d618c04f6": {
+   "file": "3dae1a7d618c04f6.mp3",
+   "text": "电磁脉冲。天空闪过蓝白弧光，所有屏幕瞬间熄灭。抢修，还是关机。",
+   "bytes": 67956,
+   "id": "mission-radio-r15"
+  },
+  "172d51b885dddf6e": {
+   "file": "172d51b885dddf6e.mp3",
+   "text": "你冒火花接回线路。",
+   "bytes": 14100,
+   "id": "mission-radio-r15-c0"
+  },
+  "4629ef9ad0687411": {
+   "file": "4629ef9ad0687411.mp3",
+   "text": "你拔了电闸，躲过一劫。",
+   "bytes": 19572,
+   "id": "mission-radio-r15-c1"
+  },
+  "ee66782edc637b5a": {
+   "file": "ee66782edc637b5a.mp3",
+   "text": "毒蝎蛰咬。脚踝一阵剧痛，毒液迅速上窜。就医，还是硬挺。",
+   "bytes": 51540,
+   "id": "mission-radio-r16"
+  },
+  "e805e74528c52374": {
+   "file": "e805e74528c52374.mp3",
+   "text": "血清很贵，但腿保住了。",
+   "bytes": 24468,
+   "id": "mission-radio-r16-c0"
+  },
+  "702d05ca2eef154d": {
+   "file": "702d05ca2eef154d.mp3",
+   "text": "你咬牙上路，把同伴甩在后面。",
+   "bytes": 22740,
+   "id": "mission-radio-r16-c1"
+  },
+  "cb01fe05ff363646": {
+   "file": "cb01fe05ff363646.mp3",
+   "text": "货运机器人坠毁。天空传来金属哀鸣——一架旧时代自动货运机拖着黑烟栽进树林，货舱还闪着应急灯。拆零件，还是上报坐标。",
+   "bytes": 89844,
+   "id": "mission-radio-fo76_cargobot"
+  },
+  "2d0b356412fd71fe": {
+   "file": "2d0b356412fd71fe.mp3",
+   "text": "你撬开舱门，换到了一批还能用的电容。",
+   "bytes": 25044,
+   "id": "mission-radio-fo76_cargobot-c0"
+  },
+  "5d4b5ead0e7d96a4": {
+   "file": "5d4b5ead0e7d96a4.mp3",
+   "text": "你把坐标刻进手册，响应者也许能用得上。",
+   "bytes": 27924,
+   "id": "mission-radio-fo76_cargobot-c1"
+  },
+  "29b12cb8c846245a": {
+   "file": "29b12cb8c846245a.mp3",
+   "text": "焦化军官代码。一台半埋的终端还亮着——屏幕循环播放某位军官的最后口令，像是通往某处设施的钥匙。录入，还是抹掉。",
+   "bytes": 87540,
+   "id": "mission-radio-fo76_officer"
+  },
+  "5c2733fdb2fb5b22": {
+   "file": "5c2733fdb2fb5b22.mp3",
+   "text": "你记下了通行串，心里有点发毛。",
+   "bytes": 27636,
+   "id": "mission-radio-fo76_officer-c0"
+  },
+  "fc44c47f4af153ad": {
+   "file": "fc44c47f4af153ad.mp3",
+   "text": "你砸碎屏幕，让秘密烂在土里。",
+   "bytes": 23316,
+   "id": "mission-radio-fo76_officer-c1"
+  },
+  "ec16ed2123fb024e": {
+   "file": "ec16ed2123fb024e.mp3",
+   "text": "反应堆抢修。远处冷却塔还在冒蒸汽，盖革计数器跳得发慌——里面似乎还有未抽干的燃料棒。抢修换盖，还是撤离。",
+   "bytes": 83796,
+   "id": "mission-radio-fo76_reactor"
+  },
+  "ef21604f1513f1b5": {
+   "file": "ef21604f1513f1b5.mp3",
+   "text": "你咬牙接回冷却管，换到了一笔黑市价。",
+   "bytes": 25908,
+   "id": "mission-radio-fo76_reactor-c0"
+  },
+  "040934f7769707fc": {
+   "file": "040934f7769707fc.mp3",
+   "text": "你在入口留下警告，没有贪那笔辐射钱。",
+   "bytes": 25044,
+   "id": "mission-radio-fo76_reactor-c1"
+  },
+  "456e830037677155": {
+   "file": "456e830037677155.mp3",
+   "text": "爆心区余波。风从棋盘中央刮来，带着旧日核爆区的灼热尘——这里的辐射读数仍高于安全线。深入搜刮，还是绕开。",
+   "bytes": 80340,
+   "id": "mission-radio-fo76_blast"
+  },
+  "1caaa5a762f3baae": {
+   "file": "1caaa5a762f3baae.mp3",
+   "text": "你在玻璃化的碎石里翻出还能卖的金属。",
+   "bytes": 27348,
+   "id": "mission-radio-fo76_blast-c0"
+  },
+  "8f31c6b786465e56": {
+   "file": "8f31c6b786465e56.mp3",
+   "text": "你绕远路，把肺留给明天。",
+   "bytes": 22164,
+   "id": "mission-radio-fo76_blast-c1"
+  },
+  "0ee31fd8aeb5e848": {
+   "file": "0ee31fd8aeb5e848.mp3",
+   "text": "自动化发射系统自检。阿帕拉契亚频段突然切入一段加密循环——像是三座导弹井在互相握手。记录，还是忽略。",
+   "bytes": 79476,
+   "id": "mission-radio-nuke_chain_1"
+  },
+  "628dfcb11ab2b82b": {
+   "file": "628dfcb11ab2b82b.mp3",
+   "text": "你在账本空白处记下一串六位字符。",
+   "bytes": 23028,
+   "id": "mission-radio-nuke_chain_1-c0"
+  },
+  "e1632b9dee6217e8": {
+   "file": "e1632b9dee6217e8.mp3",
+   "text": "你把旋钮拧到另一个频道。",
+   "bytes": 15828,
+   "id": "mission-radio-nuke_chain_1-c1"
+  },
+  "054d614fc6510ec4": {
+   "file": "054d614fc6510ec4.mp3",
+   "text": "布拉沃井应答。加密循环里多出一行应答码，布拉沃井口像是从沉睡中抬头看你。回应，还是装没听见。",
+   "bytes": 72852,
+   "id": "mission-radio-nuke_chain_2"
+  },
+  "548471926bd7a349": {
+   "file": "548471926bd7a349.mp3",
+   "text": "井口回传一串绿光脉冲——它认出你了。",
+   "bytes": 28788,
+   "id": "mission-radio-nuke_chain_2-c0"
+  },
+  "d97c5218ee92b997": {
+   "file": "d97c5218ee92b997.mp3",
+   "text": "你拔掉了天线，频道归于杂音。",
+   "bytes": 23892,
+   "id": "mission-radio-nuke_chain_2-c1"
+  },
+  "d07fe9a7f6200933": {
+   "file": "d07fe9a7f6200933.mp3",
+   "text": "查理井靶场校准。最后一帧数据指向棋盘中央——那里曾是旧世界的集结点，如今是查理井的默认靶标。写入坐标，还是销毁。",
+   "bytes": 84084,
+   "id": "mission-radio-nuke_chain_3"
+  },
+  "14e6f285fff1ea5f": {
+   "file": "14e6f285fff1ea5f.mp3",
+   "text": "三枚密钥对齐，导弹井进入待发状态。",
+   "bytes": 25908,
+   "id": "mission-radio-nuke_chain_3-c0"
+  },
+  "52416477fa8829af": {
+   "file": "52416477fa8829af.mp3",
+   "text": "你清空了缓存，仿佛从未听过这段广播。",
+   "bytes": 25620,
+   "id": "mission-radio-nuke_chain_3-c1"
+  },
+  "a8f0e4f40c24ba93": {
+   "file": "a8f0e4f40c24ba93.mp3",
+   "text": "截获掠夺者暗号。电台杂音里突然清晰——掠夺者要在下个补给点设伏。记下坐标，还是当没听见。",
+   "bytes": 62772,
+   "id": "mission-radio-chain_eagle_1"
+  },
+  "7ed60cf20774a211": {
+   "file": "7ed60cf20774a211.mp3",
+   "text": "你把坐标刻在手背上，掠夺者的行踪有了线索。",
+   "bytes": 33396,
+   "id": "mission-radio-chain_eagle_1-c0"
+  },
+  "d4fba11d85639a8b": {
+   "file": "d4fba11d85639a8b.mp3",
+   "text": "你拧小音量，杂音重新吞没了信号。",
+   "bytes": 27060,
+   "id": "mission-radio-chain_eagle_1-c1"
+  },
+  "2429fc9509eeab2d": {
+   "file": "2429fc9509eeab2d.mp3",
+   "text": "掠夺者伏击圈。补给点果然有掠夺者，他们认出了你。硬闯，还是交钱。",
+   "bytes": 60468,
+   "id": "mission-radio-chain_eagle_2"
+  },
+  "fc7927cfc394a990": {
+   "file": "fc7927cfc394a990.mp3",
+   "text": "你打穿包围圈，掠夺者记住了你的脸。",
+   "bytes": 25908,
+   "id": "mission-radio-chain_eagle_2-c0"
+  },
+  "f7bfe89822974efe": {
+   "file": "f7bfe89822974efe.mp3",
+   "text": "你掏钱过关，他们冷笑着放行。",
+   "bytes": 25044,
+   "id": "mission-radio-chain_eagle_2-c1"
+  },
+  "e784b9336587c6d8": {
+   "file": "e784b9336587c6d8.mp3",
+   "text": "掠夺者末路。掠夺者残部堵在桥口，这是你们之间的最后一笔账。清算旧账，还是放行。",
+   "bytes": 79476,
+   "id": "mission-radio-chain_eagle_3"
+  },
+  "e07bac6e67c2bfce": {
+   "file": "e07bac6e67c2bfce.mp3",
+   "text": "桥口的掠夺者旗帜倒下，这一带暂时安静了。",
+   "bytes": 30516,
+   "id": "mission-radio-chain_eagle_3-c0"
+  },
+  "3db3c5a6d02c6fbe": {
+   "file": "3db3c5a6d02c6fbe.mp3",
+   "text": "他们放下武器，换到了一口饭。",
+   "bytes": 21300,
+   "id": "mission-radio-chain_eagle_3-c1"
+  },
+  "5b615dc3e3ec252e": {
+   "file": "5b615dc3e3ec252e.mp3",
+   "text": "医疗车队遭袭。电台收到求救信号——一支标注红十字的运输车在灰堆区被伏击，周围没有其他人。冒险去救，还是当没听见。",
+   "bytes": 87540,
+   "id": "mission-radio-chain_med_1"
+  },
+  "3063f01b3822dc2d": {
+   "file": "3063f01b3822dc2d.mp3",
+   "text": "你耗了油钱赶到，车厢里还有半箱没开封的急救包。",
+   "bytes": 34548,
+   "id": "mission-radio-chain_med_1-c0"
+  },
+  "faa85abf7eaf0e6d": {
+   "file": "faa85abf7eaf0e6d.mp3",
+   "text": "你把音量拧小，信号消失在杂音里。",
+   "bytes": 25332,
+   "id": "mission-radio-chain_med_1-c1"
+  },
+  "b753233025a4e04a": {
+   "file": "b753233025a4e04a.mp3",
+   "text": "急救包分配。半箱急救包够你用半年，但营地里有人正在发烧。独占，还是分享。",
+   "bytes": 61620,
+   "id": "mission-radio-chain_med_2"
+  },
+  "439b5afe8a66efb9": {
+   "file": "439b5afe8a66efb9.mp3",
+   "text": "你把一半药品塞进营地的信箱，没留名字。",
+   "bytes": 26484,
+   "id": "mission-radio-chain_med_2-c0"
+  },
+  "05af3839c365c75b": {
+   "file": "05af3839c365c75b.mp3",
+   "text": "你锁好箱子，夜里听见远处咳嗽声。",
+   "bytes": 25620,
+   "id": "mission-radio-chain_med_2-c1"
+  },
+  "eeb38b69d65d457c": {
+   "file": "eeb38b69d65d457c.mp3",
+   "text": "感恩回报。你分药的事不知怎么传开了——一个裹着绷带的老人找上门，说愿意用家传手艺换你一份人情。收下人情，还是婉拒。",
+   "bytes": 86100,
+   "id": "mission-radio-chain_med_3"
+  },
+  "9f2b11239d0050f6": {
+   "file": "9f2b11239d0050f6.mp3",
+   "text": "老人帮你加固了据点围墙，说这只是一点心意。",
+   "bytes": 31092,
+   "id": "mission-radio-chain_med_3-c0"
+  },
+  "143c572a141e29a3": {
+   "file": "143c572a141e29a3.mp3",
+   "text": "你摆摆手，老人合十离开——这份情，废土会记着。",
+   "bytes": 38004,
+   "id": "mission-radio-chain_med_3-c1"
+  },
+  "f306cbbc531340f1": {
+   "file": "f306cbbc531340f1.mp3",
+   "text": "干净水源。电台里播报了一条让人坐直的消息——裂谷区深处探到一眼未污染的活泉。公开消息，还是独占坐标。",
+   "bytes": 80628,
+   "id": "mission-radio-chain_water_1"
+  },
+  "5376750b4c8bfae6": {
+   "file": "5376750b4c8bfae6.mp3",
+   "text": "你把坐标刻在公共告示牌上，营地的人记住了你的名字。",
+   "bytes": 38004,
+   "id": "mission-radio-chain_water_1-c0"
+  },
+  "2e309382af448b14": {
+   "file": "2e309382af448b14.mp3",
+   "text": "你悄悄记下位置，夜里偷偷运了三趟。",
+   "bytes": 25044,
+   "id": "mission-radio-chain_water_1-c1"
+  },
+  "af8b3d75193ba87b": {
+   "file": "af8b3d75193ba87b.mp3",
+   "text": "水源争夺战。消息还是走漏了——另一股势力也盯上了这眼泉，派了信使来谈判。独占，还是共享。",
+   "bytes": 76884,
+   "id": "mission-radio-chain_water_2"
+  },
+  "fec5224cf713fa5f": {
+   "file": "fec5224cf713fa5f.mp3",
+   "text": "你们划定了取水时段，泉水边的枪声终于停了。",
+   "bytes": 33396,
+   "id": "mission-radio-chain_water_2-c0"
+  },
+  "15e1fd49119a0bd6": {
+   "file": "15e1fd49119a0bd6.mp3",
+   "text": "信使被你赶走了，但你知道这事没完。",
+   "bytes": 23316,
+   "id": "mission-radio-chain_water_2-c1"
+  },
+  "819277091fd3d9ac": {
+   "file": "819277091fd3d9ac.mp3",
+   "text": "尸潮预警。电台里传来断断续续的求救——东边围栏被撞开，腐尸群正在向营地移动。组织防御，还是独自逃命。",
+   "bytes": 98196,
+   "id": "mission-radio-chain_horde_1"
+  },
+  "c7cf25d9c591ea7c": {
+   "file": "c7cf25d9c591ea7c.mp3",
+   "text": "你拿起铁锤敲响警钟，营地的人开始往围墙集合。",
+   "bytes": 34836,
+   "id": "mission-radio-chain_horde_1-c0"
+  },
+  "7d5b4d68770bdb12": {
+   "file": "7d5b4d68770bdb12.mp3",
+   "text": "你趁乱溜出营地，身后传来尖叫声。",
+   "bytes": 24756,
+   "id": "mission-radio-chain_horde_1-c1"
+  },
+  "0c19af3ab4944bf4": {
+   "file": "0c19af3ab4944bf4.mp3",
+   "text": "围墙攻防。尸潮比预想的大——黑压压的腐尸拍打着围栏，木桩开始龟裂。死守，还是撤退。",
+   "bytes": 66228,
+   "id": "mission-radio-chain_horde_2"
+  },
+  "91d323ac928b5032": {
+   "file": "91d323ac928b5032.mp3",
+   "text": "你们用火和铁钉顶住了冲击，围墙保住了。",
+   "bytes": 26772,
+   "id": "mission-radio-chain_horde_2-c0"
+  },
+  "d3d5e5a24310cd82": {
+   "file": "d3d5e5a24310cd82.mp3",
+   "text": "你们放弃外墙退守内圈，损失了一排房屋。",
+   "bytes": 31956,
+   "id": "mission-radio-chain_horde_2-c1"
+  },
+  "0c785615fcb74056": {
+   "file": "0c785615fcb74056.mp3",
+   "text": "反击时刻。尸潮开始退去——这是追击的好机会，能彻底解除东边的威胁。追击，还是休整。",
+   "bytes": 67668,
+   "id": "mission-radio-chain_horde_3"
+  },
+  "515b703b0b675ffc": {
+   "file": "515b703b0b675ffc.mp3",
+   "text": "你们追出半里地，再没有腐尸从东边来。",
+   "bytes": 27924,
+   "id": "mission-radio-chain_horde_3-c0"
+  },
+  "160463cffbdc6fd7": {
+   "file": "160463cffbdc6fd7.mp3",
+   "text": "你选择修补围墙，把今天的防线加固到明天。",
+   "bytes": 30804,
+   "id": "mission-radio-chain_horde_3-c1"
+  },
+  "c131c0e592e14e9f": {
+   "file": "c131c0e592e14e9f.mp3",
+   "text": "虫洞异常。棋盘中央的虫洞格突然发出蓝光——读数显示它暂时稳定，似乎可以安全通过。穿越探索，还是标记危险。",
+   "bytes": 78036,
+   "id": "mission-radio-chain_worm_1"
+  },
+  "e7fed387ae405818": {
+   "file": "e7fed387ae405818.mp3",
+   "text": "你踏入蓝光，眼前一花，被传到了棋盘另一处。",
+   "bytes": 33972,
+   "id": "mission-radio-chain_worm_1-c0"
+  },
+  "9eb3c63bd0b81700": {
+   "file": "9eb3c63bd0b81700.mp3",
+   "text": "你在虫洞旁立起警告牌，不让其他人靠近。",
+   "bytes": 28500,
+   "id": "mission-radio-chain_worm_1-c1"
+  },
+  "3ba499f49bea8962": {
+   "file": "3ba499f49bea8962.mp3",
+   "text": "虫洞的另一端。你从虫洞另一端带回了一些东西——一块还在发光的晶体，似乎蕴含着旧时代的能量。卖掉，还是研究。",
+   "bytes": 90420,
+   "id": "mission-radio-chain_worm_2"
+  },
+  "4cb217b6af670de8": {
+   "file": "4cb217b6af670de8.mp3",
+   "text": "黑市商人眼睛一亮，掏出一摞瓶盖。",
+   "bytes": 23604,
+   "id": "mission-radio-chain_worm_2-c0"
+  },
+  "23744157ffd47808": {
+   "file": "23744157ffd47808.mp3",
+   "text": "政府代表亲自来取，说这能帮上大忙。",
+   "bytes": 25908,
+   "id": "mission-radio-chain_worm_2-c1"
+  },
+  "451928a7fec0a675": {
+   "file": "451928a7fec0a675.mp3",
+   "text": "翻出一箱瓶盖。塌方的墙后露出一只锈箱，满满都是瓶盖。独占，还是平分。",
+   "bytes": 60180,
+   "id": "mission-manual-i1"
+  },
+  "e8966651905ee533": {
+   "file": "e8966651905ee533.mp3",
+   "text": "你默默合上箱盖。",
+   "bytes": 11796,
+   "id": "mission-manual-i1-c0"
+  },
+  "a61c84a7dcbc715e": {
+   "file": "a61c84a7dcbc715e.mp3",
+   "text": "营地的人看你的眼神不一样了。",
+   "bytes": 18996,
+   "id": "mission-manual-i1-c1"
+  },
+  "9b081057d534a50f": {
+   "file": "9b081057d534a50f.mp3",
+   "text": "流浪商人塞来补给。一个裹着头巾的商人冲你招手。收下，还是让给伤员。",
+   "bytes": 58452,
+   "id": "mission-manual-i2"
+  },
+  "e318ee51db02e2fa": {
+   "file": "e318ee51db02e2fa.mp3",
+   "text": "你点了点头。",
+   "bytes": 10644,
+   "id": "mission-manual-i2-c0"
+  },
+  "456e57de3e57f4a3": {
+   "file": "456e57de3e57f4a3.mp3",
+   "text": "伤员冲你咧嘴一笑。",
+   "bytes": 13812,
+   "id": "mission-manual-i2-c1"
+  },
+  "518a93fd58fce718": {
+   "file": "518a93fd58fce718.mp3",
+   "text": "废弃军械库。门没锁，里面堆着还能用的家伙。搬空，还是留给弱者。",
+   "bytes": 53556,
+   "id": "mission-manual-i3"
+  },
+  "5021e6942e4411f7": {
+   "file": "5021e6942e4411f7.mp3",
+   "text": "你满载而归。",
+   "bytes": 11220,
+   "id": "mission-manual-i3-c0"
+  },
+  "424b13deea428d73": {
+   "file": "424b13deea428d73.mp3",
+   "text": "你只取所需，其余留给后来人。",
+   "bytes": 27924,
+   "id": "mission-manual-i3-c1"
+  },
+  "9b05d1dc86def66f": {
+   "file": "9b05d1dc86def66f.mp3",
+   "text": "半箱还能吃的罐头。阴凉处藏着几罐没过期的肉。自己吃，还是分给孩童。",
+   "bytes": 53268,
+   "id": "mission-manual-i4"
+  },
+  "e8c072d2d92cd4aa": {
+   "file": "e8c072d2d92cd4aa.mp3",
+   "text": "你总算吃了顿热的。",
+   "bytes": 14100,
+   "id": "mission-manual-i4-c0"
+  },
+  "432b27c09577937e": {
+   "file": "432b27c09577937e.mp3",
+   "text": "小孩眼睛亮了。",
+   "bytes": 11796,
+   "id": "mission-manual-i4-c1"
+  },
+  "3d708b61bc152f5b": {
+   "file": "3d708b61bc152f5b.mp3",
+   "text": "黑市赌局小胜。骰盅一开，你赢了把小的。落袋，还是收手。",
+   "bytes": 58740,
+   "id": "mission-manual-i5"
+  },
+  "97c86e3195a47f51": {
+   "file": "97c86e3195a47f51.mp3",
+   "text": "你攥紧了赢来的盖。",
+   "bytes": 16692,
+   "id": "mission-manual-i5-c0"
+  },
+  "1480aa10dca51800": {
+   "file": "1480aa10dca51800.mp3",
+   "text": "你见好就收，没陷进去。",
+   "bytes": 18708,
+   "id": "mission-manual-i5-c1"
+  },
+  "6fd37eda15535cf8": {
+   "file": "6fd37eda15535cf8.mp3",
+   "text": "捡到前朝金条。淤泥里露出一截黄澄澄的金属。兑换私藏，还是捐营地。",
+   "bytes": 59316,
+   "id": "mission-manual-i6"
+  },
+  "15680207220da4b5": {
+   "file": "15680207220da4b5.mp3",
+   "text": "你悄悄熔了它。",
+   "bytes": 11220,
+   "id": "mission-manual-i6-c0"
+  },
+  "ac50172309119c57": {
+   "file": "ac50172309119c57.mp3",
+   "text": "营地的药箱又满了些。",
+   "bytes": 14676,
+   "id": "mission-manual-i6-c1"
+  },
+  "055994ad17c0965a": {
+   "file": "055994ad17c0965a.mp3",
+   "text": "修复旧发电机。你鼓捣半天，它居然转起来了。卖掉，还是帮邻里。",
+   "bytes": 53556,
+   "id": "mission-manual-i7"
+  },
+  "ddbacd87e3033849": {
+   "file": "ddbacd87e3033849.mp3",
+   "text": "你换到了一笔钱。",
+   "bytes": 13812,
+   "id": "mission-manual-i7-c0"
+  },
+  "71fb2fad33fd2089": {
+   "file": "71fb2fad33fd2089.mp3",
+   "text": "邻居家的灯亮了整夜。",
+   "bytes": 16692,
+   "id": "mission-manual-i7-c1"
+  },
+  "dce031a9fef37556": {
+   "file": "dce031a9fef37556.mp3",
+   "text": "拾荒同伴分你战利品。老拾荒客把一半分给你。收下，还是让利。",
+   "bytes": 48084,
+   "id": "mission-manual-i8"
+  },
+  "6c41a1f97a27be9c": {
+   "file": "6c41a1f97a27be9c.mp3",
+   "text": "你道了谢。",
+   "bytes": 8340,
+   "id": "mission-manual-i8-c0"
+  },
+  "b23af264ff338032": {
+   "file": "b23af264ff338032.mp3",
+   "text": "你退回大半，他执意推回一点。",
+   "bytes": 21012,
+   "id": "mission-manual-i8-c1"
+  },
+  "99ac8203a029fa5c": {
+   "file": "99ac8203a029fa5c.mp3",
+   "text": "地下交易网返利。你的信用点数到账了。独享，还是转赠。",
+   "bytes": 45780,
+   "id": "mission-manual-i9"
+  },
+  "eee1f3542d4b3d22": {
+   "file": "eee1f3542d4b3d22.mp3",
+   "text": "你余额涨了一截。",
+   "bytes": 14388,
+   "id": "mission-manual-i9-c0"
+  },
+  "dbd23e663bdd44c1": {
+   "file": "dbd23e663bdd44c1.mp3",
+   "text": "你匀了一半给伤员。",
+   "bytes": 13236,
+   "id": "mission-manual-i9-c1"
+  },
+  "f72e8d632ec63350": {
+   "file": "f72e8d632ec63350.mp3",
+   "text": "旧通行证。一本盖着红章的隔离通行证，还能用。自用，还是赠人。",
+   "bytes": 49524,
+   "id": "mission-manual-i10"
+  },
+  "c2f6ddd2562e6615": {
+   "file": "c2f6ddd2562e6615.mp3",
+   "text": "你把它塞进怀里。",
+   "bytes": 10356,
+   "id": "mission-manual-i10-c0"
+  },
+  "6cafaaaf3a14ce7f": {
+   "file": "6cafaaaf3a14ce7f.mp3",
+   "text": "同伴千恩万谢，你搭进去点药钱。",
+   "bytes": 27348,
+   "id": "mission-manual-i10-c1"
+  },
+  "5a72bc6a6632c6bb": {
+   "file": "5a72bc6a6632c6bb.mp3",
+   "text": "废土宝库现世。地图指向的地下库房，门半开着。满载，还是留名。",
+   "bytes": 52404,
+   "id": "mission-manual-i11"
+  },
+  "af300ca5d9bc3207": {
+   "file": "af300ca5d9bc3207.mp3",
+   "text": "你搬空了货架。",
+   "bytes": 11796,
+   "id": "mission-manual-i11-c0"
+  },
+  "a301f9d8c9d30e92": {
+   "file": "a301f9d8c9d30e92.mp3",
+   "text": "你在墙上刻下名字，留了货给后人。",
+   "bytes": 25044,
+   "id": "mission-manual-i11-c1"
+  },
+  "ff26752ebfd5a0b5": {
+   "file": "ff26752ebfd5a0b5.mp3",
+   "text": "军方空投补给箱。降落伞挂在一棵枯树上，箱子上印着十字。独享，还是分享。",
+   "bytes": 64788,
+   "id": "mission-manual-i12"
+  },
+  "bb8b53e9dfa34ee0": {
+   "file": "bb8b53e9dfa34ee0.mp3",
+   "text": "你拖走了整箱。",
+   "bytes": 11796,
+   "id": "mission-manual-i12-c0"
+  },
+  "180313ce0b6f77b3": {
+   "file": "180313ce0b6f77b3.mp3",
+   "text": "营地的孩子分到了罐头。",
+   "bytes": 14676,
+   "id": "mission-manual-i12-c1"
+  },
+  "bca45d2eae6d6976": {
+   "file": "bca45d2eae6d6976.mp3",
+   "text": "捡到芯片图纸。一张防水图纸，画着强化地产的工艺。自用，还是赠人。",
+   "bytes": 55860,
+   "id": "mission-manual-i13"
+  },
+  "11daef2572ba4af2": {
+   "file": "11daef2572ba4af2.mp3",
+   "text": "你照图强化了一处据点。",
+   "bytes": 14388,
+   "id": "mission-manual-i13-c0"
+  },
+  "cae78eff2044ebc4": {
+   "file": "cae78eff2044ebc4.mp3",
+   "text": "你把图纸塞给工坊伙计。",
+   "bytes": 17844,
+   "id": "mission-manual-i13-c1"
+  },
+  "e2c5fd57a614c361": {
+   "file": "e2c5fd57a614c361.mp3",
+   "text": "神秘红利到账。一笔来历不明的瓶盖打进你的账。落袋，还是分人。",
+   "bytes": 50676,
+   "id": "mission-manual-i14"
+  },
+  "ed5d7f8198d0f032": {
+   "file": "ed5d7f8198d0f032.mp3",
+   "text": "你的现金凭空多了一半。",
+   "bytes": 16116,
+   "id": "mission-manual-i14-c0"
+  },
+  "28f03db1f1aea9d6": {
+   "file": "28f03db1f1aea9d6.mp3",
+   "text": "你请全营搓了一顿。",
+   "bytes": 15252,
+   "id": "mission-manual-i14-c1"
+  },
+  "2c66285c19e549e8": {
+   "file": "2c66285c19e549e8.mp3",
+   "text": "救援队送来物资。远处开来一辆喷着红十字的车。收下，还是让给难友。",
+   "bytes": 49236,
+   "id": "mission-manual-i15"
+  },
+  "b5c7125bf2374569": {
+   "file": "b5c7125bf2374569.mp3",
+   "text": "你领了满满一箱。",
+   "bytes": 13236,
+   "id": "mission-manual-i15-c0"
+  },
+  "eb84cf4bfaea4cd2": {
+   "file": "eb84cf4bfaea4cd2.mp3",
+   "text": "你把大半让给了更惨的人。",
+   "bytes": 15828,
+   "id": "mission-manual-i15-c1"
+  },
+  "9380bacb722a6a0c": {
+   "file": "9380bacb722a6a0c.mp3",
+   "text": "拾荒奇遇。你在废墟里翻到一笔意外之财。独吞，还是让利。",
+   "bytes": 46068,
+   "id": "mission-manual-i16"
+  },
+  "4847d6049131fe7a": {
+   "file": "4847d6049131fe7a.mp3",
+   "text": "你装作没看见别人。",
+   "bytes": 13236,
+   "id": "mission-manual-i16-c0"
+  },
+  "57206b50a7599d27": {
+   "file": "57206b50a7599d27.mp3",
+   "text": "你招呼同伴一起翻。",
+   "bytes": 13236,
+   "id": "mission-manual-i16-c1"
+  },
+  "8bd228676bd08848": {
+   "file": "8bd228676bd08848.mp3",
+   "text": "旧防化服里的通行证。厚重的防化服口袋里，掉出一张证件。自用，还是顺手帮人。",
+   "bytes": 65364,
+   "id": "mission-manual-i17"
+  },
+  "5eb43c1c75c46f18": {
+   "file": "5eb43c1c75c46f18.mp3",
+   "text": "你收好了证件。",
+   "bytes": 11220,
+   "id": "mission-manual-i17-c0"
+  },
+  "e60eaefa09923383": {
+   "file": "e60eaefa09923383.mp3",
+   "text": "你帮被拦的人也递了一张。",
+   "bytes": 15252,
+   "id": "mission-manual-i17-c1"
+  },
+  "1ca71e70a503d464": {
+   "file": "1ca71e70a503d464.mp3",
+   "text": "温泉疗养。一处未被污染的温泉，热气袅袅。独享，还是邀人。",
+   "bytes": 60468,
+   "id": "mission-manual-i18"
+  },
+  "fc79fa8e1fdf7bb8": {
+   "file": "fc79fa8e1fdf7bb8.mp3",
+   "text": "你泡了个够。",
+   "bytes": 10644,
+   "id": "mission-manual-i18-c0"
+  },
+  "6c313f520dc17725": {
+   "file": "6c313f520dc17725.mp3",
+   "text": "你叫上伤员一起，伤痛轻了些。",
+   "bytes": 23028,
+   "id": "mission-manual-i18-c1"
+  },
+  "3fbbcbd6430ab12a": {
+   "file": "3fbbcbd6430ab12a.mp3",
+   "text": "手册残页。幸存者手册缺页处，夹着一张手绘坐标图。破译，还是随手塞回。",
+   "bytes": 65940,
+   "id": "mission-manual-chain_map_1"
+  },
+  "27594da215ea99a4": {
+   "file": "27594da215ea99a4.mp3",
+   "text": "你认出这是旧时代地下库房的入口。",
+   "bytes": 27060,
+   "id": "mission-manual-chain_map_1-c0"
+  },
+  "fa5d85325f40ab2c": {
+   "file": "fa5d85325f40ab2c.mp3",
+   "text": "你把残页夹好，没再理会。",
+   "bytes": 19860,
+   "id": "mission-manual-chain_map_1-c1"
+  },
+  "1ac96e448917d220": {
+   "file": "1ac96e448917d220.mp3",
+   "text": "地下库房。坐标指向的卷帘门半开着，里面堆满还能用的物资。满载，还是留一份给后来者。",
+   "bytes": 69108,
+   "id": "mission-manual-chain_map_2"
+  },
+  "1d3d5e4993e04749": {
+   "file": "1d3d5e4993e04749.mp3",
+   "text": "你搬空了货架，腰包鼓起来。",
+   "bytes": 22164,
+   "id": "mission-manual-chain_map_2-c0"
+  },
+  "8116abce7673cbd8": {
+   "file": "8116abce7673cbd8.mp3",
+   "text": "你在墙上刻下警告，留了一半给后来者。",
+   "bytes": 29076,
+   "id": "mission-manual-chain_map_2-c1"
+  },
+  "a8113c50aa6fd28d": {
+   "file": "a8113c50aa6fd28d.mp3",
+   "text": "废弃研究所。手册里夹着一张旧地图，标注着毒谷区深处一座半塌的研究所——据说里面还有能用的设备。冒险深入，还是放弃。",
+   "bytes": 84948,
+   "id": "mission-manual-chain_tech_1"
+  },
+  "6a5e9afad35b5669": {
+   "file": "6a5e9afad35b5669.mp3",
+   "text": "你花了油钱和体力，在地下室找到一台还能启动的终端机。",
+   "bytes": 37428,
+   "id": "mission-manual-chain_tech_1-c0"
+  },
+  "d10494b5587b807c": {
+   "file": "d10494b5587b807c.mp3",
+   "text": "你把地图塞回手册，有些秘密不该被挖出来。",
+   "bytes": 35700,
+   "id": "mission-manual-chain_tech_1-c1"
+  },
+  "5a61cd61770d3f38": {
+   "file": "5a61cd61770d3f38.mp3",
+   "text": "终端里的秘密。终端机还连着内部网络——屏幕上闪烁着一份加密研究档案，标题写着「基因修复协议」。读取，还是销毁。",
+   "bytes": 89268,
+   "id": "mission-manual-chain_tech_2"
+  },
+  "32740d0269e86187": {
+   "file": "32740d0269e86187.mp3",
+   "text": "你下载了数据，内容远超预期——这东西价值连城，也危险至极。",
+   "bytes": 46932,
+   "id": "mission-manual-chain_tech_2-c0"
+  },
+  "2bb400b3ee4f58e1": {
+   "file": "2bb400b3ee4f58e1.mp3",
+   "text": "你砸碎了硬盘，让秘密烂在废土里。",
+   "bytes": 28788,
+   "id": "mission-manual-chain_tech_2-c1"
+  },
+  "071bf0d3bc12a9a5": {
+   "file": "071bf0d3bc12a9a5.mp3",
+   "text": "危险知识。你手上有旧时代的基因技术数据——各方势力都在打听它的下落。卖给政府，还是公开。",
+   "bytes": 69108,
+   "id": "mission-manual-chain_tech_3"
+  },
+  "9e6e6ac9d9e0a937": {
+   "file": "9e6e6ac9d9e0a937.mp3",
+   "text": "政府代表亲自来取，你的账户多了一笔巨款。",
+   "bytes": 27348,
+   "id": "mission-manual-chain_tech_3-c0"
+  },
+  "d1facaa43ab208b9": {
+   "file": "d1facaa43ab208b9.mp3",
+   "text": "你把数据刻成手册散发——废土上第一次有了免费的医疗知识。",
+   "bytes": 40596,
+   "id": "mission-manual-chain_tech_3-c1"
+  },
+  "5d3e7abaf3809de0": {
+   "file": "5d3e7abaf3809de0.mp3",
+   "text": "远方商队。手册上记载的商队周期到了——一支从东边来的驼队出现在地平线上，领头的是个戴墨镜的女人。欢迎，还是警惕。",
+   "bytes": 96180,
+   "id": "mission-manual-chain_trade_1"
+  },
+  "70cbc6fc985a02f5": {
+   "file": "70cbc6fc985a02f5.mp3",
+   "text": "商队安顿下来，营地多了一分热闹。",
+   "bytes": 25044,
+   "id": "mission-manual-chain_trade_1-c0"
+  },
+  "61d3b357f48a503a": {
+   "file": "61d3b357f48a503a.mp3",
+   "text": "你收了过路费才放行，商人们不太高兴但也没说什么。",
+   "bytes": 30804,
+   "id": "mission-manual-chain_trade_1-c1"
+  },
+  "3017144be88436e2": {
+   "file": "3017144be88436e2.mp3",
+   "text": "商队的秘密货物。戴墨镜的女人私下找到你——她有一批「特殊货物」想脱手，来路不太干净。买黑，还是拒绝。",
+   "bytes": 77172,
+   "id": "mission-manual-chain_trade_2"
+  },
+  "15dcae3eee4197e9": {
+   "file": "15dcae3eee4197e9.mp3",
+   "text": "你低价吃进高价卖出，赚了一笔——但你知道这些货的来历。",
+   "bytes": 43476,
+   "id": "mission-manual-chain_trade_2-c0"
+  },
+  "02f295aa55c69a34": {
+   "file": "02f295aa55c69a34.mp3",
+   "text": "你摆摆手，女人冷笑离开——但营地的人觉得你靠得住。",
+   "bytes": 39732,
+   "id": "mission-manual-chain_trade_2-c1"
+  },
+  "bbe033aa1be2f0fa": {
+   "file": "bbe033aa1be2f0fa.mp3",
+   "text": "黑市第一桶金。你在黑市淘到一批紧俏货——抗生素，在废土上比瓶盖还硬。高价抛售，还是平价流通。",
+   "bytes": 76308,
+   "id": "mission-manual-chain_empire_1"
+  },
+  "b0693b3e61d233f2": {
+   "file": "b0693b3e61d233f2.mp3",
+   "text": "你赚到了第一桶金，但黑市商人开始注意你。",
+   "bytes": 31380,
+   "id": "mission-manual-chain_empire_1-c0"
+  },
+  "5d987a4d1a84ef26": {
+   "file": "5d987a4d1a84ef26.mp3",
+   "text": "你只赚了一点，但营地的人开始信任你。",
+   "bytes": 26484,
+   "id": "mission-manual-chain_empire_1-c1"
+  },
+  "db98fc7823b2ecd9": {
+   "file": "db98fc7823b2ecd9.mp3",
+   "text": "黑市扩张。你的黑市生意越做越大——现在可以选：继续扩张，还是见好就收。扩张，还是收手。",
+   "bytes": 74292,
+   "id": "mission-manual-chain_empire_2"
+  },
+  "3325e8521c154d6f": {
+   "file": "3325e8521c154d6f.mp3",
+   "text": "你投入资金扩大规模，黑市网络延伸到了其他区域。",
+   "bytes": 34836,
+   "id": "mission-manual-chain_empire_2-c0"
+  },
+  "c7880870ae8b90db": {
+   "file": "c7880870ae8b90db.mp3",
+   "text": "你稳住现有规模，把钱投进了正经生意。",
+   "bytes": 29076,
+   "id": "mission-manual-chain_empire_2-c1"
+  },
+  "fc7b596783d66e9e": {
+   "file": "fc7b596783d66e9e.mp3",
+   "text": "黑市帝国。你的黑市已经垄断了整个区域的走私渠道——政府残部派人来谈判了。合作，还是对抗。",
+   "bytes": 65940,
+   "id": "mission-manual-chain_empire_3"
+  },
+  "6b6dbf75183ce0e0": {
+   "file": "6b6dbf75183ce0e0.mp3",
+   "text": "你洗白了一半生意，政府给你开了通行证。",
+   "bytes": 23316,
+   "id": "mission-manual-chain_empire_3-c0"
+  },
+  "1d3ea7cbdfd14650": {
+   "file": "1d3ea7cbdfd14650.mp3",
+   "text": "你选择继续游离在灰色地带，利润更高，风险也更大。",
+   "bytes": 38580,
+   "id": "mission-manual-chain_empire_3-c1"
+  },
+  "3fddd566a6b49e2f": {
+   "file": "3fddd566a6b49e2f.mp3",
+   "text": "掠夺者招募。掠夺者信使递来一枚带血纹的徽章：「帮我们运一批货，你就是自己人。」。接活，还是拒绝。",
+   "bytes": 73428,
+   "id": "mission-faction-fac_eagle_1"
+  },
+  "1696c00ffad8ff74": {
+   "file": "1696c00ffad8ff74.mp3",
+   "text": "你收下了徽章，掠夺者记住了你的名字。",
+   "bytes": 25908,
+   "id": "mission-faction-fac_eagle_1-c0"
+  },
+  "0d16fa234d0fcf3d": {
+   "file": "0d16fa234d0fcf3d.mp3",
+   "text": "你推回徽章，信使冷笑离去。",
+   "bytes": 24756,
+   "id": "mission-faction-fac_eagle_1-c1"
+  },
+  "246313575139bb58": {
+   "file": "246313575139bb58.mp3",
+   "text": "响应者请愿。响应者代表请你开放一条补给通道，让伤员从前线撤下来。开门，还是惜物。",
+   "bytes": 71124,
+   "id": "mission-faction-fac_survivor_1"
+  },
+  "5ff4bfe6baf31707": {
+   "file": "5ff4bfe6baf31707.mp3",
+   "text": "伤员列队通过，有人向你鞠躬。",
+   "bytes": 21012,
+   "id": "mission-faction-fac_survivor_1-c0"
+  },
+  "712ab777eba96736": {
+   "file": "712ab777eba96736.mp3",
+   "text": "你收了过路费，响应者的名字被记了一笔。",
+   "bytes": 30228,
+   "id": "mission-faction-fac_survivor_1-c1"
+  },
+  "e761b9fd2e5f2ed7": {
+   "file": "e761b9fd2e5f2ed7.mp3",
+   "text": "残存政府取样。政府残部无人机悬停头顶，请求采集你地盘上的辐射读数。配合，还是驱赶。",
+   "bytes": 67668,
+   "id": "mission-faction-fac_tech_1"
+  },
+  "80abd15426fd28c8": {
+   "file": "80abd15426fd28c8.mp3",
+   "text": "数据上传完毕，账户多了一笔补贴。",
+   "bytes": 21588,
+   "id": "mission-faction-fac_tech_1-c0"
+  },
+  "e36c2e025dea2a40": {
+   "file": "e36c2e025dea2a40.mp3",
+   "text": "你把天线对准天空，无人机悻悻离开。",
+   "bytes": 29076,
+   "id": "mission-faction-fac_tech_1-c1"
+  },
+  "0105b16d782905ea": {
+   "file": "0105b16d782905ea.mp3",
+   "text": "掠夺者清账。你已有掠夺者声望——他们请你帮忙清掉一个不服管的对头据点。出手，还是抽身。",
+   "bytes": 69684,
+   "id": "mission-faction-fac_eagle_2"
+  },
+  "6f6d188ad39c6439": {
+   "file": "6f6d188ad39c6439.mp3",
+   "text": "枪声平息后，掠夺者分你一杯羹。",
+   "bytes": 25332,
+   "id": "mission-faction-fac_eagle_2-c0"
+  },
+  "71bb89927a8fa9e3": {
+   "file": "71bb89927a8fa9e3.mp3",
+   "text": "你拒绝沾血，响应者代表松了口气。",
+   "bytes": 28788,
+   "id": "mission-faction-fac_eagle_2-c1"
+  },
+  "bd44ed59186b1a72": {
+   "file": "bd44ed59186b1a72.mp3",
+   "text": "神秘线人。一个裹着防尘面罩的人拦住你，自称手里有政府残部的情报——只要你愿意接赃。合作，还是拒绝。",
+   "bytes": 86964,
+   "id": "mission-faction-chain_spy_1"
+  },
+  "825f0f2ee3a682f5": {
+   "file": "825f0f2ee3a682f5.mp3",
+   "text": "线人低声说了个地点，你记下了交易暗号。",
+   "bytes": 29076,
+   "id": "mission-faction-chain_spy_1-c0"
+  },
+  "34f8b0ddcccdae55": {
+   "file": "34f8b0ddcccdae55.mp3",
+   "text": "你转身离去，线人消失在人群里。",
+   "bytes": 23028,
+   "id": "mission-faction-chain_spy_1-c1"
+  },
+  "cf8c6a9aaa8b698f": {
+   "file": "cf8c6a9aaa8b698f.mp3",
+   "text": "情报交易。线人带来了一份加密文件——里面是政府军在下月的补给线时刻表。买情报，还是告发。",
+   "bytes": 70836,
+   "id": "mission-faction-chain_spy_2"
+  },
+  "0b8b180e5b557294": {
+   "file": "0b8b180e5b557294.mp3",
+   "text": "你付了瓶盖，换来一张写满路线的纸条——这东西能换大钱，也能害死人。",
+   "bytes": 48948,
+   "id": "mission-faction-chain_spy_2-c0"
+  },
+  "8a59996954f247cd": {
+   "file": "8a59996954f247cd.mp3",
+   "text": "你通知了政府巡逻队，线人被带走时回头看了你一眼。",
+   "bytes": 34548,
+   "id": "mission-faction-chain_spy_2-c1"
+  },
+  "3a0bace8c2c3b6b9": {
+   "file": "3a0bace8c2c3b6b9.mp3",
+   "text": "双面人生。线人落网后供出了你——政府召见你，要你在「线人」与「证人」之间选一边站。当线人，还是当证人。",
+   "bytes": 77172,
+   "id": "mission-faction-chain_spy_3"
+  },
+  "6e37e752b0f84122": {
+   "file": "6e37e752b0f84122.mp3",
+   "text": "你答应潜伏，从此拿两份薪水——也睡不安稳。",
+   "bytes": 38580,
+   "id": "mission-faction-chain_spy_3-c0"
+  },
+  "bf85ae29fd86429c": {
+   "file": "bf85ae29fd86429c.mp3",
+   "text": "你站到证人席，线人的同伙被判刑——政府欠你一份人情。",
+   "bytes": 39732,
+   "id": "mission-faction-chain_spy_3-c1"
+  },
+  "037c52de30a1751b": {
+   "file": "037c52de30a1751b.mp3",
+   "text": "掠夺者的最后通牒。你在掠夺者里混得够久了——他们要你纳「投名状」：去抢响应者的一个据点。服从，还是抗命。",
+   "bytes": 81780,
+   "id": "mission-faction-chain_betray_1"
+  },
+  "791dc4c36450e82e": {
+   "file": "791dc4c36450e82e.mp3",
+   "text": "你带人抢下据点，掠夺者首领拍了拍你的肩膀。",
+   "bytes": 31956,
+   "id": "mission-faction-chain_betray_1-c0"
+  },
+  "8f67580e637434ed": {
+   "file": "8f67580e637434ed.mp3",
+   "text": "你摔门而去，响应者代表悄悄塞给你一张地图。",
+   "bytes": 34548,
+   "id": "mission-faction-chain_betray_1-c1"
+  },
+  "d7e7c8d5720d81cc": {
+   "file": "d7e7c8d5720d81cc.mp3",
+   "text": "叛变者末路。不管你选了哪边——另一边都不会放过你。废土上没有两面讨好的事。复仇，还是和解。",
+   "bytes": 78900,
+   "id": "mission-faction-chain_betray_2"
+  },
+  "80624cc0f5ca574f": {
+   "file": "80624cc0f5ca574f.mp3",
+   "text": "你在夜里动手，天亮时你的名字成了禁忌。",
+   "bytes": 29076,
+   "id": "mission-faction-chain_betray_2-c0"
+  },
+  "e45325834fef4160": {
+   "file": "e45325834fef4160.mp3",
+   "text": "你花了大力气促成了暂时的和平——但这平衡脆弱得像薄冰。",
+   "bytes": 42324,
+   "id": "mission-faction-chain_betray_2-c1"
+  },
+  "dc79444a4a1de333": {
+   "file": "dc79444a4a1de333.mp3",
+   "text": "防空洞旧档案。坍塌的混凝土下露出一道铁门——里面是一间旧时代的密封防空洞，架子上摆满了落灰的档案盒。仔细搜索，还是粗略翻过。",
+   "bytes": 99060,
+   "id": "mission-ruins-relic_bunker"
+  },
+  "d8cd1b6a085f14ed": {
+   "file": "d8cd1b6a085f14ed.mp3",
+   "text": "你花了半天时间，找到一台还能开机的旧终端和几张设计图。",
+   "bytes": 38868,
+   "id": "mission-ruins-relic_bunker-c0"
+  },
+  "0011b61bbeaa44ad": {
+   "file": "0011b61bbeaa44ad.mp3",
+   "text": "你抓起值钱的小件就走了，身后传来档案架倒塌的闷响。",
+   "bytes": 35412,
+   "id": "mission-ruins-relic_bunker-c1"
+  },
+  "7c66ef0792d9ffb6": {
+   "file": "7c66ef0792d9ffb6.mp3",
+   "text": "终端里的 AI。旧终端突然亮起——里面居然运行着一个旧时代的 AI 助手，它问你是谁。交流，还是关机。",
+   "bytes": 89844,
+   "id": "mission-ruins-relic_ai"
+  },
+  "5083a77e38c6c4ba": {
+   "file": "5083a77e38c6c4ba.mp3",
+   "text": "AI 教你了一些旧时代的技术原理，你感觉眼界打开了一点。",
+   "bytes": 39732,
+   "id": "mission-ruins-relic_ai-c0"
+  },
+  "90d24a092386c52a": {
+   "file": "90d24a092386c52a.mp3",
+   "text": "你拆走终端卖了废铁，屏幕最后一闪像是叹气。",
+   "bytes": 37716,
+   "id": "mission-ruins-relic_ai-c1"
+  },
+  "7fe0db06d0f24697": {
+   "file": "7fe0db06d0f24697.mp3",
+   "text": "遗迹的代价。AI 给了你一份旧时代武器库的坐标——但那里现在是掠夺者的地盘。冒险去拿，还是放弃。",
+   "bytes": 76020,
+   "id": "mission-ruins-relic_choice"
+  },
+  "48afe509a1b3ed07": {
+   "file": "48afe509a1b3ed07.mp3",
+   "text": "你潜入库房，带走了一箱还能用的能量电池。",
+   "bytes": 28500,
+   "id": "mission-ruins-relic_choice-c0"
+  },
+  "5640b607c6c2b614": {
+   "file": "5640b607c6c2b614.mp3",
+   "text": "你谢绝了 AI 的好意——有些东西不该被打扰。",
+   "bytes": 26484,
+   "id": "mission-ruins-relic_choice-c1"
+  },
+  "8382333141de6096": {
+   "file": "8382333141de6096.mp3",
+   "text": "残破地图。你在废墟里翻到一张手绘地图，标注着「地下仓库」几个字，但路线已经模糊。按图索骥，还是卖掉。",
+   "bytes": 79188,
+   "id": "mission-ruins-relic_map"
+  },
+  "3533d3924b8bcd2b": {
+   "file": "3533d3924b8bcd2b.mp3",
+   "text": "你沿着模糊的标记找到入口，里面堆满了旧时代的物资。",
+   "bytes": 34548,
+   "id": "mission-ruins-relic_map-c0"
+  },
+  "8020700d5297869d": {
+   "file": "8020700d5297869d.mp3",
+   "text": "你把地图换成瓶盖，至少有赚。",
+   "bytes": 22740,
+   "id": "mission-ruins-relic_map-c1"
+  },
+  "c5c09acf7b520313": {
+   "file": "c5c09acf7b520313.mp3",
+   "text": "地下缓存。仓库深处有一只旧时代保险箱——密码未知，但结构看起来不复杂。暴力开锁，还是解密。",
+   "bytes": 86964,
+   "id": "mission-ruins-relic_cache"
+  },
+  "192248516e74acbf": {
+   "file": "192248516e74acbf.mp3",
+   "text": "你砸开盖子，里面是一摞旧钞票和几块还能用的芯片。",
+   "bytes": 38580,
+   "id": "mission-ruins-relic_cache-c0"
+  },
+  "a735dba4b087d267": {
+   "file": "a735dba4b087d267.mp3",
+   "text": "你花了半天试出密码，箱子里除了物资还有一本日记。",
+   "bytes": 33396,
+   "id": "mission-ruins-relic_cache-c1"
+  },
+  "48d202fc5d044c96": {
+   "file": "48d202fc5d044c96.mp3",
+   "text": "神秘遗迹商人。一个裹着防尘斗篷的陌生人拦住你，说他手里有「旧世界的好东西」——但只换不卖。换物，还是拒绝。",
+   "bytes": 82068,
+   "id": "mission-ruins-relic_merchant"
+  },
+  "34e8bbc2c2a9b046": {
+   "file": "34e8bbc2c2a9b046.mp3",
+   "text": "商人给你看了一块旧时代建材，你的据点围墙立刻升了一级。",
+   "bytes": 36276,
+   "id": "mission-ruins-relic_merchant-c0"
+  },
+  "6053eb94d4460ff9": {
+   "file": "6053eb94d4460ff9.mp3",
+   "text": "你摇摇头，商人消失在废墟深处。",
+   "bytes": 24756,
+   "id": "mission-ruins-relic_merchant-c1"
+  },
+  "f6cf9d752195d25e": {
+   "file": "f6cf9d752195d25e.mp3",
+   "text": "旧时代科技。你在废墟里找到一台还能启动的旧时代医疗设备——它能帮你的人，也能换一大笔钱。自用，还是卖掉。",
+   "bytes": 80916,
+   "id": "mission-ruins-relic_tech"
+  },
+  "4478e8d1c84ffa44": {
+   "file": "4478e8d1c84ffa44.mp3",
+   "text": "你把设备搬回营地，伤员们有了像样的治疗。",
+   "bytes": 27636,
+   "id": "mission-ruins-relic_tech-c0"
+  },
+  "9d5370cc18690288": {
+   "file": "9d5370cc18690288.mp3",
+   "text": "黑市商人眼睛一亮，你换到了一笔巨款。",
+   "bytes": 29076,
+   "id": "mission-ruins-relic_tech-c1"
+  },
   "a01b9c92571991e4": {
    "file": "a01b9c92571991e4.mp3",
    "text": "据点求生 · 第七日。隔离区的警报还在远处嗡鸣。有人把最后半瓶水塞给你——你攥着瓶盖踏出铁门，身后是秩序，前方是废土。营地的人看着你：像领路人，而不只是独狼。",
    "bytes": 287046,
    "id": "chapter-0-0"
+  },
+  "e84fc159a6e754da": {
+   "file": "e84fc159a6e754da.mp3",
+   "text": "据点求生 · 第七日。隔离区的警报还在远处嗡鸣。你攥着最后一把瓶盖，踏出铁门——身后是秩序，前方是废土。营地的人看着你：是独狼，还是领路人。",
+   "bytes": 127572,
+   "id": "chapter-0-1"
   },
   "3bac941d841c0fa0": {
    "file": "3bac941d841c0fa0.mp3",
@@ -255,6 +1701,30 @@
    "text": "落点锁定：棋盘中央 · 无可拦截",
    "bytes": 62406,
    "id": "cutscene-launch"
+  },
+  "beffe68deb46657b": {
+   "file": "beffe68deb46657b.mp3",
+   "text": "你溜进黑市，能捞点什么？",
+   "bytes": 19860,
+   "id": "setpiece-blackMarket"
+  },
+  "fa0bbc5c7e621be7": {
+   "file": "fa0bbc5c7e621be7.mp3",
+   "text": "盖革计数器狂响。深采回报高，浅采省成本但会污染声誉。",
+   "bytes": 50388,
+   "id": "setpiece-radiation"
+  },
+  "c38ada0b63129c84": {
+   "file": "c38ada0b63129c84.mp3",
+   "text": "厚门后是无菌空气。休整恢复士气，或就地加固一处地产。",
+   "bytes": 50100,
+   "id": "setpiece-bunker"
+  },
+  "279c0e57c393fe26": {
+   "file": "279c0e57c393fe26.mp3",
+   "text": "阿尔法、布拉沃、查理三井密钥已对齐，靶场锁定棋盘中央。发射后棋盘将被核平，无论当前战局输赢，你都将获得绝对胜利。",
+   "bytes": 113748,
+   "id": "setpiece-nukeConfirm"
   }
  }
 }
