@@ -1,0 +1,238 @@
+{
+ "meta": {
+  "games": 20,
+  "players": 2,
+  "startCaps": 1500,
+  "finished": 20,
+  "elapsedSec": "1.4"
+ },
+ "topNet": {
+  "min": 2647,
+  "median": 3043,
+  "p75": 3159,
+  "max": 3298
+ },
+ "medianNet": {
+  "median": 3043
+ },
+ "survivors": {
+  "mean": 2,
+  "allAlive": 20
+ },
+ "bankrupt": {
+  "total": 0,
+  "gamesWithAny": 0
+ },
+ "turns": {
+  "min": 39,
+  "median": 64,
+  "max": 87
+ },
+ "ownedTotal": {
+  "median": 16
+ },
+ "peakRentPctOfNet": 2.56,
+ "cap8pctOfNet": 243,
+ "runs": [
+  {
+   "finished": true,
+   "turn": 77,
+   "ticks": 1784,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 2860,
+   "medianNet": 2860,
+   "ownedTotal": 16
+  },
+  {
+   "finished": true,
+   "turn": 64,
+   "ticks": 1498,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3298,
+   "medianNet": 3298,
+   "ownedTotal": 15
+  },
+  {
+   "finished": true,
+   "turn": 46,
+   "ticks": 1101,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3000,
+   "medianNet": 3000,
+   "ownedTotal": 12
+  },
+  {
+   "finished": true,
+   "turn": 80,
+   "ticks": 1804,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3012,
+   "medianNet": 3012,
+   "ownedTotal": 20
+  },
+  {
+   "finished": true,
+   "turn": 83,
+   "ticks": 1819,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3176,
+   "medianNet": 3176,
+   "ownedTotal": 17
+  },
+  {
+   "finished": true,
+   "turn": 68,
+   "ticks": 1564,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3159,
+   "medianNet": 3159,
+   "ownedTotal": 17
+  },
+  {
+   "finished": true,
+   "turn": 45,
+   "ticks": 1078,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3043,
+   "medianNet": 3043,
+   "ownedTotal": 13
+  },
+  {
+   "finished": true,
+   "turn": 39,
+   "ticks": 959,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3011,
+   "medianNet": 3011,
+   "ownedTotal": 11
+  },
+  {
+   "finished": true,
+   "turn": 57,
+   "ticks": 1209,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 2647,
+   "medianNet": 2647,
+   "ownedTotal": 15
+  },
+  {
+   "finished": true,
+   "turn": 40,
+   "ticks": 995,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3104,
+   "medianNet": 3104,
+   "ownedTotal": 12
+  },
+  {
+   "finished": true,
+   "turn": 74,
+   "ticks": 1800,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3128,
+   "medianNet": 3128,
+   "ownedTotal": 17
+  },
+  {
+   "finished": true,
+   "turn": 50,
+   "ticks": 1285,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3105,
+   "medianNet": 3105,
+   "ownedTotal": 17
+  },
+  {
+   "finished": true,
+   "turn": 60,
+   "ticks": 1441,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3240,
+   "medianNet": 3240,
+   "ownedTotal": 14
+  },
+  {
+   "finished": true,
+   "turn": 87,
+   "ticks": 2068,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3007,
+   "medianNet": 3007,
+   "ownedTotal": 18
+  },
+  {
+   "finished": true,
+   "turn": 63,
+   "ticks": 1371,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3023,
+   "medianNet": 3023,
+   "ownedTotal": 14
+  },
+  {
+   "finished": true,
+   "turn": 76,
+   "ticks": 1776,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3001,
+   "medianNet": 3001,
+   "ownedTotal": 17
+  },
+  {
+   "finished": true,
+   "turn": 70,
+   "ticks": 1589,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 2792,
+   "medianNet": 2792,
+   "ownedTotal": 18
+  },
+  {
+   "finished": true,
+   "turn": 76,
+   "ticks": 1733,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3020,
+   "medianNet": 3020,
+   "ownedTotal": 16
+  },
+  {
+   "finished": true,
+   "turn": 60,
+   "ticks": 1414,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3207,
+   "medianNet": 3207,
+   "ownedTotal": 12
+  },
+  {
+   "finished": true,
+   "turn": 56,
+   "ticks": 1220,
+   "survivors": 2,
+   "bankruptCount": 0,
+   "topNet": 3095,
+   "medianNet": 3095,
+   "ownedTotal": 16
+  }
+ ]
+}
