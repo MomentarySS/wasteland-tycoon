@@ -4,6 +4,7 @@ import { TILES, positions } from './data.js';
 import { N, CELL, COLORS, GROUPS, TOKEN_SLOT } from './config.js';
 import { playerPortrait, tileIcon, iconColor, buildingSVG } from './icons.js';
 import { netWorth, rentDisplay, isMonopoly, canUpgrade } from './rules-core.js';
+import { subTypeDef } from './subtypes.js';
 import { evaluateCampaign, evaluateCampaignCoop, campaignDecayPerTurn } from './campaign.js';
 import { formatFactionRep } from './missions.js';
 import { nukeKeyBadgeHtml } from './view-nuke.js';
@@ -111,7 +112,9 @@ function tileDisplayName(t) {
 
 function tileMetaLine(t) {
   if (t.type === 'prop' || t.type === 'rail' || t.type === 'util') {
-    return `${t.price}盖 · 租${rentDisplay(t)}${t.level > 0 ? ' · Lv' + t.level : ''}`;
+    // subType 变种在末尾标注，缺省（普通地产）不追加，保持原有信息层级不变
+    const sub = subTypeDef(t);
+    return `${t.price}盖 · 租${rentDisplay(t)}${t.level > 0 ? ' · Lv' + t.level : ''}${sub ? ' · ' + sub.label : ''}`;
   }
   if (t.type === 'tax') return `-${t.tax}盖`;
   if (t.type === 'start') return `+${G.SALARY}盖`;
@@ -271,6 +274,10 @@ export function updateTilePreview(idx, opts = {}) {
   previewEl.dataset.type = t.type;
   if (t.type === 'prop') previewEl.dataset.group = t.group || '';
   else if (typeof previewEl.removeAttribute === 'function') previewEl.removeAttribute('data-group');
+  // subType 写到 dataset，供 CSS 做配色/描边；无变种时必须显式移除，
+  // 否则上一格的变种标记会残留在同一个预览元素上（该元素是复用的）。
+  if (t.type === 'prop' && t.subType) previewEl.dataset.subtype = t.subType;
+  else if (typeof previewEl.removeAttribute === 'function') previewEl.removeAttribute('data-subtype');
   if (previewEl.classList) previewEl.classList.add('is-visible');
   if (opts.pulse && previewEl.classList) {
     previewEl.classList.remove('tpPulse');

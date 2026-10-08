@@ -36,7 +36,10 @@ function mkEl(id) {
     prepend(c) { this.children.unshift(c); return c; },
     insertBefore(c, ref) { if (!ref) this.children.push(c); else { const i = this.children.indexOf(ref); if (i < 0) this.children.push(c); else this.children.splice(i, 0, c); } return c; },
     get firstChild() { return this.children[0] || null; },
-    remove() { }, addEventListener() { }, removeEventListener() { }, setAttribute() { }, getAttribute() { return null; }, removeAttribute() { },
+    remove() { }, addEventListener() { }, removeEventListener() { },
+    setAttribute(k, v) { if (String(k).startsWith('data-')) this.dataset[dataKey(k)] = String(v); else this[k] = String(v); },
+    getAttribute(k) { const v = attrOf(this, k); return v === undefined ? null : v; },
+    removeAttribute(k) { if (String(k).startsWith('data-')) delete this.dataset[dataKey(k)]; else delete this[k]; },
     querySelector() { return null; }, querySelectorAll() { return []; },
     get offsetWidth() { return 1; }, focus() { }, scrollIntoView() { },
     getBoundingClientRect() { return { top: 0, left: 0, width: 54, height: 54 }; },
@@ -44,6 +47,14 @@ function mkEl(id) {
   };
 }
 const getEl = id => (cache[id] ||= mkEl(id));
+// A faithful stub has to keep dataset and data-* attributes in sync: view-core.js
+// clears a variant via removeAttribute('data-subtype'), which in a real DOM also
+// drops dataset.subtype. With a no-op removeAttribute the "no stale bleed" assertion
+// would pass for the wrong reason (or fail for the wrong one).
+function dataKey(attr) {
+  return attr.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+}
+function attrOf(el, attr) { return attr.startsWith('data-') ? el.dataset[dataKey(attr)] : null; }
 (function setupTilePreview() {
   const tp = mkEl('tilePreview');
   const mkSub = cls => { const el = mkEl(cls); el.className = cls.replace('.', ''); el.hidden = false; return el; };
@@ -102,15 +113,20 @@ ok(data.TILES.length === 44, `board still has 44 tiles (got ${data.TILES.length}
 const sub = await load('subtypes.js');
 
 console.log('\n=== landmark: not mortgageable ===');
-const lm = byName(NAME_LANDMARK);
+// NOTE: these five are captured BEFORE startGame(). data.shuffleBoard() rebuilds
+// every tile from RAW_SPEC via buildTiles(), so after the board is dealt these
+// references point at DETACHED objects that are no longer in TILES. They are fine
+// for the pure-function checks below (same data, no board lookup), but every
+// board-interaction test must re-resolve by name after startGame() -- see below.
+let lm = byName(NAME_LANDMARK);
 ok(!!lm, `landmark tile resolves by name (guard: a bad \\u escape would silently pass the next line)`);
 ok(sub.canMortgageTile(lm) === false, 'landmark cannot be mortgaged');
-const normal = byName(NAME_NORMAL);
+let normal = byName(NAME_NORMAL);
 ok(!!normal, `control prop tile resolves by name`);
 ok(sub.canMortgageTile(normal) === true, 'normal prop still mortgageable');
 
 console.log('\n=== rent math (pure) ===');
-const shack = byName(NAME_SHACK);
+let shack = byName(NAME_SHACK);
 ok(sub.upkeepOf(shack) === 10, `shack upkeep = ${sub.upkeepOf(shack)}`);
 // shack: baseCut=1 (no cut on base rent), rentMult=0.55
 // Lv0 = round(8*1*0.55)=4, Lv2 = round(8*3*0.55)=13
@@ -119,10 +135,10 @@ ok(sub.propBaseRent(shack, 6) === 4, `shack Lv0 base rent = ${sub.propBaseRent(s
 shack.level = 2;
 ok(sub.propBaseRent(shack, 6) === 13, `shack Lv2 base rent = ${sub.propBaseRent(shack, 6)} (expect 13)`);
 ok(sub.propBaseRent(shack, 6) * 2 === 26, `shack Lv2 + monopoly = 26 (matches design table)`);
-const cursed = byName(NAME_CURSED);
+let cursed = byName(NAME_CURSED);
 ok(sub.moralHitOf(cursed) === 1, `cursed moral hit = ${sub.moralHitOf(cursed)}`);
 ok(sub.moralHitOf(normal) === 0, 'normal prop has no moral hit');
-const vol = byName(NAME_VOLATILE);
+let vol = byName(NAME_VOLATILE);
 ok(sub.propBaseRent(vol, 6) < sub.propBaseRent(vol, 12), 'volatile rent rises with roll');
 ok(Math.abs(sub.propBaseRent(vol, 6) - sub.propBaseRent(vol, 6)) === 0, 'volatile is deterministic for a given roll');
 // landmark: baseCut=0.55, rentMult=2.2
@@ -159,6 +175,42 @@ const G = state.G;
 ok(G.players.length === 2, `game started with ${G.players.length} players`);
 
 const restore = t => { t.owner = null; t.level = 0; t.mortgaged = false; };
+
+// Re-resolve against the dealt board. shuffleBoard() rebuilt every tile from
+// RAW_SPEC, so the pre-game references above are detached; running payRent() /
+// mortgage() / updateTilePreview() against those would exercise off-board objects
+// and could pass even with the mechanism broken.
+lm = byName(NAME_LANDMARK);
+shack = byName(NAME_SHACK);
+vol = byName(NAME_VOLATILE);
+cursed = byName(NAME_CURSED);
+normal = byName(NAME_NORMAL);
+ok([lm, shack, vol, cursed, normal].every(t => t && data.TILES.includes(t)),
+  'post-deal tile references really belong to TILES (guard: detached pre-shuffle objects would let the interaction tests pass vacuously)');
+
+console.log('\n=== preview panel (plan step 6) ===');
+// Runs after startGame() on purpose: updateTilePreview dereferences G.players[t.owner]
+// for the owner suffix, which throws when t.owner != null but no game exists yet.
+const previewEl = getEl('tilePreview');
+const metaEl = previewEl.querySelector('.tpMeta');
+data.TILES.forEach(restore);
+const SUB_TILES = [[NAME_LANDMARK, 'landmark'], [NAME_SHACK, 'shack'], [NAME_VOLATILE, 'volatile'], [NAME_CURSED, 'cursed']];
+for (const [nm, st] of SUB_TILES) {
+  const t = byName(nm);
+  const idx = data.TILES.indexOf(t);
+  view.updateTilePreview(idx);
+  const label = sub.SUBTYPE_DEFS[st].label;
+  ok(metaEl.textContent.includes(label), `preview meta shows "${label}" for ${nm}: "${metaEl.textContent}"`);
+  ok(previewEl.dataset.subtype === st, `preview dataset.subtype = ${previewEl.dataset.subtype} (expect ${st})`);
+}
+const labels = Object.values(sub.SUBTYPE_DEFS).map(d => d.label);
+ok(new Set(labels).size === 4 && labels.every(l => typeof l === 'string' && l.length > 0),
+  `4 distinct non-empty subType labels: ${JSON.stringify(labels)}`);
+// the preview element is reused, so a stale data-subtype would bleed onto the next tile
+const normalIdx = data.TILES.indexOf(normal);
+view.updateTilePreview(normalIdx);
+ok(previewEl.dataset.subtype === undefined, `data-subtype cleared when hovering a normal prop (got ${previewEl.dataset.subtype})`);
+ok(!labels.some(l => metaEl.textContent.includes(l)), `normal prop meta carries no subType label: "${metaEl.textContent}"`);
 
 // shack: owner is player 0, payer is player 1
 data.TILES.forEach(restore);
