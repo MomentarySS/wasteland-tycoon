@@ -1,6 +1,6 @@
 # 废土大亨：末世大富翁 · Wasteland Tycoon
 
-> 当前版本：v1.7.1
+> 当前版本：v1.7.2
 
 《废土大亨》是一款 Windows 桌面末世主题大富翁游戏，使用原生 JavaScript ES Modules 和 Electron。网页和 Android 版本已停止维护。
 
