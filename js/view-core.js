@@ -5,6 +5,7 @@ import { N, CELL, COLORS, GROUPS, TOKEN_SLOT } from './config.js';
 import { playerPortrait, tileIcon, iconColor, buildingSVG } from './icons.js';
 import { netWorth, rentDisplay, isMonopoly, canUpgrade } from './rules-core.js';
 import { subTypeDef } from './subtypes.js';
+import { resolveMutatorVisualFamily, VISUAL_FAMILY_PRIORITY } from './mutators.js';
 import { evaluateCampaign, evaluateCampaignCoop, campaignDecayPerTurn } from './campaign.js';
 import { formatFactionRep } from './missions.js';
 import { nukeKeyBadgeHtml } from './view-nuke.js';
@@ -148,6 +149,19 @@ function commandWeatherLabel() {
   return '常态';
 }
 
+const MUTVIZ_CLASSES = VISUAL_FAMILY_PRIORITY.map(f => 'mutviz-' + f);
+
+/**
+ * mutator 视觉族同步：只切 body class，不读也不写任何规则数值。
+ * 挂在 updateCommandCenter()（render() 每回合调用）而不是 applyMutators()，
+ * 这样重抽、读档、换局都自动跟随 G.activeMutators，且规则层不感知表现层。
+ */
+function syncMutatorVisual() {
+  if (typeof document === 'undefined' || !document.body || !document.body.classList) return;
+  const fam = resolveMutatorVisualFamily(G.activeMutators);
+  for (const c of MUTVIZ_CLASSES) document.body.classList.toggle(c, c === 'mutviz-' + fam);
+}
+
 function commandTileHint(t, p) {
   if (!t || !p) return '等待落点信号';
   if (t.type === 'prop') {
@@ -191,6 +205,9 @@ function commandGoal(p) {
 
 /** 中央废土指挥中枢：只显示当前决策所需的态势、落点提示和目标进度。 */
 export function updateCommandCenter() {
+  // 先同步表现层：必须在下面的空态早退之前，否则「待开局」时上一局的
+  // 视觉族会留在 body 上不被清掉。
+  syncMutatorVisual();
   const turnEl = document.getElementById('ccTurn');
   const weatherEl = document.getElementById('ccWeather');
   const mutEl = document.getElementById('ccMutators');

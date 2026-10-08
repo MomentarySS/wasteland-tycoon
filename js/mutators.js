@@ -75,4 +75,39 @@ export function formatMutatorEffect(mutatorId) {
   return def ? `${def.icon} ${def.name}: ${def.desc}` : mutatorId;
 }
 
+// ============================================================
+// mutator 视觉族 —— 纯表现层
+// ============================================================
+// 口径（2026-10-08 定）：只映射真正带灾害语义的 mutator，其余保持安静。
+// 25 个 mutator 里仅 5 个进入映射；强行全映射会让画面撒谎
+// （「双倍租金 = 沙暴」这类联想），且违反 visual-effects-plan.md 里
+// 「默认状态保持安静」「动效不作为常驻装饰」的既有约定。
+//
+// 本段只做「算出该显示哪一族」，不碰 document、不写 G —— 规则数值零影响。
+export const MUTATOR_VISUAL_FAMILY = {
+  nuke_race: 'fire',        // 核军备竞赛 ☢ → 焦土核爆
+  land_tax: 'fire',         // 地产维护费 🏚 → 烧毁废墟
+  radiation_leak: 'flood',  // 辐射泄漏 ☢ → 辐射雨漫灌
+  horde_frequent: 'flood',  // 尸潮频发 💀 → 腐潮泛滥
+  wormhole_chaos: 'dust',   // 虫洞紊乱 🌀 → 尘涡
+};
+
+/**
+ * 固定优先级：同局命中多个族时只显示一族，按灾害严重度取最高
+ * （核爆 > 辐射/腐潮 > 尘涡）。刻意不做多层叠加 —— 三族同时出现会糊成一片，
+ * 压低地块文字对比度。
+ */
+export const VISUAL_FAMILY_PRIORITY = ['fire', 'flood', 'dust'];
+
+export const VISUAL_FAMILY_LABEL = { fire: '焦土', flood: '浊潮', dust: '尘涡' };
+
+/** 纯函数：由本局突变列表解出应显示的视觉族；无匹配返回 null。 */
+export function resolveMutatorVisualFamily(mutators) {
+  const arr = Array.isArray(mutators) ? mutators : [];
+  for (const fam of VISUAL_FAMILY_PRIORITY) {
+    if (arr.some(m => m && MUTATOR_VISUAL_FAMILY[m.id] === fam)) return fam;
+  }
+  return null;
+}
+
 export { MUTATOR_POOL as ALL_MUTATORS };

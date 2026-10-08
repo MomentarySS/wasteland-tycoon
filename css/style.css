@@ -563,6 +563,58 @@ body.weather-dusk::after {
   100% { opacity: 1; }
 }
 
+/* ===================== mutator 视觉族（v1.8.0，纯表现层） ===================== */
+/* 口径：只映射真正带灾害语义的 mutator（见 js/mutators.js MUTATOR_VISUAL_FAMILY，
+   仅 5 个），其余 20 个保持安静；同局多族按固定优先级只显示一族。
+   纯表现层：不改任何规则数值，本轮新增位图资源 0 张。
+
+   为什么挂 #board::after 而不是 body::after：body::after 已被天气系统占用
+   （扫描线 + 沙尘/酸雨/暮色），一个元素只能有一个 ::after，两边会互相覆盖。
+   #board::after 与 #boardCenter::after（雷达环）均未被占用。
+
+   为什么不给 #board 加 filter：天气已经用 #board{filter:...} 做偏色，
+   同属性再写会互相覆盖。本族一律只走 ::after 遮罩。 */
+#board::after{content:none;position:absolute;inset:0;pointer-events:none;z-index:3;}
+/* z-index 取 3：盖住 #tiles(z-index:1)，但低于 #tokenLayer(z-index:5)，棋子始终可见。 */
+
+/* 火焰 · 焦土（核军备竞赛 / 地产维护费）：低频热浪呼吸，不闪 */
+body.mutviz-fire #board::after{
+  content:"";
+  mix-blend-mode:screen;
+  background:
+    radial-gradient(ellipse at 50% 120%, rgba(201,102,39,.28) 0%, rgba(140,52,20,.13) 38%, transparent 66%),
+    radial-gradient(ellipse at 50% -20%, rgba(181,101,29,.14) 0%, transparent 52%);
+  animation:mutvizFire 7s ease-in-out infinite alternate;}
+@keyframes mutvizFire{0%{opacity:.72;}100%{opacity:1;}}
+
+/* 洪水 · 浊潮（辐射泄漏 / 尸潮频发）：自下而上的水线与横向波纹 */
+body.mutviz-flood #board::after{
+  content:"";
+  background:
+    linear-gradient(to top, rgba(58,142,132,.28) 0%, rgba(40,110,104,.13) 34%, transparent 62%),
+    repeating-linear-gradient(90deg, transparent 0 22px, rgba(120,206,192,.05) 22px 24px);
+  animation:mutvizFlood 9s ease-in-out infinite alternate;}
+@keyframes mutvizFlood{0%{opacity:.78;transform:translateY(0);}100%{opacity:1;transform:translateY(-5px);}}
+
+/* 沙暴 · 尘涡（虫洞紊乱）：斜向流沙条纹 + 中心尘涡 */
+body.mutviz-dust #board::after{
+  content:"";
+  background:
+    repeating-linear-gradient(102deg, transparent 0 8px, rgba(176,124,58,.07) 8px 10px),
+    radial-gradient(ellipse at 50% 50%, rgba(150,104,48,.18) 0%, transparent 70%);
+  animation:mutvizDust 11s linear infinite;}
+@keyframes mutvizDust{0%{transform:translate3d(0,0,0);}100%{transform:translate3d(-22px,9px,0);}}
+
+/* 减少动态效果：移除持续移动/呼吸，改为静态低亮度提示（保留颜色语义） */
+@media (prefers-reduced-motion: reduce){
+  body.mutviz-fire #board::after,
+  body.mutviz-flood #board::after,
+  body.mutviz-dust #board::after{animation:none!important;}
+  body.mutviz-fire #board::after{opacity:.55;}
+  body.mutviz-flood #board::after{opacity:.6;}
+  body.mutviz-dust #board::after{opacity:.55;}
+}
+
 /* ===================== 特效层 FX ===================== */
 #fxLayer{position:fixed;inset:0;pointer-events:none;z-index:80;overflow:hidden;}
 .fxCoin{position:absolute;left:0;top:0;width:13px;height:13px;border-radius:50%;
