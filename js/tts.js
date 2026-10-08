@@ -136,6 +136,45 @@ function playBlob(blob) {
   });
 }
 
+// 预录音频解码缓存：文件是内容 hash 命名（voiceHash(voice, text)），同一句文案永远指向同一个文件，
+// 因此可以安全地按 file 缓存解码后的 Blob，避免每次播报都重走 fetch + MP3 解码。
+// 只缓存 Blob（不缓存 Audio 实例）：playBlob 每次都会新建 Audio 并按当前 volume 设音量，
+// 缓存实例会导致「调音量不生效」和「被新播报打断后无法复用」。
+const prerecordedBlobs = new Map();   // file -> Promise<Blob>
+const PRERECORDED_CACHE_MAX = 320;    // 与目标条数同量级；LRU 超出即淘汰，避免无上限增长
+
+function touchPrerecorded(file, blob) {
+  prerecordedBlobs.delete(file);      // 删除后重新插入 = 移到最新
+  prerecordedBlobs.set(file, Promise.resolve(blob));
+  while (prerecordedBlobs.size > PRERECORDED_CACHE_MAX) {
+    const oldest = prerecordedBlobs.keys().next().value;
+    prerecordedBlobs.delete(oldest);
+  }
+}
+
+function fetchPrerecorded(file) {
+  if (prerecordedBlobs.has(file)) {
+    const hit = prerecordedBlobs.get(file);
+    prerecordedBlobs.delete(file);    // 命中也刷新为最新
+    prerecordedBlobs.set(file, hit);
+    return hit;
+  }
+  // 失败不缓存：next() 会重新发起，避免一次网络抖动永久毒化该条目。
+  const pending = fetch(VOICE_DIR + '/' + file).then((res) => {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.blob();
+  }).then((blob) => {
+    if (!blob || blob.size < 64) throw new Error('音频异常');
+    touchPrerecorded(file, blob);
+    return blob;
+  }).catch((e) => {
+    prerecordedBlobs.delete(file);
+    throw e;
+  });
+  prerecordedBlobs.set(file, pending);
+  return pending;
+}
+
 function audioToBlob(data, type = 'audio/mpeg') {
   if (!data) return null;
   if (data instanceof Blob) return data;
@@ -302,10 +341,12 @@ async function speakVoice(text) {
   const key = voiceHash(manifest.meta.voice, text);
   const entry = manifest.lines[key];
   if (!entry || !entry.file) return false;
-  const res = await fetch(VOICE_DIR + '/' + entry.file);
-  if (!res.ok) return false;
-  const blob = await res.blob();
-  if (!blob || blob.size < 64) return false;
+  let blob;
+  try {
+    blob = await fetchPrerecorded(entry.file);
+  } catch (_) {
+    return false;   // 缓存未命中且取不到：按原语义视为该句不可播，交给引擎链下一档
+  }
   lastEngine = 'voice';
   await playBlob(blob);
   return true;
