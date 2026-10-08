@@ -43,6 +43,7 @@ assets/voice-audition/
 assets/voice/agent-tasks.json
 
 # Local-only research notes and asset-generation work (never commit)
+.learnings/
 竞品对比.md
 混元资产生成清单.md
 开发备忘.md
