@@ -9,9 +9,9 @@
 //   node scripts/gen-voice.mjs --audition             # 候选音色各生成一条试听 → assets/voice-audition/
 //   node scripts/gen-voice.mjs                        # 全量生成（增量：已存在的条目跳过）
 //   node scripts/gen-voice.mjs --force --voice <id>   # 换音色/强制全部重录
-//   node scripts/gen-voice.mjs --only r1              # 只重录 id 含 "r1" 的条目（配合 --force）
+//   node scripts/gen-voice.mjs --only r1              # 只重录 id 含 "r1" 的条目（配合 --force；局部重录不重建 manifest，收口再跑一次全量）
 //
-// 鉴权：环境变量 MINIMAX_API_KEY / MINIMAX_GROUP_ID，或项目根目录 .minimax-api-key / .minimax-group-id 文件
+// 鉴权：MINIMAX_API_KEY（必需）+ MINIMAX_GROUP_ID（可选），或项目根目录 .minimax-api-key / .minimax-group-id 文件
 //
 // 注意：hash 逻辑必须与 js/voice-lines.js 完全一致（直接 import 它），文案改动后重跑即可，
 // 未重录的条目运行时查不到 hash 会静默回退普通 TTS，不会播错。
@@ -115,12 +115,15 @@ function readSecret(envName, file) {
 
 function requireAuth() {
   const apiKey = readSecret('MINIMAX_API_KEY', KEY_FILE);
+  // groupId 可选：T2A v2 不带 GroupId 也能通过鉴权（缺鉴权时返回 1004，缺额度时返回 2056 业务错误）。
+  // electron/minimax-tts.js 的运行时同样把 GroupId 当可选，这里与它保持一致。
   const groupId = readSecret('MINIMAX_GROUP_ID', GROUP_FILE);
-  if (!apiKey || !groupId) {
-    console.error('缺少鉴权：请设置环境变量 MINIMAX_API_KEY / MINIMAX_GROUP_ID，');
-    console.error(`或在项目根目录放置 ${path.basename(KEY_FILE)} / ${path.basename(GROUP_FILE)}（groupId 在开放平台控制台「账户管理」可见）。`);
+  if (!apiKey) {
+    console.error('缺少鉴权：请设置环境变量 MINIMAX_API_KEY，');
+    console.error(`或在项目根目录放置 ${path.basename(KEY_FILE)}。`);
     process.exit(1);
   }
+  if (!groupId) console.warn('未配置 groupId（MINIMAX_GROUP_ID / .minimax-group-id），按不带 GroupId 调用。');
   return { apiKey, groupId };
 }
 
@@ -133,7 +136,8 @@ async function synth({ text, voice, apiKey, groupId }) {
     voice_setting: { voice_id: voice, speed: SPEED, vol: 1, pitch: 0 },
     audio_setting: { sample_rate: SAMPLE_RATE, bitrate: BITRATE, format: 'mp3', channel: 1 },
   };
-  const res = await fetch(`${API_URL}?GroupId=${encodeURIComponent(groupId)}`, {
+  const qs = groupId ? `?GroupId=${encodeURIComponent(groupId)}` : '';
+  const res = await fetch(API_URL + qs, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
     body: JSON.stringify(body),
@@ -178,19 +182,23 @@ function addManifestLine(manifest, l, file, bytes) {
   manifest.meta.count++;
   manifest.meta.totalBytes += bytes;
 }
-function pruneOrphans(manifest) {
+function pruneOrphans(manifest, keepKeys) {
   // 清理孤儿 mp3（换音色/改文案后 hash 变了，旧文件不再被 manifest 引用）
+  // keepKeys = 当前文案对应的 hash 集合：本轮未生成、生成失败或被 --only 跳过的条目据此保留，
+  // 否则一次失败或局部重录就会把仍然有效的音频判成孤儿删掉。
   const referenced = new Set(Object.values(manifest.lines).map((e) => e.file));
   for (const f of fs.readdirSync(OUT_DIR)) {
-    if (f.endsWith('.mp3') && !referenced.has(f)) {
-      fs.unlinkSync(path.join(OUT_DIR, f));
-      console.log(`清理孤儿文件: ${f}`);
-    }
+    if (!f.endsWith('.mp3') || referenced.has(f)) continue;
+    if (keepKeys && keepKeys.has(f.replace(/\.mp3$/, ''))) continue;
+    fs.unlinkSync(path.join(OUT_DIR, f));
+    console.log(`清理孤儿文件: ${f}`);
   }
 }
 function writeManifest(manifest) {
   fs.writeFileSync(path.join(OUT_DIR, 'manifest.json'), JSON.stringify(manifest, null, 1));
-  // 预录内容变了 → SW 预缓存的 manifest.json 随之失效，自动 bump 版本号清缓存
+  // 预录内容变了 → SW 预缓存的 manifest.json 随之失效，自动 bump 版本号清缓存。
+  // Web/PWA 已下线，仓库不再附带 service-worker.js；缺文件时跳过，避免生成流程在收尾处报错。
+  if (!fs.existsSync(SW_FILE)) return;
   const sw = fs.readFileSync(SW_FILE, 'utf8');
   const swNew = sw.replace(/wasteland-tycoon-v(\d+)/, (_, n) => `wasteland-tycoon-v${Number(n) + 1}`);
   if (swNew !== sw) {
@@ -220,6 +228,7 @@ if (hasFlag('--manifest-only') || hasFlag('--as-is')) {
   const manifest = newManifest();
   manifest.meta.voice = VOICE; // 写入实际使用的音色
   let missing = 0;
+  const targetKeys = new Set(lines.map((l) => voiceHash(VOICE, l.text)));
   for (const l of lines) {
     if (asIs) {
       // 文件名就是 hash（Agent 用正确 voice 生成时的命名）
@@ -254,7 +263,7 @@ if (hasFlag('--manifest-only') || hasFlag('--as-is')) {
     }
     process.exit(1);
   }
-  pruneOrphans(manifest);
+  pruneOrphans(manifest, targetKeys);
   writeManifest(manifest);
   console.log(`manifest.json 已重建：${manifest.meta.count} 条 / ${(manifest.meta.totalBytes / 1024 / 1024).toFixed(1)}MB${missing ? `；缺 ${missing} 条（运行时对缺失条目自动回退普通 TTS）` : ''}`);
   process.exit(0);
@@ -301,6 +310,7 @@ if (hasFlag('--audition')) {
 const { apiKey, groupId } = requireAuth();
 const lines = collectLines();
 const targets = ONLY ? lines.filter((l) => l.id.includes(ONLY)) : lines;
+const targetKeys = new Set(lines.map((l) => voiceHash(VOICE, l.text)));
 const chars = targets.reduce((a, l) => a + l.text.length, 0);
 console.log(`模型 ${MODEL} · 音色 ${VOICE} · 语速 ${SPEED} · ${targets.length} 条 / ${chars} 字（约 ¥${(chars / 10000 * 3.5).toFixed(2)}）`);
 
@@ -331,8 +341,14 @@ for (const l of targets) {
   }
 }
 
-pruneOrphans(manifest);
-writeManifest(manifest);
-
-console.log(`\n完成：新增 ${done}，复用 ${skipped}，失败 ${failed}；共 ${manifest.meta.count} 条 / ${(manifest.meta.totalBytes / 1024 / 1024).toFixed(1)}MB`);
+if (ONLY) {
+  // 局部重录：manifest 只统计本轮目标，直接重建会把未参与本轮的目标判成孤儿删除。
+  // 文件名是文案 hash，同音色重录会原地覆盖，因此不动 manifest 也是自洽的；收口再跑全量即可。
+  console.log('\n--only 局部重录：跳过孤儿清理与 manifest 重建（避免误删其它音频）。收口请再跑一次 node scripts/gen-voice.mjs。');
+  console.log(`完成：新增 ${done}，复用 ${skipped}，失败 ${failed}（manifest.json 未改动）。`);
+} else {
+  pruneOrphans(manifest, targetKeys);
+  writeManifest(manifest);
+  console.log(`\n完成：新增 ${done}，复用 ${skipped}，失败 ${failed}；共 ${manifest.meta.count} 条 / ${(manifest.meta.totalBytes / 1024 / 1024).toFixed(1)}MB`);
+}
 if (failed > 0) process.exit(2);
