@@ -28,7 +28,12 @@ function buildTiles(spec) {
   return spec.map((s, i) => {
     const t = { id: i, artIndex: i };
     if (s.t === 'start') { t.type = 'start'; t.name = s.name || '避难所出口'; }
-    else if (s.t === 'prop') { t.type = 'prop'; t.group = s.group; t.name = s.name; t.price = s.price; t.rent = s.rent; t.owner = null; t.level = 0; t.mortgaged = false; }
+    else if (s.t === 'prop') {
+      t.type = 'prop'; t.group = s.group; t.name = s.name; t.price = s.price; t.rent = s.rent; t.owner = null; t.level = 0; t.mortgaged = false;
+      // prop 子类型（landmark / shack / volatile / cursed）；缺省即普通地产。
+      // 机制与数值见 js/subtypes.js 与 docs/v1.8.0-plan.md。
+      if (s.subType) t.subType = s.subType;
+    }
     else if (s.t === 'rail') { t.type = 'rail'; t.name = s.name; t.price = s.price; t.owner = null; t.level = 0; t.mortgaged = false; }
     else if (s.t === 'util') {
       t.type = 'util'; t.name = s.name; t.price = s.price; t.owner = null; t.level = 0; t.mortgaged = false;

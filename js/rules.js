@@ -17,6 +17,7 @@ import {
   aiBid, aiShouldBuy, aiTradeAccept, aiMissionChoice, aiUpgrade as aiUpgradeCheck,
   aiRaiseCashPlan
 } from './rules-core.js';
+import { propBaseRent, upkeepOf, moralHitOf, canMortgageTile, subTypeDef } from './subtypes.js';
 import { campaignMoralGoal } from './campaign.js';
 
 export {
@@ -51,6 +52,11 @@ export function upgrade(p, t, free) {
 }
 export function mortgage(p, t, silent) {
   if (t.owner !== p.id || t.mortgaged || t.level > 0) return;
+  // landmark 是战略资产，不可抵押（subType 机制，非普通地产）
+  if (!canMortgageTile(t)) {
+    if (!silent) { sfx('event'); log(`★ 「${t.name}」是${subTypeDef(t).label}，不可抵押`); }
+    return;
+  }
   const mv = Math.floor(t.price / 2); t.mortgaged = true; p.caps += mv;
   if (!silent) { sfx('event'); log(`${p.name} 抵押「${t.name}」 +${mv}盖`); }
   render();
@@ -71,7 +77,7 @@ export function payRent(p, t) {
   let r;
   if (t.type === 'rail') r = railRent(t);
   else if (t.type === 'util') r = G.lastRoll * utilMult(t);
-  else { r = t.rent * (t.level + 1); if (isMonopoly(t)) r *= 2; }
+  else { r = propBaseRent(t, G.lastRoll); if (isMonopoly(t)) r *= 2; }
   // 「连锁垄断」突变：同组每多一块地，该组租金 +15%
   if (G.rentSnowball && t.type === 'prop') {
     const ownedInGroup = TILES.filter(x => x.type === 'prop' && x.group === t.group && x.owner === t.owner).length;
@@ -86,6 +92,18 @@ export function payRent(p, t) {
   // 「双倍租金」突变
   r = Math.floor(r * (G.rentMult || 1));
   p.caps -= r; o.caps += r; sfx('rent'); log(`${p.name} 向 ${o.name} 缴租 ${r}盖`);
+  // shack：收租方每次额外垫付维护费（缴租方付、收租方收，净效果为削弱该地产收益）
+  const upkeep = upkeepOf(t);
+  if (upkeep > 0) {
+    p.caps -= upkeep; o.caps += upkeep;
+    log(`🔧 棚户维护：${p.name} 另付 ${upkeep} 盖给 ${o.name}`);
+  }
+  // cursed：污染地块，缴租方良心不安
+  const hit = moralHitOf(t);
+  if (hit > 0) {
+    p.moral = Math.max(0, (p.moral || 0) - hit);
+    log(`☠ 污染侵蚀：${p.name} 道德 -${hit}`);
+  }
   // 「免费停车彩金」突变：租金进入奖池
   if (G.jackpot) G.jackpotPool = (G.jackpotPool || 0) + r;
   // 「血债血偿」：记下这笔记号，等对方下次踩你的地

@@ -1,0 +1,214 @@
+#!/usr/bin/env node
+// subType mechanism regression test.
+// The smoke test does NOT exercise subType mechanics, so "tests pass" alone would prove nothing.
+// Drives the real modules via the same DOM stub approach as scripts/balance-probe.mjs.
+//
+// ESCAPED LITERALS: every CJK *string literal* below is a \uXXXX escape on purpose
+// (the trailing CJK comments are safe -- they are never parsed as tokens).
+// This file was originally written through PowerShell Set-Content, which re-encoded the
+// UTF-8 bytes as ANSI and silently truncated CJK literals into U+FFFD, eating the closing
+// quote. Keeping literals escaped makes that failure mode unreachable.
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(HERE, '..');
+global.setTimeout = (fn) => setImmediate(() => fn());
+
+// CJK tile names (escaped so this file stays ASCII)
+const NAME_LANDMARK = '\u63a0\u593a\u8005\u519b\u9600'; // 掠夺者军阀
+const NAME_SHACK = '\u65e7\u8b66\u5907\u6240';       // 旧警备所
+const NAME_VOLATILE = '\u6bd2\u8c37\u60c5\u62a5\u5546'; // 毒谷情报商
+const NAME_CURSED = '\u6539\u88c5\u5de5\u574a';     // 改装工坊
+const NAME_NORMAL = '\u65ad\u88c2\u5929\u6865';     // 断裂天桥
+const EN_DASH = '\u2013';                            // rentDisplay range separator
+
+// --- minimal DOM stub (only what rules*.js touch) ---
+const cache = {};
+const mkStyle = () => ({ setProperty(k, v) { this[k] = v; } });
+function mkEl(id) {
+  return {
+    id, _html: '', textContent: '', value: '', style: mkStyle(), dataset: {}, children: [],
+    classList: { s: new Set(), add(c) { this.s.add(c); }, remove(c) { this.s.delete(c); }, toggle(c, on) { on ? this.s.add(c) : this.s.delete(c); }, contains(c) { return this.s.has(c); } },
+    set innerHTML(v) { this._html = String(v); this.children.length = 0; }, get innerHTML() { return this._html; },
+    appendChild(c) { this.children.push(c); return c; },
+    prepend(c) { this.children.unshift(c); return c; },
+    insertBefore(c, ref) { if (!ref) this.children.push(c); else { const i = this.children.indexOf(ref); if (i < 0) this.children.push(c); else this.children.splice(i, 0, c); } return c; },
+    get firstChild() { return this.children[0] || null; },
+    remove() { }, addEventListener() { }, removeEventListener() { }, setAttribute() { }, getAttribute() { return null; }, removeAttribute() { },
+    querySelector() { return null; }, querySelectorAll() { return []; },
+    get offsetWidth() { return 1; }, focus() { }, scrollIntoView() { },
+    getBoundingClientRect() { return { top: 0, left: 0, width: 54, height: 54 }; },
+    set onclick(fn) { this._onclick = fn; }, get onclick() { return this._onclick; },
+  };
+}
+const getEl = id => (cache[id] ||= mkEl(id));
+(function setupTilePreview() {
+  const tp = mkEl('tilePreview');
+  const mkSub = cls => { const el = mkEl(cls); el.className = cls.replace('.', ''); el.hidden = false; return el; };
+  const subs = { '.tpName': mkSub('tpName'), '.tpMeta': mkSub('tpMeta'), '.tpIcon': mkSub('tpIcon'), '.tpArt': mkSub('tpArt') };
+  tp.querySelector = sel => subs[sel] || null;
+  cache.tilePreview = tp;
+})();
+(function setupActions() {
+  const actions = mkEl('actions');
+  Object.defineProperty(actions, 'innerHTML', {
+    set(html) { actions._html = String(html); actions.children.length = 0; for (const id of [...String(html).matchAll(/id="([^"]+)"/g)].map(m => m[1])) if (!cache[id]) cache[id] = mkEl(id); },
+    get() { return actions._html; },
+  });
+  cache.actions = actions;
+})();
+global.document = {
+  getElementById: getEl, createElement: () => mkEl('dyn'),
+  querySelector: () => null, querySelectorAll: () => [], addEventListener() { },
+  body: (() => { const b = mkEl('body'); b.classList = { s: new Set(['no-tilt']), add(c) { this.s.add(c); }, remove(c) { this.s.delete(c); }, toggle(c, on) { on ? this.s.add(c) : this.s.delete(c); }, contains(c) { return this.s.has(c); } }; return b; })(),
+};
+const store = {};
+global.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
+global.window = { addEventListener() { }, removeEventListener() { }, AudioContext: undefined, webkitAudioContext: undefined, speechSynthesis: undefined, SpeechSynthesisUtterance: undefined, navigator: { serviceWorker: undefined } };
+Object.defineProperty(global, 'navigator', { value: { serviceWorker: undefined }, configurable: true, writable: true });
+global.alert = () => { }; global.confirm = () => true; global.prompt = () => null;
+global.requestAnimationFrame = fn => setImmediate(fn);
+global.fetch = async (url) => {
+  const txt = fs.readFileSync(path.join(ROOT, String(url).replace(/^\.?\//, '')), 'utf8');
+  return { ok: true, status: 200, json: async () => JSON.parse(txt), text: async () => txt };
+};
+const tick = () => new Promise(r => setImmediate(r));
+
+const load = f => import(pathToFileURL(path.join(ROOT, 'js', f)).href);
+const data = await load('data.js');
+const state = await load('state.js');
+const rules = await load('rules.js');
+const view = await load('view.js');
+const game = await load('game.js');
+await data.loadContent();
+view.initView(); view.buildSetup();
+
+// ---------------- assertions ----------------
+let pass = 0, fail = 0;
+const ok = (cond, msg) => { if (cond) { pass++; console.log('  PASS: ' + msg); } else { fail++; console.error('  FAIL: ' + msg); } };
+
+const byName = n => data.TILES.find(t => t.name === n);
+console.log('=== data landed ===');
+for (const [name, st] of [[NAME_LANDMARK, 'landmark'], [NAME_SHACK, 'shack'], [NAME_VOLATILE, 'volatile'], [NAME_CURSED, 'cursed']]) {
+  const t = byName(name);
+  ok(!!t, `tile exists: ${name}`);
+  ok(t && t.subType === st, `${name} subType=${t && t.subType} (expect ${st})`);
+}
+ok(data.TILES.filter(t => t.subType).length === 4, `exactly 4 tiles carry subType (got ${data.TILES.filter(t => t.subType).length})`);
+ok(data.TILES.length === 44, `board still has 44 tiles (got ${data.TILES.length})`);
+
+const sub = await load('subtypes.js');
+
+console.log('\n=== landmark: not mortgageable ===');
+const lm = byName(NAME_LANDMARK);
+ok(!!lm, `landmark tile resolves by name (guard: a bad \\u escape would silently pass the next line)`);
+ok(sub.canMortgageTile(lm) === false, 'landmark cannot be mortgaged');
+const normal = byName(NAME_NORMAL);
+ok(!!normal, `control prop tile resolves by name`);
+ok(sub.canMortgageTile(normal) === true, 'normal prop still mortgageable');
+
+console.log('\n=== rent math (pure) ===');
+const shack = byName(NAME_SHACK);
+ok(sub.upkeepOf(shack) === 10, `shack upkeep = ${sub.upkeepOf(shack)}`);
+// shack: baseCut=1 (no cut on base rent), rentMult=0.55
+// Lv0 = round(8*1*0.55)=4, Lv2 = round(8*3*0.55)=13
+shack.level = 0;
+ok(sub.propBaseRent(shack, 6) === 4, `shack Lv0 base rent = ${sub.propBaseRent(shack, 6)} (expect 4)`);
+shack.level = 2;
+ok(sub.propBaseRent(shack, 6) === 13, `shack Lv2 base rent = ${sub.propBaseRent(shack, 6)} (expect 13)`);
+ok(sub.propBaseRent(shack, 6) * 2 === 26, `shack Lv2 + monopoly = 26 (matches design table)`);
+const cursed = byName(NAME_CURSED);
+ok(sub.moralHitOf(cursed) === 1, `cursed moral hit = ${sub.moralHitOf(cursed)}`);
+ok(sub.moralHitOf(normal) === 0, 'normal prop has no moral hit');
+const vol = byName(NAME_VOLATILE);
+ok(sub.propBaseRent(vol, 6) < sub.propBaseRent(vol, 12), 'volatile rent rises with roll');
+ok(Math.abs(sub.propBaseRent(vol, 6) - sub.propBaseRent(vol, 6)) === 0, 'volatile is deterministic for a given roll');
+// landmark: baseCut=0.55, rentMult=2.2
+// Lv0 = round(round(26*0.55)*2.2) = 31, Lv2 = round(round(round(26*0.55)*3)*2.2)
+const lm0 = sub.propBaseRent(lm, 6);
+lm.level = 2;
+const lm2 = sub.propBaseRent(lm, 6);
+lm.level = 0;
+ok(lm0 === 31, `landmark Lv0 base rent = ${lm0} (expect 31)`);
+ok(lm2 * 2 === 184, `landmark Lv2 + monopoly = ${lm2 * 2} (design table said 185; impl rounds each step)`);
+ok(lm2 * 2 <= 243, `landmark worst case within cap (${lm2 * 2} <= 243)`);
+
+console.log('\n=== rentDisplay ===');
+// give the landmark to a player so rentDisplay shows a value
+data.TILES.filter(t => t.type === 'prop').forEach(t => { t.owner = null; t.mortgaged = false; t.level = 0; });
+lm.owner = 0;
+const disp = rules.rentDisplay(lm);
+ok(typeof disp === 'string' && disp.length > 0, `landmark rentDisplay = "${disp}"`);
+vol.owner = 0;
+const vdisp = rules.rentDisplay(vol);
+ok(vdisp.includes(EN_DASH), `volatile rentDisplay shows a range (en-dash): "${vdisp}"`);
+ok(vdisp !== disp, 'volatile display differs from landmark display');
+
+console.log('\n=== payRent: shack upkeep + cursed moral ===');
+// set up a real 2-player game
+for (let i = 0; i < 4; i++) getEl('slot' + i).value = i < 2 ? 'ai' : 'off';
+getEl('mode').value = 'versus';
+getEl('startCaps').value = '5000';
+data.TILES.forEach(t => { if ('owner' in t) { t.owner = null; t.level = 0; t.mortgaged = false; } });
+data.shuffleBoard();
+game.startGame();
+await tick(); await tick();
+const G = state.G;
+ok(G.players.length === 2, `game started with ${G.players.length} players`);
+
+const restore = t => { t.owner = null; t.level = 0; t.mortgaged = false; };
+
+// shack: owner is player 0, payer is player 1
+data.TILES.forEach(restore);
+const s2 = shack;
+s2.owner = 0; s2.level = 2;
+G.current = 1; G.lastRoll = 6;
+const ownerObj = G.players[0];
+const ownerCapsBefore = ownerObj.caps;
+rules.payRent(G.players[1], s2);
+const paid = ownerCapsBefore === undefined ? 0 : (ownerObj.caps - ownerCapsBefore);
+ok(paid > 0, `shack owner received rent+upkeep (${paid})`);
+ok(Math.abs(paid - (sub.propBaseRent(s2, 6) * (rules.isMonopoly(s2) ? 2 : 1) + sub.upkeepOf(s2))) <= 1, `shack total = rent + upkeep (${paid})`);
+
+// cursed: moral drop
+// NOTE: the payer starts at moral 0, and payRent clamps with Math.max(0, ...),
+// so asserting from a 0 baseline would pass VACUOUSLY no matter whether the
+// penalty fires. Seed a positive baseline so -1 is actually observable.
+data.TILES.forEach(restore);
+const c2 = cursed;
+c2.owner = 0; c2.level = 0;
+G.current = 1; G.lastRoll = 6;
+G.players[1].moral = 3;
+rules.payRent(G.players[1], c2);
+ok(G.players[1].moral === 2, `cursed moral 3 -> ${G.players[1].moral} (expect 2; a 0-baseline assert here would pass vacuously)`);
+G.players[1].moral = 0;
+
+// volatile: rent varies with lastRoll
+data.TILES.forEach(restore);
+const v2 = vol;
+const ownerCaps = () => G.players[0].caps;
+v2.owner = 0; v2.level = 0;
+G.current = 1;
+G.lastRoll = 1; const c1 = ownerCaps(); rules.payRent(G.players[1], v2); const low = ownerCaps() - c1;
+data.TILES.forEach(restore); v2.owner = 0; v2.level = 0;
+G.lastRoll = 12; const c2a = ownerCaps(); rules.payRent(G.players[1], v2); const high = ownerCaps() - c2a;
+ok(high > low, `volatile rent scales with roll (roll1=${low}, roll12=${high})`);
+// worst case is Lv2 + monopoly, not the Lv0 numbers measured end-to-end above
+const volWorst = sub.propBaseRent(Object.assign(vol, { level: 2 }), 12) * 2;
+ok(volWorst === 180, `volatile Lv2 + monopoly + roll12 = ${volWorst} (expect 180, design table)`);
+ok(volWorst <= 243, `volatile worst case within cap (${volWorst} <= 243)`);
+vol.level = 0;
+
+// landmark mortgage blocked end-to-end
+data.TILES.forEach(restore);
+const l2 = lm; l2.owner = 0; l2.level = 0;
+G.current = 0;
+const capsB = G.players[0].caps;
+rules.mortgage(G.players[0], l2);
+ok(G.players[0].caps === capsB && !l2.mortgaged, 'mortgage() on landmark is refused, no caps gained');
+
+console.log('\n=== summary ===');
+console.log(`pass=${pass} fail=${fail}`);
+process.exit(fail ? 1 : 0);

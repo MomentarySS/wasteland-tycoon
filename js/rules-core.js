@@ -1,6 +1,7 @@
 // 纯规则计算（无 DOM / 音效 / 日志副作用，便于单测）
 import { TILES } from './data.js';
 import { G } from './state.js';
+import { propBaseRent, subTypeDef, canMortgageTile } from './subtypes.js';
 
 export function netWorth(p) {
   let w = p.caps;
@@ -32,7 +33,10 @@ export function rentDisplay(t) {
   if (t.mortgaged) return '0';
   if (t.type === 'rail') return String(railRent(t));
   if (t.type === 'util') return (utilMult(t) === 10 ? '×10' : '×4');
-  return String(t.rent * (t.level + 1)) + (isMonopoly(t) ? '★' : '');
+  const mono = isMonopoly(t) ? '★' : '';
+  // volatile 随骰点浮动，显示为区间而不是单值，避免给出并不存在的确定数字
+  if (subTypeDef(t)?.dice) return `${propBaseRent(t, 1)}–${propBaseRent(t, 12)}${mono}`;
+  return String(propBaseRent(t)) + mono;
 }
 
 export function canUpgrade(p, t) {
@@ -93,8 +97,16 @@ export function aiRaiseCashPlan(p, need) {
   const steps = [];
   let caps = p.caps;
   let guard = 0;
+  // landmark 不可抵押，必须排除：否则计划里会算进一笔实际拿不到的钱，
+  // 导致 AI 以为筹够了却仍破产（silent 调用下 mortgage 只会静默失败）。
+  const raisable = TILES.filter(t => t.type === 'prop' && t.owner === p.id && !t.mortgaged && t.level === 0 && canMortgageTile(t));
   while (caps < need && guard++ < 20) {
-    const cand = TILES.filter(t => t.type === 'prop' && t.owner === p.id && !t.mortgaged && t.level === 0)
+    // 必须排除已选中的地块：计划在调用前一次性算完，而 mortgage() 是逐条执行、
+    // 执行后 t.mortgaged 才会变 true。少了这个去重，同一块最便宜的地会被重复选中
+    // 20 次，caps 累加 20 次 price/2，但 aiRaiseCash 实际只会成功抵押一次 ——
+    // 计划声称筹够了，AI 照样破产。原有代码缺此去重。
+    const cand = raisable
+      .filter(t => !steps.includes(t))
       .sort((a, b) => a.price - b.price)[0];
     if (!cand) break;
     steps.push(cand);
