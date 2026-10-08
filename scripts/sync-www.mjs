@@ -9,6 +9,9 @@ const SRC = join(HERE, '..');
 const DST = join(SRC, 'www');
 const INCLUDE = new Set([
   'index.html', 'logo.svg', 'icon.svg',
+  // logo.png：窗口 / 任务栏图标。Electron 的 nativeImage 不支持 SVG（会静默回落到默认图标），
+  // 且 build.files 只收 electron/、www/、package.json，不同步的话图标不会进安装包。
+  'logo.png',
   'css', 'js', 'content', 'assets'
 ]);
 

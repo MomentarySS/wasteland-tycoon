@@ -4,12 +4,27 @@ import { app, BrowserWindow, ipcMain, dialog, shell, Menu, safeStorage } from 'e
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const WWW_DIR = path.join(ROOT, 'www');
 
 let mainWindow = null;
+
+/** 窗口图标：Windows 需要真实文件路径，ASAR 内不可直接用作 nativeImage，
+ *  故打包态把 logo.png 解出到临时目录再用。开发态直接指向项目内的 logo.png。 */
+function resolveWindowIcon() {
+  const src = path.join(ROOT, 'logo.png');
+  if (!app.isPackaged && existsSync(src)) return src;
+  try {
+    const out = path.join(tmpdir(), 'wasteland-tycoon-icon.png');
+    if (!existsSync(out)) writeFileSync(out, readFileSync(src));
+    return out;
+  } catch (_) {
+    return src;
+  }
+}
 
 function createWindow() {
   if (!existsSync(WWW_DIR)) {
@@ -25,7 +40,9 @@ function createWindow() {
     minHeight: 700,
     backgroundColor: '#0c0e0d',
     title: '废土大亨：末世大富翁',
-    icon: path.join(ROOT, 'logo.svg'),
+    // Electron 的 nativeImage 不支持 SVG：传 svg 会静默回落到系统默认图标并产生告警。
+    // 这里用 logo.png；开发态读项目根，打包后从 ASAR 内解出临时文件给 Windows。
+    icon: resolveWindowIcon(),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
