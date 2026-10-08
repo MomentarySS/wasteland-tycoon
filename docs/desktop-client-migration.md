@@ -70,3 +70,26 @@ MiniMax IPC 通过 `electron/preload.cjs` 暴露的受限接口调用；渲染�
 - **体积变化**：v1.7.1 安装包 106,039,562 字节（101.1 MiB）→ v1.7.2 132,713,565 字节（126.6 MiB），**增加 25.4 MiB**。原因是 Electron 33.4.11 → 44.5.0 的运行时体积增长（win32-x64 压缩包 115 MB → 约 158 MB），预录语音孤儿清理省下的约 5.6 MB 被完全盖过。要压回体积，唯一杠杆是回退 Electron 主版本。
 - **已知遗留**：窗口 / 任务栏图标仍指向 `logo.svg`（`electron/main.js:28`），而 Electron `nativeImage` 不支持 SVG，启动时产生告警并回落到默认图标；本次发布未修复。
 - 验收环境（隔离安装目录、临时 userData、启动日志）已在验收后清理，未改动用户实际应用数据目录。
+
+## v1.7.3 发布候选验收（2026-10-08）
+
+### 内容
+
+- **预录语音补齐至 286 / 286 条**：此前仓库只有 41 条能与当前文案匹配（`missionSpeakText` 自2026-09-04 起拼接 `story` 字段，导致 80 条任务开场与 1 条章节旁白 hash 失配；另有 164 条从未录制）。本版补齐全部缺项，语音资源 15.6 MB。
+- **预录语音解码缓存**（`js/tts.js`）：按文件（内容 hash 名）缓存解码后的 Blob，LRU 上限 320，避免每次播报重复 `fetch` + MP3 解码；失败不写缓存，避免网络抖动永久毒化条目。
+- **窗口 / 任务栏图标修复**（`electron/main.js`）：Electron 的 `nativeImage` 不支持 SVG，此前图标静默回落到系统默认。改为使用 `logo.png`，并把 `logo.png` 纳入 `scripts/sync-www.mjs` 的镜像清单（`build.files` 只收 `electron/`、`www/`、`package.json`，不同步则图标进不了包）。
+
+### 验证
+
+- `npm run desktop:build` 产出 `release/废土大亨 Setup 1.7.3.exe`（142,320,723 字节，约 135.7 MiB）。
+- 7-Zip 完整性校验通过（`Everything is Ok`，NSIS-3 Unicode，载荷141,893,582 字节）。
+- ASAR 内容核对：`www/assets/voice/` 下 **286 个 mp3**、`manifest.json` 与 `logo.png` 均在包内（`app.asar` 27.83 MB，v1.7.2 为 18.1 MB）。
+- 启动验证（运行 `release/win-unpacked/废土大亨.exe`，即安装包内的同一份载荷）：进程存活 12 秒以上后正常关闭，**0 条 ERROR 级日志**，日志确认 `[TTS] initTTS 完成, source: minimax desktop: true` 与 `[TTS] MiniMax 就绪`，**图标加载告警已消失**（临时图标正确解出 135,034 字节）。
+- `npm test`：通过（`SMOKE TEST PASSED`）。
+- 在线 MiniMax / MiMo 合成需要用户自己的 API Key 和网络连接；本版未伪造在线服务成功状态。
+
+### ⚠️ 未完成项：安装器在本机无法运行
+
+- 静默安装 `/S` 在本机**崩溃退出**（`-1073741819` / `0xC0000005`，故障模块 `System.dll`，见应用程序事件日志）。
+- **这不是本版引入的问题**：同一时间点，已知可用（19:56 曾成功安装）的 **v1.7.2 安装包以完全相同的方式崩溃**，故障模块与时间戳一致；清理 NSIS 临时目录后仍复现。安装包本身经 7-Zip 校验完好。
+- 因此本版的**安装 → 启动 → 卸载**链路未能在本机端到端跑通，改用 `win-unpacked` 载荷完成启动验证。发布前建议在另一台 Windows 环境复验一次完整安装流程。
