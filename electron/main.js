@@ -3,7 +3,7 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, Menu, safeStorage } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -12,18 +12,24 @@ const WWW_DIR = path.join(ROOT, 'www');
 
 let mainWindow = null;
 
-/** 窗口图标：Windows 需要真实文件路径，ASAR 内不可直接用作 nativeImage，
- *  故打包态把 logo.png 解出到临时目录再用。开发态直接指向项目内的 logo.png。 */
+/** 窗口图标：Windows 的 nativeImage 需要真实文件路径，ASAR 内的图片无法直接使用，
+ *  故打包态把 logo.png（由 sync-www 镜像进 www/）解出到临时目录再返回。
+ *  解出失败时返回 null —— 让 Electron 用默认图标，而不是回退到同样读不到的 ASAR 路径。 */
 function resolveWindowIcon() {
-  const src = path.join(ROOT, 'logo.png');
-  if (!app.isPackaged && existsSync(src)) return src;
-  try {
-    const out = path.join(tmpdir(), 'wasteland-tycoon-icon.png');
-    if (!existsSync(out)) writeFileSync(out, readFileSync(src));
-    return out;
-  } catch (_) {
-    return src;
+  const candidates = [path.join(WWW_DIR, 'logo.png'), path.join(ROOT, 'logo.png')];
+  for (const src of candidates) {
+    try {
+      if (!existsSync(src)) continue;
+      const out = path.join(tmpdir(), 'wasteland-tycoon-icon.png');
+      if (!existsSync(out) || statSync(out).size !== statSync(src).size) {
+        writeFileSync(out, readFileSync(src));
+      }
+      return out;
+    } catch (_) {
+      // 试下一个候选源
+    }
   }
+  return null;
 }
 
 function createWindow() {
