@@ -93,3 +93,29 @@ MiniMax IPC 通过 `electron/preload.cjs` 暴露的受限接口调用；渲染�
 - 判别过程：同期的 **v1.7.2 包以完全相同的故障模块与时间戳崩溃**；交互模式（非 `/S`）下安装界面可正常弹出；`%LOCALAPPDATA%\wasteland-tycoon-updater\installer.exe`（electron-builder 缓存的另一份独立构建）与 v1.7.1 包静默安装均成功；安装包经 7-Zip 校验完好（`Everything is Ok`）。
 - 结论：**属于本机的瞬态状态问题，与本版代码无关**，清理 NSIS 临时目录并完成若干次安装后自行恢复，随后 v1.7.3 的完整安装 → 启动 → 卸载链路一次性通过。
 - 若日后再次遇到同类崩溃：先看应用程序事件日志的故障模块（`System.dll` + `0xC0000005` 通常指向安装器运行环境而非安装包），并用**另一个已知可用的安装包**做对照，即可快速区分「包的问题」与「环境的问题」。
+
+## v1.8.0 发布候选验收（2026-10-08）
+
+### 内容
+
+- **prop subType 四变种**（`js/subtypes.js` + `content/tiles.json`）：地标（砍基础 45% 后 ×2.2、不可抵押）／棚户（×0.55 + 每次 10 盖维护费）／流动（租金随骰点浮动）／污染（×1.6、缴租方道德 −1）。数值锚定在 20 局实测基线中位终局净值 3043 盖的 8%（243 盖）以内。
+- **预览面板显示 subType 标签**（`js/view-core.js`），并写出 `data-subtype` 钩子供CSS 配色。
+- **mutator 视觉族**（`js/mutators.js` + `css/style.css`）：仅 5 个带灾害语义的 mutator 有映射，同局多族按固定优先级只显示一族；纯表现层，规则数值零改动，新增位图 0 张。
+
+### 验证
+
+- `npm run desktop:build` 产出 `release/废土大亨 Setup 1.8.0.exe`（**142,324,250 字节**，135.7 MiB），SHA256 `1A4F5B3FFFB9F780A2FEC9AC6F90A539D5D7AF3384521D5856668C84734AF924`，blockmap 149,174 字节。较 v1.7.3 仅 +3,476 字节。
+- 闸门：`npm test` 通过；`scripts/subtype-test.mjs` 48/48；`scripts/subtype-design-check.mjs` PASS（越界退出码 1）。
+- 平衡回归（各 20 局）：4P 中位净值 3032（基线 3043，−0.36%）、2P 中位 3072（+0.95%），两档均 **0 破产**、全员存活 20/20。
+- 静默安装 `/S` → **退出码 0**（装入隔离目录 `test/acceptance-180/`，未改动用户实际应用数据目录）。
+- ASAR 核对：10 个关键文件全部在包内，且与源码**逐字节一致**（`subtypes.js`、`mutators.js`、`view-core.js`、`rules-core.js`、`rules.js`、`data.js`、`style.css`、`tiles.json`、`logo.png`、`voice/manifest.json`）；`www/assets/voice/` 286 个 mp3；`app.asar` 29,197,807 字节。
+- 启动：进程存活 16 秒以上（4 个进程），渲染层确实初始化（`Local Storage` / `Code Cache` / `minimax-tts-cache` 均生成）。日志含 `[TTS] initTTS 完成, source: minimax desktop: true` 与 `[UI] 测音按钮已绑定`（后者证明 `view-core.js` 及其 import 链全部解析成功），**图标加载告警未复现**（v1.7.2 的老问题保持修复）。
+- 卸载 `/S` → **退出码 0**；安装器新建的桌面与开始菜单快捷方式均已移除，用户原有的 `桌面\开发\废土大亨.lnk` 保留未动。
+
+### 两处偏离，如实记录
+
+1. **启动日志存在 4 条 GPU ERROR**，因此**不能沿用 v1.7.3 的「0 条 ERROR 级日志」判据**：
+   `SharedImageManager::ProduceSkia: Trying to Produce a Skia representation from a non-existent mailbox.`
+   - 该报错出自 Chromium GPU 合成层（`gpu\command_buffer\service\shared_image\shared_image_manager.cc`），与本版的 JS 机制改动无直接关联，但**未完成对照实验**，不能断言为既有问题：原计划用 v1.7.3 做同条件对照，该安装器因与已安装的 1.8.0 同 `appId` 而挂起，已终止。
+   - 另需注意：v1.7.3 文档记的「0 条 ERROR」**很可能是对空日志点的名**——本轮首次启动时 stdout 仅 2 字节、stderr 0 字节，同样会得到「0 ERROR」。改用 `--enable-logging --log-file=` 后才拿到真实日志。**日志判据必须在确认日志非空的前提下才成立。**
+2. **卸载后残留 `resources\app.asar`（29,197,807 字节）**在隔离安装目录内，其余文件均已清除。退出码为 0，快捷方式无残留。该残留随隔离目录保留，且该文件当前被其他进程占用，`rm --` 可恢复删除多次失败（`DeleteDirectory` 报 "The system call level is not correct"，重命名探测报「另一个进程正在使用此文件」），未绕过可恢复删除强制清理，需人工处理。`test/acceptance-180/` 因此仍以 `??` 出现在 `git status`。
