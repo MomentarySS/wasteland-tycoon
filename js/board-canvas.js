@@ -4,9 +4,10 @@
 // 不支持 canvas 的环境（node mock / 极旧 WebView）由 view-core 自动回退 DOM 格子路径。
 import { G } from './state.js';
 import { TILES, positions } from './data.js';
-import { tileIcon, buildingSVG } from './icons.js';
+import { tileIcon, buildingSVG, iconColor } from './icons.js';
 import { tileArtUrl, zoneTexUrl } from './assets-art.js';
 import { getCellMetrics, invalidateCellMetricsCache } from './board-metrics.js';
+import { tileDisplayName } from './config.js';
 
 const ENABLED = typeof document !== 'undefined' && !!document.documentElement;
 const N = 12;
@@ -23,11 +24,6 @@ const WALL_COLORS = {
   start: '#7fae6e', event: '#6a5acd', tax: '#6f7d76', quarantine: '#d05a4a', safe: '#7fa6a0',
   rail: '#9aa6ad', util: '#4aa3c9', wormhole: '#9a7bff', blackmarket: '#c97f2a',
   bounty: '#d8b13a', oasis: '#4aa3c9', radiation: '#b8d84a', bunker: '#9aa3ad',
-};
-const TYPE_LABEL = {
-  start: '避难所', event: '事件', tax: '税收', quarantine: '隔离区', safe: '安全地带',
-  rail: '哨站', util: '设施', wormhole: '虫洞', blackmarket: '黑市', bounty: '赏金',
-  oasis: '绿洲', radiation: '矿坑', bunker: '掩体',
 };
 
 let canvas = null, ctx = null;
@@ -233,7 +229,9 @@ function tileXY(r, c) {
 
 function sideOf(r, c) {
   return r === 0 ? 'top' : r === N - 1 ? 'bot' : c === 0 ? 'left' : c === N - 1 ? 'right' : '';
-}function drawTile(t, i, r, c) {
+}
+
+function drawTile(t, i, r, c) {
   const { x, y, w, h } = tileXY(r, c);
   const side = sideOf(r, c);
   // 1) 底色
@@ -297,8 +295,6 @@ function drawCover(img, x, y, w, h, side) {
   ctx.drawImage(img, dx, dy, dw, dh);
   ctx.restore();
 }
-
-function tileDisplayName(t) { return t.name || TYPE_LABEL[t.type] || t.type; }
 
 function wrapText(text, maxW) {
   const lines = [];
@@ -387,22 +383,9 @@ function drawTileIcon(t, x, y, w, h, side) {
   if (plain.replace(/\s/g, '').length >= 5) return; // 长名隐藏角标
   const vert = side === 'top' || side === 'bot';
   const s = vert ? Math.max(6, cellH * 0.38) : Math.max(7, Math.min(cellH * 0.26, cellW * 0.18));
-  const col = resolveColor(iconColorOf(t));
+  const col = resolveColor(iconColor(t));
   const img = svgImage(tileIcon(t), col);
   if (tileReady(img)) ctx.drawImage(img, x + w - s - 1, y + 1, s, s);
-}
-
-function iconColorOf(t) {
-  // 与 icons.js iconColor 同源；仅做 var() → 字面量解析
-  if (t.type === 'prop') {
-    return { rust: 'var(--rust)', market: 'var(--amber)', gang: 'var(--gang)', tech: 'var(--tech)' }[t.group] || 'var(--bio)';
-  }
-  return {
-    event: '#8a7bd8', tax: 'var(--dim)', quarantine: '#d05a4a', safe: '#7fa6a0',
-    rail: '#9aa6ad', util: t.utilKind === 'water' ? '#5ec4e8' : '#4aa3c9', start: 'var(--phos)',
-    wormhole: '#9a7bff', blackmarket: '#c97f2a', bounty: '#d8b13a', oasis: '#4aa3c9',
-    radiation: '#b8d84a', bunker: '#9aa3ad',
-  }[t.type] || 'var(--ink)';
 }
 
 function drawTileHud(t, x, y, w, h) {

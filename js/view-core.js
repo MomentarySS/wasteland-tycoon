@@ -1,7 +1,7 @@
 // 视图核心：条带式棋盘、中央预览、布局自适应
 import { G } from './state.js';
 import { TILES, positions } from './data.js';
-import { N, CELL, COLORS, GROUPS, TOKEN_SLOT } from './config.js';
+import { N, CELL, COLORS, GROUPS, TOKEN_SLOT, tileDisplayName } from './config.js';
 import { playerPortrait, tileIcon, iconColor, buildingSVG } from './icons.js';
 import { netWorth, rentDisplay, isMonopoly, canUpgrade } from './rules-core.js';
 import { subTypeDef } from './subtypes.js';
@@ -64,12 +64,6 @@ export function applyTileArt(_on) {
 export const WASTELAND_EMOJI = ['🧟', '☣️', '🤖', '👽', '🔥', '💀', '🛡️', '🥷', '🐺', '🦅', '⚙️', '📻'];
 const slotAvatars = [];
 
-const TYPE_LABEL = {
-  start: '避难所', event: '事件', tax: '税收', quarantine: '隔离区', safe: '安全地带',
-  rail: '哨站', util: '设施', wormhole: '虫洞', blackmarket: '黑市', bounty: '赏金',
-  oasis: '绿洲', radiation: '矿坑', bunker: '掩体',
-};
-
 export function avatarHTML(p) {
   const av = p.avatar;
   let inner;
@@ -87,11 +81,6 @@ export function slotAvatarHTML(i) {
 
 export function getSlotAvatars() { return slotAvatars; }
 export function getSlotAvatarStore() { return slotAvatars; }
-
-function tileDisplayName(t) {
-  if (t.name) return t.name;
-  return TYPE_LABEL[t.type] || t.type;
-}
 
 function tileMetaLine(t) {
   if (t.type === 'prop' || t.type === 'rail' || t.type === 'util') {

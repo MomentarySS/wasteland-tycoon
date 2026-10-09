@@ -17,3 +17,17 @@ export const BRAND_MARK_HTML =
   '<img class="brand-mark" src="logo.svg" alt="" width="28" height="28" decoding="async">';
 export const MAX_TURNS = 1500;   // 对抗模式回合计上限
 export const MAX_TURNS_CAMPAIGN = 1000;  // 五章闯关上限
+
+/** 地块类型码 → 显示名。DOM（view-core）与 Canvas（board-canvas）两条渲染路径共用，
+ *  此前两边各存一份逐字相同的 13 项映射，改一处必然漂移成可见的名称不一致。 */
+export const TYPE_LABEL = {
+  start: '避难所', event: '事件', tax: '税收', quarantine: '隔离区', safe: '安全地带',
+  rail: '哨站', util: '设施', wormhole: '虫洞', blackmarket: '黑市', bounty: '赏金',
+  oasis: '绿洲', radiation: '矿坑', bunker: '掩体',
+};
+
+/** 地块显示名：content 自带 name 优先，缺省回退到类型名，再缺省用类型码本身。 */
+export function tileDisplayName(t) {
+  if (t.name) return t.name;
+  return TYPE_LABEL[t.type] || t.type;
+}
