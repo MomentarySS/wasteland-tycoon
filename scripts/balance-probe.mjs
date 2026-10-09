@@ -156,6 +156,13 @@ for (let i = 0; i < GAMES; i++) {
 }
 const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
 const finished = runs.filter(r => r.finished);
+// 零局跑完时 Math.min(...[]) = Infinity、0/0 = NaN，下面整份基线都会是垃圾数字，
+// 而本工具此前退出码恒为 0，CI / 人工都无法察觉。宁可硬失败，也不要产出看似正常的基线。
+if (!finished.length) {
+  console.error(`\n!! 0 / ${GAMES} 局跑完 —— 基线不可用，已中止（不写出、不打印）。`);
+  console.error('   先看上面逐条 "game N failed:" 的报错，修复后再跑。');
+  process.exit(1);
+}
 const tops = finished.map(r => r.topNet);
 const turns = finished.map(r => r.turn).filter(v => typeof v === 'number');
 
