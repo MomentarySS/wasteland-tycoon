@@ -66,15 +66,6 @@ export const EVENT_ARTS = {
   nuke: `<svg viewBox='0 0 100 100'><g class='evAnim ev-pulse'><path d='M50 18 C58 34 68 38 64 52 C72 48 70 38 66 34 C78 46 74 68 50 76 C26 68 22 46 34 34 C30 38 28 48 36 52 C32 38 42 34 50 18 Z' fill='none' stroke='currentColor' stroke-width='3.5' stroke-linejoin='round'/></g><rect x='44' y='76' width='12' height='10' rx='1' fill='none' stroke='currentColor' stroke-width='3'/><path d='M38 86 H62' stroke='currentColor' stroke-width='3' stroke-linecap='round'/><circle class='evAnim ev-spin' cx='50' cy='48' r='22' fill='none' stroke='currentColor' stroke-width='2' opacity='0.45'/></svg>`
 };
 export function eventArt(k) { return EVENT_ARTS[k] || EVENT_ARTS.caps; }
-export function tokenIcon(id) {
-  const M = [
-    `<svg viewBox='0 0 24 24'><path d='M12 4 C7 4 5 8 6 12 C6 14 7 15 7 17 V19 H17 V17 C17 15 18 14 18 12 C19 8 17 4 12 4 Z' fill='none' stroke='currentColor' stroke-width='1.8'/><circle cx='9.5' cy='12' r='1.5' fill='currentColor'/><circle cx='14.5' cy='12' r='1.5' fill='currentColor'/></svg>`,
-    `<svg viewBox='0 0 24 24'><circle cx='12' cy='12' r='6' fill='none' stroke='currentColor' stroke-width='1.8'/><circle cx='12' cy='12' r='2' fill='currentColor'/><path d='M12 6 V3 M12 21 V18 M6 12 H3 M21 12 H18' stroke='currentColor' stroke-width='1.6' stroke-linecap='round'/></svg>`,
-    `<svg viewBox='0 0 24 24'><path d='M5 8 Q12 4 19 8 L18 16 Q12 20 6 16 Z' fill='none' stroke='currentColor' stroke-width='1.8' stroke-linejoin='round'/><path d='M8 11 H10 M14 11 H16 M12 11 V15' stroke='currentColor' stroke-width='1.8' stroke-linecap='round'/></svg>`,
-    `<svg viewBox='0 0 24 24'><circle cx='12' cy='12' r='3' fill='currentColor'/><path d='M12 12 L12 4 M12 12 L19 16 M12 12 L5 16' stroke='currentColor' stroke-width='2' stroke-linecap='round'/><circle cx='12' cy='12' r='9' fill='none' stroke='currentColor' stroke-width='1.4'/></svg>`
-  ];
-  return M[id] || M[0];
-}
 export function playerPortrait(id) {
   const P = [
     `<svg viewBox='0 0 32 32'><path d='M6 28 Q16 22 26 28 V32 H6 Z' fill='currentColor' opacity='0.35'/><circle cx='16' cy='14' r='9' fill='none' stroke='currentColor' stroke-width='1.6'/><ellipse cx='12' cy='13' rx='3' ry='2.4' fill='none' stroke='currentColor' stroke-width='1.3'/><ellipse cx='20' cy='13' rx='3' ry='2.4' fill='none' stroke='currentColor' stroke-width='1.3'/><line x1='15' y1='13' x2='17' y2='13' stroke='currentColor' stroke-width='1.4'/><path d='M9 11 Q12 9 15 11 M17 11 Q20 9 23 11' fill='none' stroke='currentColor' stroke-width='1.1'/><path d='M11 19 Q16 22 21 19' fill='none' stroke='currentColor' stroke-width='1.3' stroke-linecap='round'/></svg>`,

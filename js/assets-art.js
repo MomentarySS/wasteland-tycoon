@@ -58,16 +58,6 @@ export const ZONE_TEX = {
   bio: 'assets/ui/zone-bio.webp',
 };
 
-export const UI_ART = {
-  boardCenter: 'assets/ui/board-center-radar.webp',
-  dust: 'assets/ui/bg-dust-layer.webp',
-  lightning: 'assets/ui/bg-lightning.webp',
-  boardContours: 'assets/ui/bg-board-contours.webp',
-  boardIndustrial: 'assets/ui/bg-board-industrial.webp',
-  boardRadiation: 'assets/ui/bg-board-radiation.webp',
-  dustSpecks: 'assets/ui/fx-dust-specks.webp',
-};
-
 /** 核弹专用插画（SVG 内置；存在 WebP 时自动优先） */
 export const NUKE_ART = {
   launch: 'assets/ui/nuke-launch.webp',
@@ -128,11 +118,6 @@ export function eventArtHtml(m) {
     return `<img class="evtImg" src="${url}" alt="" loading="lazy" decoding="async">`;
   }
   return eventArt(m && m.art ? m.art : 'caps');
-}
-
-export function uiArtUrl(key) {
-  const rel = UI_ART[key];
-  return rel ? assetUrl(rel) : '';
 }
 
 /** 坏事件闪电视效（Tier B） */
