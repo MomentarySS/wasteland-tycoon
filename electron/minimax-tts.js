@@ -57,6 +57,13 @@ function decodeAudio(audio) {
   return buf.length >= 64 ? buf : null;
 }
 
+/** 错误回显会经 speak() 返回给渲染进程并显示在 UI/战报里。
+ *  服务端错误正文有时会带出请求里的 Key，出界前统一抹除（对齐 mimo-tts.js:105）。 */
+function scrub(s) {
+  const str = String(s ?? '');
+  return apiKey ? str.replaceAll(apiKey, '[已隐藏]') : str;
+}
+
 async function postSynth(url, text, speed, voice) {
   const qs = groupId ? `?GroupId=${encodeURIComponent(groupId)}` : '';
   const ac = new AbortController();
@@ -86,13 +93,13 @@ async function postSynth(url, text, speed, voice) {
     clearTimeout(timer);
   }
   const raw = await res.text();
-  if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + raw.slice(0, 180));
+  if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + scrub(raw).slice(0, 180));
   let j;
   try { j = JSON.parse(raw); }
-  catch (_) { throw new Error('非 JSON 响应: ' + raw.slice(0, 120)); }
+  catch (_) { throw new Error('非 JSON 响应: ' + scrub(raw).slice(0, 120)); }
   const base = j.base_resp || {};
   if (base.status_code !== 0 && base.status_code != null) {
-    throw new Error('base_resp ' + base.status_code + ': ' + (base.status_msg || ''));
+    throw new Error('base_resp ' + base.status_code + ': ' + scrub(base.status_msg || ''));
   }
   const buf = decodeAudio(j.data && j.data.audio);
   if (!buf) throw new Error('响应缺少音频');
@@ -135,7 +142,9 @@ export async function speak(text, opts = {}) {
   const t = String(text || '').trim();
   if (!t) return { ok: false, error: 'empty' };
   if (!apiKey) {
-    const info = await init();
+    // 转发 opts：否则这里的兜底 init 会退回 DEFAULT_ROOT，打包态读不到
+    // userData 下由游戏内设置保存的 Key（与 mimo-tts.js:68 保持一致）。
+    const info = await init(opts);
     if (!info.ok) return { ok: false, error: info.error };
   }
   const speed = Math.max(0.5, Math.min(2, Number(opts.speed) || 1));

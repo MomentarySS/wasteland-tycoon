@@ -148,7 +148,7 @@ ipcMain.handle('minimax:init', async () => {
 ipcMain.handle('minimax:speak', async (_evt, text, opts) => {
   try {
     const m = await getMinimax();
-    const r = await m.speak(text, opts || {});
+    const r = await m.speak(text, { ...providerOptions('minimax'), ...(opts || {}) });
     if (!r || !r.ok) return { ok: false, error: (r && r.error) || 'synth failed' };
     const raw = r.mp3;
     const mp3 = raw instanceof Uint8Array ? new Uint8Array(raw) : Uint8Array.from(raw || []);
