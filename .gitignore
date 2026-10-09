@@ -64,3 +64,6 @@ test/layout-c-preview/.server.log
 test/layout-c-preview/.server.pid
 assets_backup_*/
 screen_*.png
+
+# 验收产物：内含整份打包后的 app.asar（约 28 MB），不可复现、禁止入库
+test/acceptance-*/
