@@ -551,6 +551,10 @@ export function unlockTts() {
 
 export function cancelTts() {
   _chain = Promise.resolve();
+  // 队列计数一并归零，并换代：被遗弃链上的播报最长要等 60s 安全定时器才 settle，
+  // 期间它们会各自执行 _pending--，若不换代会把新链的计数减成负数、队列上限从此失效。
+  _gen++;
+  _pending = 0;
   if (typeof speechSynthesis !== 'undefined') {
     try { speechSynthesis.cancel(); } catch (_) {}
   }
@@ -559,6 +563,15 @@ export function cancelTts() {
 
 const MAX_QUEUE = 3;
 let _pending = 0;
+let _gen = 0;
+// 把一条播报挂上 _chain，并登记它所属的世代号
+function enqueue(t) {
+  const gen = _gen;
+  _pending++;
+  _chain = _chain.then(() => speakOne(t)).catch(() => {})
+    .finally(() => { if (gen === _gen) _pending--; });
+  return _chain;
+}
 
 export function ttsSpeak(text) {
   const t = cleanText(text);
@@ -567,16 +580,12 @@ export function ttsSpeak(text) {
     console.warn('[TTS] 播报队列已满，丢弃:', t.slice(0, 20));
     return;
   }
-  _pending++;
-  _chain = _chain.then(() => speakOne(t)).catch(() => {}).finally(() => { _pending--; });
-  return _chain;
+  return enqueue(t);
 }
 
 /** 过场 / 固定旁白：与 ttsSpeak 使用同一语音来源，不受队列上限丢弃 */
 export function ttsSpeakPrerecorded(text) {
   const t = cleanText(text);
   if (!enabled || !t) return Promise.resolve(false);
-  _pending++;
-  _chain = _chain.then(() => speakOne(t)).catch(() => {}).finally(() => { _pending--; });
-  return _chain;
+  return enqueue(t);
 }
