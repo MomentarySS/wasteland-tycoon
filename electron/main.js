@@ -61,14 +61,20 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(WWW_DIR, 'index.html'));
 
-  mainWindow.webContents.on('before-input-event', (_e, input) => {
-    if (input.type === 'keyDown' && input.key === 'F12') {
-      mainWindow.webContents.toggleDevTools();
-    }
-  });
+  // F12 调试入口只在开发包保留。生产包开着 DevTools，等于把渲染进程的
+  // 任意脚本执行面连同下面的 openExternal 一起对外暴露。
+  if (!app.isPackaged) {
+    mainWindow.webContents.on('before-input-event', (_e, input) => {
+      if (input.type === 'keyDown' && input.key === 'F12') {
+        mainWindow.webContents.toggleDevTools();
+      }
+    });
+  }
 
+  // 只放行 http(s)：shell.openExternal 还接受 file: 与任意已注册的自定义协议，
+  // 渲染进程一旦能决定这个 URL，file: 指向可执行文件即等于任意程序执行。
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
 
