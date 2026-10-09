@@ -26,6 +26,14 @@ const child = spawn(electronBin, ['.'], {
     env: { ...process.env, WASTELAND_DEV: '1', WASTELAND_NODE: process.execPath },
 });
 
+// Electron 二进制缺失 / 不可执行时 spawn 会发 'error'（如 ENOENT）而不是 'close'，
+// 只监听 close 会变成 Node 未捕获异常，终端给不出任何可读提示。
+child.on('error', (e) => {
+  console.error('无法启动 Electron：', e && e.message);
+  console.error('若提示文件不存在，先在项目根执行：npm install');
+  process.exit(1);
+});
+
 child.on('close', (code) => {
   console.log('Electron exited with code', code);
   process.exit(code || 0);
