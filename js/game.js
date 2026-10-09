@@ -12,7 +12,7 @@ import {
   buy, upgrade, payRent, payCaps, auction, canUpgrade, aiShouldBuy, aiUpgrade, netWorth, enterJail,
   oasis, bounty, warp, aiBlackMarket, aiMission, applyMissionEffects, aiRadiation, aiBunker, aiUseCards
 } from './rules.js';
-import { CAMPAIGNS, evaluateCampaign, campaignCount, campaignDecayPerTurn } from './campaign.js';
+import { CAMPAIGNS, evaluateCampaign, evaluateCampaignCoop, campaignCount, campaignDecayPerTurn } from './campaign.js';
 import { applyDifficulty, getDifficultyPreset } from './difficulty.js';
 import { pickMission, isChainMission, isFactionMission, isNukeMission } from './missions.js';
 import { sfx, NUKE_LAUNCH_SFX_MS } from './audio.js';

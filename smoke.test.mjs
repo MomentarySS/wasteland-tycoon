@@ -476,6 +476,49 @@ if (state.G.turn !== 5) throw new Error('v2 存档未正确读入');
 
 console.log('闯关 / 存档 / 叙事校验通过');
 
+// ---------------- 场景 3b：合作闯关（1 人类 + 1 AI）走 game.js 的回合结算 ----------------
+// 回归用例（对应 2026-10-09 OCR 审查的阻断级发现）：game.js 的 endTurn() 在 coop 模式下
+// 调用 evaluateCampaignCoop，该标识符必须在本文件完成绑定，否则首次回合结算就抛
+// ReferenceError、合作闯关模式实质不可玩。旧用例只通过 campaign 模块直测导出，
+// 绕开了 game.js 的调用点，因此 npm test / CI 全绿也发现不了这个回归。
+// 本例必须经由 game.js 的真实入口（章节叙事 → 人类回合 → endBtn → endTurn）驱动。
+getEl('mode').value = 'coop';
+getEl('slot0').value = 'human';
+getEl('slot1').value = 'ai';
+getEl('slot2').value = 'off';
+getEl('slot3').value = 'off';
+getEl('startCaps').value = '1500';
+getEl('target').value = '0';
+data.TILES.forEach(t => { if ('owner' in t) { t.owner = null; t.level = 0; t.mortgaged = false; } });
+
+game.startGame();
+if (state.G.mode !== 'coop') throw new Error('合作闯关模式未设置');
+if (state.G.players.length !== 2) throw new Error('合作局玩家数错误');
+if (state.G.players.filter(p => !p.isAI).length !== 1) throw new Error('合作局应恰好 1 名人类 + 1 名 AI');
+
+const coopGo = document.getElementById('chGo');
+if (!coopGo) throw new Error('未找到章节叙事「继续」按钮');
+coopGo.onclick();          // → takeTurn() → 人类回合「掷骰」条
+await tick();
+
+const coopP = state.G.players.find(p => !p.isAI);
+if (state.G.current !== coopP.id) throw new Error('coop 未轮到人类回合');
+if (!document.getElementById('rollBtn')) throw new Error('coop 人类回合未渲染掷骰按钮');
+
+// 结束本回合：afterHumanAction 是 game.js 导出的「人类行动完毕」入口，
+// 它挂上的 endBtn.onclick 就是 endTurn() 的真实调用点（与真实 UI 点「结束回合」同一条路）。
+game.afterHumanAction(coopP);
+const coopEnd = document.getElementById('endBtn');
+if (!coopEnd || !coopEnd.onclick) throw new Error('未找到结束回合按钮');
+
+// 被测行在 endTurn 的 gameOver 判定之前执行，预先置位只为阻止后续 AI 回合链继续推进，
+// 不影响被测代码路径。
+state.G.gameOver = true;
+let coopErr = null;
+try { coopEnd.onclick(); } catch (e) { coopErr = e; }
+if (coopErr) throw new Error('coop 回合结算抛错（evaluateCampaignCoop 未在 game.js 绑定？）: ' + coopErr);
+console.log('合作闯关回合结算校验通过');
+
 // ---------------- 场景 4：人类 E2E（完整回合 + 买地 + 升级）----------------
 getEl('mode').value = 'versus';
 getEl('slot0').value = 'human';
