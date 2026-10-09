@@ -5,6 +5,7 @@ import { applyMissionEffects, blackMarketSteal, blackMarketCard } from './rules.
 import { afterHumanAction, humanActionUI, resolveTile } from './game.js';
 import { canLaunchNuke, launchNuke } from './nuke.js';
 import { G } from './state.js';
+import { STEAL_PRICE } from './config.js';
 import { TILES } from './data.js';
 import { sfx } from './audio.js';
 import { flashScreen, screenShake, haptic, coinRain } from './fx.js';
@@ -14,8 +15,8 @@ import { missionSpeakText, chapterSpeakText, choiceResultSpeakText, SET_PIECE_LI
 import { escapeHtml } from './view-util.js';
 import { getChapterIntro, getCampaignEnding } from './campaign.js';
 import { isChainMission, isFactionMission, isNukeMission } from './missions.js';
-import { radiationMine, bunkerRest, bunkerFortify, blackMarketBuyCard } from './rules.js';
-import { cardDef, canUseCard, removeCard, HAND_LIMIT,
+import { radiationMine, bunkerRest, bunkerFortify, blackMarketBuyCard, MINE_COST_DEEP, MINE_COST_SHALLOW } from './rules.js';
+import { cardDef, canUseCard, removeCard, HAND_LIMIT, CARD_PRICE,
   applyPass, applyShield, applyPardon, applyPlunder, applyMarch, applyDeed,
   applyDemolish, applySwap, applyEqualizer, applyRemoteDice } from './cards.js';
 
@@ -260,14 +261,14 @@ function useHandCard(p, id) {
 }
 
 export function showBlackMarket(p) {
-  const canSteal = p.caps >= 80;
+  const canSteal = p.caps >= STEAL_PRICE;
   const hand = Array.isArray(p.cards) ? p.cards : [];
-  const canCard = p.caps >= 120 && hand.length < HAND_LIMIT;
+  const canCard = p.caps >= CARD_PRICE && hand.length < HAND_LIMIT;
   const html = `<h2 style='color:var(--amber);text-align:center'>⚑ 黑市交易</h2>
     <div class='evtText'>你溜进黑市，能捞点什么？</div>
     <div id='modalActions' style='margin-top:14px'>
-      <button id='bmSteal' ${canSteal ? '' : 'disabled'}>偷袭 (-80盖，抢对手一块地)</button>
-      <button id='bmBuyCard' ${canCard ? '' : 'disabled'}>🃏 淘卡 (-120盖${hand.length >= HAND_LIMIT ? '，手牌已满' : ''})</button>
+      <button id='bmSteal' ${canSteal ? '' : 'disabled'}>偷袭 (-${STEAL_PRICE}盖，抢对手一块地)</button>
+      <button id='bmBuyCard' ${canCard ? '' : 'disabled'}>🃏 淘卡 (-${CARD_PRICE}盖${hand.length >= HAND_LIMIT ? '，手牌已满' : ''})</button>
       <button class='alt' id='bmCard'>搜刮 (免费，50%得通行证)</button>
       <button class='alt' id='bmLeave'>离开</button>
     </div>`;
@@ -293,14 +294,14 @@ export function showBlackMarket(p) {
 }
 
 export function showRadiation(p) {
-  const canDeep = p.caps >= 80;
-  const canShallow = p.caps >= 40;
+  const canDeep = p.caps >= MINE_COST_DEEP;
+  const canShallow = p.caps >= MINE_COST_SHALLOW;
   const tileName = (TILES[p.pos] && TILES[p.pos].name) || '莫诺加矿洞';
   const html = `<h2 style='color:#b8d84a;text-align:center'>☢ ${escapeHtml(tileName)}</h2>
     <div class='evtText'>盖革计数器狂响。深采回报高，浅采省成本但会污染声誉。</div>
     <div id='modalActions' style='margin-top:14px'>
-      <button id='radDeep' ${canDeep ? '' : 'disabled'}>深采 (-80盖，+150盖)</button>
-      <button class='alt' id='radShallow' ${canShallow ? '' : 'disabled'}>浅采 (-40盖，+70盖，道德-1)</button>
+      <button id='radDeep' ${canDeep ? '' : 'disabled'}>深采 (-${MINE_COST_DEEP}盖，+150盖)</button>
+      <button class='alt' id='radShallow' ${canShallow ? '' : 'disabled'}>浅采 (-${MINE_COST_SHALLOW}盖，+70盖，道德-1)</button>
       <button class='alt' id='radLeave'>离开</button>
     </div>`;
   openModal(html);

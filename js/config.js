@@ -12,6 +12,9 @@ export const COLORS = ['#e84c3d', '#3498db', '#2ecc71', '#f1c40f'];
 export const SHORT = ['甲', '乙', '丙', '丁'];
 export const TOKEN_SLOT = [[0.18, 0.18], [0.82, 0.18], [0.18, 0.36], [0.82, 0.36]];
 export const JAIL_FEE = 50;
+/** 黑市偷袭费。此前散落 rules.js（门槛/扣费/战报文案）与 view-modal.js（按钮门槛/文案）
+ *  共 4 处字面量，改价必然漏改 —— 与 cards.js 的 CARD_PRICE 是同一类问题。 */
+export const STEAL_PRICE = 80;
 export const GAME_TITLE = '废土大亨：末世大富翁';
 export const BRAND_MARK_HTML =
   '<img class="brand-mark" src="logo.svg" alt="" width="28" height="28" decoding="async">';

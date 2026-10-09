@@ -8,8 +8,8 @@ import { landDust, screenShake, haptic } from './fx.js';
 import { playTileBuildFx, floatUpgrade } from './fx-events.js';
 import { addPlayerFlags, markMissionDone, addFactionRep } from './missions.js';
 import { tryGrantNukeKey } from './nuke.js';
-import { FACTIONS as FACTION_LABELS } from './config.js';
-import { cardName, giveCard, randomCardId, canUseCard, removeCard, HAND_LIMIT,
+import { FACTIONS as FACTION_LABELS, STEAL_PRICE } from './config.js';
+import { cardName, giveCard, randomCardId, canUseCard, removeCard, HAND_LIMIT, CARD_PRICE,
   applyShield, applyPlunder, applyDemolish, applyMarch,
   applyEqualizer, applyDeed, applyRemoteDice } from './cards.js';
 import {
@@ -232,12 +232,12 @@ export function bounty(p) {
   }
 }
 export function blackMarketSteal(p) {
-  if (p.caps < 80) { log(`${p.name} 瓶盖不足，偷袭失败`); return; }
+  if (p.caps < STEAL_PRICE) { log(`${p.name} 瓶盖不足，偷袭失败`); return; }
   const pool = TILES.filter(t => (t.type === 'prop' || t.type === 'rail' || t.type === 'util') && t.owner != null && t.owner !== p.id && !t.mortgaged);
   if (!pool.length) { log(`${p.name} 黑市无隙可乘`); return; }
   const t = pool[Math.floor(Math.random() * pool.length)];
-  p.caps -= 80; t.owner = p.id; t.level = 0; sfx('buy');
-  log(`${p.name} 黑市偷袭，抢下「${t.name}」(-80盖)`);
+  p.caps -= STEAL_PRICE; t.owner = p.id; t.level = 0; sfx('buy');
+  log(`${p.name} 黑市偷袭，抢下「${t.name}」(-${STEAL_PRICE}盖)`);
   tryGrantNukeKey(p, 'blackmarket_steal');
 }
 export function blackMarketCard(p) {
@@ -245,16 +245,16 @@ export function blackMarketCard(p) {
   else log(`${p.name} 黑市一无所获`);
   tryGrantNukeKey(p, 'blackmarket_card');
 }
-/** 黑市淘卡：120 盖随机获得一张道具卡（手牌满时拒收不扣费） */
+/** 黑市淘卡：按 CARD_PRICE 盖随机获得一张道具卡（手牌满时拒收不扣费） */
 export function blackMarketBuyCard(p) {
-  if (p.caps < 120) { log(`${p.name} 瓶盖不足，淘卡失败`); return; }
+  if (p.caps < CARD_PRICE) { log(`${p.name} 瓶盖不足，淘卡失败`); return; }
   const id = randomCardId();
   p.cards = Array.isArray(p.cards) ? p.cards : [];
   if (p.cards.length >= HAND_LIMIT) { log(`🃏 ${p.name} 手牌已满（${HAND_LIMIT} 张），淘卡失败`); return; }
-  p.caps -= 120;
+  p.caps -= CARD_PRICE;
   giveCard(p, id);
   sfx('buy');
-  log(`${p.name} 在黑市淘到「${cardName(id)}」(-120盖)`);
+  log(`${p.name} 在黑市淘到「${cardName(id)}」(-${CARD_PRICE}盖)`);
   tryGrantNukeKey(p, 'blackmarket_card');
 }
 export function aiBlackMarket(p) {
@@ -298,8 +298,11 @@ export function aiUseCards(p) {
   }
 }
 
+/** 辐射矿坑开采费。此前扣费在 rules.js、按钮门槛与文案在 view-modal.js 各存一份字面量。 */
+export const MINE_COST_DEEP = 80;
+export const MINE_COST_SHALLOW = 40;
 export function radiationMine(p, deep) {
-  const cost = deep ? 80 : 40;
+  const cost = deep ? MINE_COST_DEEP : MINE_COST_SHALLOW;
   // 先确认付得起再扣费：此前「付不起也拿奖励」的漏洞（payCaps 破产清零后 p.caps>=0 恒真）
   if (p.caps < cost) { log(`${p.name} 瓶盖不足，放弃采矿`); sfx('bad'); return; }
   payCaps(p, cost, deep ? '辐射深采' : '辐射浅采');
