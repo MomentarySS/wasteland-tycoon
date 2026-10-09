@@ -265,9 +265,3 @@ export function loadGame() {
   if (G.gameOver) restoreGameOverUI(d);
   else restoreTurnUI();
 }
-
-/** 供测试：序列化当前状态 */
-export function exportSaveSnapshot() {
-  try { return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); }
-  catch (_) { return null; }
-}

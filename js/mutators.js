@@ -69,12 +69,6 @@ export function applyMutators(G, mutators) {
   }
 }
 
-/** 获取突变因子描述文本 */
-export function formatMutatorEffect(mutatorId) {
-  const def = MUTATOR_POOL.find(d => d.id === mutatorId);
-  return def ? `${def.icon} ${def.name}: ${def.desc}` : mutatorId;
-}
-
 // ============================================================
 // mutator 视觉族 —— 纯表现层
 // ============================================================
@@ -99,8 +93,6 @@ export const MUTATOR_VISUAL_FAMILY = {
  */
 export const VISUAL_FAMILY_PRIORITY = ['fire', 'flood', 'dust'];
 
-export const VISUAL_FAMILY_LABEL = { fire: '焦土', flood: '浊潮', dust: '尘涡' };
-
 /** 纯函数：由本局突变列表解出应显示的视觉族；无匹配返回 null。 */
 export function resolveMutatorVisualFamily(mutators) {
   const arr = Array.isArray(mutators) ? mutators : [];
@@ -109,5 +101,3 @@ export function resolveMutatorVisualFamily(mutators) {
   }
   return null;
 }
-
-export { MUTATOR_POOL as ALL_MUTATORS };

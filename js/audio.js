@@ -80,4 +80,3 @@ export function toggleMute() {
   const b = document.getElementById('muteBtn');
   if (b) b.textContent = muted ? '🔇' : '🔊';
 }
-export function isMuted() { return muted; }

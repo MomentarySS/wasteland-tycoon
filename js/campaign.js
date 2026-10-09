@@ -212,7 +212,6 @@ export function evaluateCampaignCoop(human, ally, ctx, idx = 0) {
 }
 
 export function campaignCount() { return CAMPAIGNS.length; }
-export function campaignName(idx) { return (CAMPAIGNS[idx] || CAMPAIGNS[0]).name; }
 
 /** 当前章节道德目标（供 AI / UI 提示） */
 export function campaignMoralGoal(idx) {

@@ -129,15 +129,6 @@ export async function init(opts = {}) {
   return { ok: true, model: MODEL, voice: DEFAULT_VOICE, endpoint: endpoint || 'auto' };
 }
 
-export function status() {
-  return {
-    ok: !!apiKey,
-    model: MODEL,
-    voice: DEFAULT_VOICE,
-    endpoint: endpoint || '',
-  };
-}
-
 export async function speak(text, opts = {}) {
   const t = String(text || '').trim();
   if (!t) return { ok: false, error: 'empty' };

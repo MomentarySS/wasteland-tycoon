@@ -60,11 +60,6 @@ export function propBaseRent(t, roll) {
   return Math.max(1, Math.round(r));
 }
 
-/** volatile 在给定骰点下的单次收租（含垄断加成），供预览面板显示区间用。 */
-export function propRentWithRoll(t, roll, monopolyMult = 1) {
-  return propBaseRent(t, roll) * monopolyMult;
-}
-
 /** shack：收租方每次向缴租方收取的维护费。 */
 export function upkeepOf(t) {
   const def = subTypeDef(t);
@@ -81,10 +76,4 @@ export function moralHitOf(t) {
 export function canMortgageTile(t) {
   const def = subTypeDef(t);
   return def ? def.mortgageable !== false : true;
-}
-
-/** 预览面板用的显示标签，如「地标」「流动」；无 subType 返回空串。 */
-export function subTypeLabel(t) {
-  const def = subTypeDef(t);
-  return def ? def.label : '';
 }

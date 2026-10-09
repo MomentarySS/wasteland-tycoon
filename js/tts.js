@@ -403,8 +403,6 @@ export function preloadTTS() {
   return Promise.resolve(true);
 }
 
-export function ttsSupported() { return true; }
-
 export function ttsEngineStatus() {
   try {
     if (!enabled) return 'disabled';
