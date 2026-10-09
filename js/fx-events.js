@@ -4,17 +4,11 @@ import { flashLightning, nukeArtHtml } from './assets-art.js';
 import { sfx } from './audio.js';
 import { getTileRect } from './board-metrics.js';
 import { pulseTile } from './board-canvas.js';
+import { DOM_READY, reducedMotion, sleep, rectOf } from './fx-env.js';
 
-const ENABLED = typeof document !== 'undefined' && !!document.documentElement;
+const ENABLED = DOM_READY;
 
-function reducedMotion() {
-  try {
-    return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  } catch (e) { return false; }
-}
 const RM = ENABLED && reducedMotion();
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const ART_MOTES = {
   horde: 6, bandit: 4, trap: 5, rad: 5, storm: 7, fire: 8, gas: 6, warp: 6,
@@ -107,13 +101,6 @@ export function formatChoiceResult(eff) {
   if (eff.rep && typeof eff.rep === 'object') parts.push('派系声望');
   if (Array.isArray(eff.flags) && eff.flags.length) parts.push('获得线索');
   return parts.join(' · ') || '抉择已生效';
-}
-
-function rectOf(el) {
-  if (!el || typeof el.getBoundingClientRect !== 'function') return null;
-  const r = el.getBoundingClientRect();
-  if (!r || (!r.width && !r.height)) return null;
-  return r;
 }
 
 function fxLayer() {

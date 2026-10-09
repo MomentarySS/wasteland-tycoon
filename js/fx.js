@@ -2,20 +2,12 @@
 // 设计约定：本模块只做表现，不参与任何规则判定；在无 DOM 环境（node 测试）下整体降级为空操作。
 import { getTileRect } from './board-metrics.js';
 import { getPlayerRowEl } from './player-row.js';
+import { DOM_READY, reducedMotion, sleep, rectOf } from './fx-env.js';
 
-const ENABLED = typeof document !== 'undefined'
-  && !!document.documentElement
-  && typeof document.body === 'object';
+const ENABLED = DOM_READY && typeof document.body === 'object';
 
-function reducedMotion() {
-  try {
-    return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  } catch (e) { return false; }
-}
 const RM = ENABLED && reducedMotion();
 const SPEED = RM ? 0.25 : 1;           // 降低动效偏好下整体提速收敛
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 const canAnimate = el => el && typeof el.animate === 'function';
 const FX_NODE_LIMIT = 120;
 
@@ -230,13 +222,6 @@ export function pathGhost(p, fromIdx, toIdx) {
 }
 
 // ---------------- 金币 / 飘字 ----------------
-function rectOf(el) {
-  if (!el || typeof el.getBoundingClientRect !== 'function') return null;
-  const r = el.getBoundingClientRect();
-  if (!r || (!r.width && !r.height)) return null;
-  return r;
-}
-
 /** 从 A 元素飞向 B 元素的一串金币 */
 export function coinsBetween(fromEl, toEl, count = 8) {
   if (!ENABLED || !fxLayer) return;

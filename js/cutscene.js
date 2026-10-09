@@ -5,17 +5,11 @@
 import { sfx } from './audio.js';
 import { ttsSpeakPrerecorded } from './tts.js';
 import { NUKE_SCENES, cutsceneSpeakText } from './voice-lines.js';
+import { DOM_READY, reducedMotion, sleep } from './fx-env.js';
 
-const ENABLED = typeof document !== 'undefined' && !!document.documentElement;
+const ENABLED = DOM_READY;
 
-function reducedMotion() {
-  try {
-    return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  } catch (e) { return false; }
-}
 const RM = ENABLED && reducedMotion();
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 let layer = null;
 
