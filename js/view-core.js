@@ -493,7 +493,7 @@ export function renderPlayers() {
     div.title = p.name || ('玩家' + (p.short || ''));
     div.setAttribute('aria-label', div.title);
     div.innerHTML = `<span>${avHtml}${p.isAI ? ' <span class="aiTag">AI</span>' : ''}${tag}${nukeHtml}${handHtml}</span>
-      <span><span class="cap">${Math.max(p.caps, 0)}</span>盖 · <span class="nw">净${netWorth(p)}</span> · 产${owned} · <span class="moral">德${p.moral || 0}</span>${repHtml}</span>`;
+      <span><span class="cap">${Math.max(p.caps, 0)}</span>盖 · <span class="nw">净${netWorth(p)}</span> · 产${owned} · <span class="moral">德${Number(p.moral) || 0}</span>${repHtml}</span>`;
 
     // 地块缩略条：每个拥有产权格一个小色块
     const propThumbs = TILES.filter(t => t.type === 'prop' && t.owner === p.id);

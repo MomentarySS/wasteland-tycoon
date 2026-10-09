@@ -34,7 +34,7 @@ export function renderManage() {
   const others = G.players.filter(x => x.id !== p.id && !x.bankrupt);
   if (others.length) {
     const wpOpts = others.flatMap(o => TILES.filter(t => t.type === 'prop' && t.owner === o.id)
-      .map(t => `<option value="${t.id}">${o.short}:${escapeHtml(t.name)}${t.mortgaged ? '(押)' : ''}</option>`)).join('');
+      .map(t => `<option value="${t.id}">${escapeHtml(o.short)}:${escapeHtml(t.name)}${t.mortgaged ? '(押)' : ''}</option>`)).join('');
     html += `<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><b style="color:var(--amber)">发起交易</b><br>`;
     html += `目标 <select id="trg">${others.map(o => `<option value="${o.id}">${escapeHtml(o.name)}${o.isAI ? ' 🤖' : ''}</option>`).join('')}</select><br>`;
     html += `<div style="margin-top:6px">你给出：<select id="gp"><option value="">（无地块）</option>${owned.map(t => `<option value="${t.id}">${escapeHtml(t.name)}${t.mortgaged ? '(押)' : ''}</option>`).join('')}</select> + <input id="gc" type="number" value="0" style="width:60px">盖</div>`;
@@ -71,7 +71,7 @@ export function proposeTrade() {
     if (aiTradeAccept(b, aProps, gc, bProps, wc)) { applyTrade(trade); closeModal(); afterHumanAction(a); }
     else alert('对方拒绝了交易');
   } else {
-    openModal(`<h2>玩家${b.short} 是否接受交易？</h2>
+    openModal(`<h2>玩家${escapeHtml(b.short)} 是否接受交易？</h2>
       <div style="font-size:12px;line-height:1.8">
       ${escapeHtml(a.name)} 给出：${aProps.map(t => escapeHtml(t.name)).join('、') || '无'}${gc ? (' +' + gc + '盖') : ''}<br>
       ${escapeHtml(b.name)} 给出：${bProps.map(t => escapeHtml(t.name)).join('、') || '无'}${wc ? (' +' + wc + '盖') : ''}

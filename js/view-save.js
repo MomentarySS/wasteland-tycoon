@@ -238,6 +238,11 @@ export function loadGame() {
 
   G.players = d.players.map(p => ({
     ...p,
+    // 这三个字段会原样进 innerHTML（renderPlayers / view-manage），存档可被手改，
+    // 故在此统一规整：name/short 收敛为字符串，moral 收敛为有限数值。
+    name: String(p.name ?? ''),
+    short: String(p.short ?? ''),
+    moral: Number.isFinite(Number(p.moral)) ? Number(p.moral) : 0,
     extraRoll: !!p.extraRoll,
     flags: Array.isArray(p.flags) ? p.flags.slice() : [],
     missionDone: Array.isArray(p.missionDone) ? p.missionDone.slice() : [],
