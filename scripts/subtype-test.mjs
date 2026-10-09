@@ -140,7 +140,14 @@ ok(sub.moralHitOf(cursed) === 1, `cursed moral hit = ${sub.moralHitOf(cursed)}`)
 ok(sub.moralHitOf(normal) === 0, 'normal prop has no moral hit');
 let vol = byName(NAME_VOLATILE);
 ok(sub.propBaseRent(vol, 6) < sub.propBaseRent(vol, 12), 'volatile rent rises with roll');
-ok(Math.abs(sub.propBaseRent(vol, 6) - sub.propBaseRent(vol, 6)) === 0, 'volatile is deterministic for a given roll');
+// 旧断言写的是 Math.abs(f(vol,6) - f(vol,6)) === 0 —— 同一表达式自减，除 NaN 外
+// 恒为真，等于什么都没验。换成两条真的能失败的：同一 roll 重复求值必须同为有限值，
+// 以及缺失 / 非法 roll 需落到除数默认值 6 而不是算出 NaN。
+const volAt6 = sub.propBaseRent(vol, 6);
+ok(Number.isFinite(volAt6) && volAt6 === sub.propBaseRent(vol, 6),
+  `volatile deterministic for a given roll (${volAt6})`);
+ok(Number.isFinite(sub.propBaseRent(vol)) && sub.propBaseRent(vol) === volAt6,
+  'volatile falls back to roll=6 when roll is missing');
 // landmark: baseCut=0.55, rentMult=2.2
 // Lv0 = round(round(26*0.55)*2.2) = 31, Lv2 = round(round(round(26*0.55)*3)*2.2)
 const lm0 = sub.propBaseRent(lm, 6);
