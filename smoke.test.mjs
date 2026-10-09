@@ -21,7 +21,6 @@ process.on('uncaughtException', e => {
 });
 
 // 加速：所有 setTimeout 走 setImmediate（Node 会把 setTimeout(fn,0) 钳到 1ms，太慢）
-const realST = global.setTimeout;
 global.setTimeout = (fn, _ms, ...a) => setImmediate(() => fn(...a));
 const tick = () => new Promise(r => setImmediate(r));
 

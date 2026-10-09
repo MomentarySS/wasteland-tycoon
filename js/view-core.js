@@ -394,13 +394,11 @@ export function fitBoard() {
   setVar('--cell', cellW + 'px');
   setVar('--board-w', realW + 'px');
   setVar('--board-h', realH + 'px');
-  setVar('--board-min', Math.min(realW, realH) + 'px');
   const innerN = N - 2;
   const centerW = innerN * cellW + (innerN - 1) * gap;
   const centerH = innerN * cellH + (innerN - 1) * gap;
   setVar('--center-w', centerW + 'px');
   setVar('--center-h', centerH + 'px');
-  setVar('--center-min', Math.min(centerW, centerH) + 'px');
   setVar('--center-left', (cellW + gap) + 'px');
   setVar('--center-top', (cellH + gap) + 'px');
   setVar('--board-size', realW + 'px');

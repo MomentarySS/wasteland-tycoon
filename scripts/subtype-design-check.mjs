@@ -24,8 +24,6 @@ const CAP = baseline.cap8pctOfNet;
 
 const tiles = JSON.parse(fs.readFileSync(path.join(ROOT, 'content/tiles.json'), 'utf8'));
 const props = tiles.filter(t => t.t === 'prop');
-const groups = {};
-for (const p of props) (groups[p.group] ||= []).push(p);
 
 // --- 变体设计。约束：最坏单次收租 <= 8% 上限（实测基线推导）---
 // 注意：volatile 用「除以 6」而非「乘 12」，否则中价地块直接爆表（首次验证 61.5%）。

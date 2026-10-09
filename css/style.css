@@ -3,8 +3,8 @@
   --amber:#c9a227; --phos:#7fae6e; --rust:#b5651d; --gang:#a31515; --haz:#d8b13a;
   --tech:#3fb6c4; --bio:#b06ad8;
   /* 棋盘自适应变量（JS fitBoard() 写入；铺满 mapFrame，格宽/格高独立） */
-  --cell-w:69px; --cell-h:38px; --gap:3px; --board-w:858px; --board-h:483px; --board-min:483px;
-  --center-w:690px; --center-h:390px; --center-min:390px; --center-left:72px; --center-top:43px;
+  --cell-w:69px; --cell-h:38px; --gap:3px; --board-w:858px; --board-h:483px;
+  --center-w:690px; --center-h:390px; --center-left:72px; --center-top:43px;
   --side-w:380px; --top-h:56px;
 }
 *{box-sizing:border-box;}
@@ -551,9 +551,6 @@ body.weather-acid::after {
   animation: dustFlicker 0.4s ease-in-out infinite alternate;
 }
 /* 废土黄昏：暖橙色渐变覆盖层 */
-body.weather-dusk {
-  --amb-dusk: 1;
-}
 body.weather-dusk::after {
   background: radial-gradient(ellipse at 50% 100%, rgba(200, 100, 20, 0.22) 0%, transparent 65%);
 }
