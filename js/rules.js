@@ -170,6 +170,28 @@ export function aiRaiseCash(p, need) {
   for (const cand of aiRaiseCashPlan(p, need)) mortgage(p, cand, true);
 }
 
+/** 玩家名下仍可升级（level < 2）的地产。任务的 upgrade 效果、bunkerFortify、
+ *  aiBunker 三处此前各自内联同一份筛选，改条件必须同步三处。 */
+function upgradeableProps(p) {
+  return TILES.filter(t => t.type === 'prop' && t.owner === p.id && t.level < 2);
+}
+
+/** 随机挑一块可升级地产并免费强化；无可选时返回 null（不记日志，由调用方决定）。 */
+function freeUpgradeRandom(p) {
+  const c = upgradeableProps(p);
+  if (!c.length) return null;
+  const t = c[Math.floor(Math.random() * c.length)];
+  upgrade(p, t, true);
+  return t;
+}
+
+/** 他人持有且未抵押的可抢格（地产 / 哨站 / 设施）。blackMarketSteal 与
+ *  aiBlackMarket 此前各存一份逐字相同的筛选。 */
+function stealableTiles(p) {
+  return TILES.filter(t => (t.type === 'prop' || t.type === 'rail' || t.type === 'util')
+    && t.owner != null && t.owner !== p.id && !t.mortgaged);
+}
+
 export function applyMissionEffects(p, eff, mission, choice) {
   eff = eff || {};
   if (typeof eff.caps === 'number') {
@@ -187,9 +209,7 @@ export function applyMissionEffects(p, eff, mission, choice) {
   }
   if (eff.skip) { p.skipNext = true; log(`${p.name} 下回合无法行动`); }
   if (eff.upgrade) {
-    const c = TILES.filter(t => t.type === 'prop' && t.owner === p.id && t.level < 2);
-    if (c.length) { const t = c[Math.floor(Math.random() * c.length)]; upgrade(p, t, true); }
-    else log(`${p.name} 没有可强化的地产`);
+    if (!freeUpgradeRandom(p)) log(`${p.name} 没有可强化的地产`);
   }
   if (eff.warp) warp(p);
   if (Array.isArray(eff.flags) && eff.flags.length) {
@@ -233,7 +253,7 @@ export function bounty(p) {
 }
 export function blackMarketSteal(p) {
   if (p.caps < STEAL_PRICE) { log(`${p.name} 瓶盖不足，偷袭失败`); return; }
-  const pool = TILES.filter(t => (t.type === 'prop' || t.type === 'rail' || t.type === 'util') && t.owner != null && t.owner !== p.id && !t.mortgaged);
+  const pool = stealableTiles(p);
   if (!pool.length) { log(`${p.name} 黑市无隙可乘`); return; }
   const t = pool[Math.floor(Math.random() * pool.length)];
   p.caps -= STEAL_PRICE; t.owner = p.id; t.level = 0; sfx('buy');
@@ -258,7 +278,7 @@ export function blackMarketBuyCard(p) {
   tryGrantNukeKey(p, 'blackmarket_card');
 }
 export function aiBlackMarket(p) {
-  const pool = TILES.filter(t => (t.type === 'prop' || t.type === 'rail' || t.type === 'util') && t.owner != null && t.owner !== p.id && !t.mortgaged);
+  const pool = stealableTiles(p);
   if (p.caps > 120 && pool.length && Math.random() < 0.7) blackMarketSteal(p);
   else if (p.caps > 250 && Math.random() < 0.3) blackMarketBuyCard(p);
   else if (Math.random() < 0.5) blackMarketCard(p);
@@ -337,11 +357,9 @@ export function bunkerRest(p) {
 }
 
 export function bunkerFortify(p) {
-  const c = TILES.filter(t => t.type === 'prop' && t.owner === p.id && t.level < 2);
-  if (c.length) {
-    const t = c[Math.floor(Math.random() * c.length)];
-    upgrade(p, t, true);
-    log(`${p.name} 在掩体内免费加固「${t.name}」`);
+  const fortified = freeUpgradeRandom(p);
+  if (fortified) {
+    log(`${p.name} 在掩体内免费加固「${fortified.name}」`);
   } else {
     gain(p, 20);
     log(`${p.name} 掩体应急补给 +20 盖`);
@@ -350,7 +368,6 @@ export function bunkerFortify(p) {
 }
 
 export function aiBunker(p) {
-  const c = TILES.filter(t => t.type === 'prop' && t.owner === p.id && t.level < 2);
-  if (c.length && Math.random() < 0.55) bunkerFortify(p);
+  if (upgradeableProps(p).length && Math.random() < 0.55) bunkerFortify(p);
   else bunkerRest(p);
 }
