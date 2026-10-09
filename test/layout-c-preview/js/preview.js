@@ -97,7 +97,9 @@
     const rect = board.getBoundingClientRect();
     const W = Math.max(200, rect.width  - padX);
     const H = Math.max(200, rect.height - padY);
-    if (W < 200 || H < 200) return;
+    // 下限由上面两行的 Math.max(200, …) 保证：此前紧跟其后的
+    // `if (W < 200 || H < 200) return;` 恒为假（W/H 已钳到 ≥200），属误导性的死
+    // 守卫，删除。真正的保护就是这行钳位本身。
 
     // 顶/底行宽 = 12cw + 11gap = 总宽 W
     const cw = Math.floor((W - GAP * 11) / 12);
@@ -172,13 +174,16 @@
   });
 
   // tab 切换
+  // 分类映射原先写在 $$('.intel-card').forEach 的回调体内 —— 每张卡每次切 tab 都
+  // 重建一个字面量。提升到循环外，常量表本就不该在热路径里反复构造。
+  const CAT_LABEL = { cash: '资金', prop: '产权', build: '建造', event: '事件', bounty: '悬赏', explore: '探索', system: '系统' };
   $$('#intelTabs .tab').forEach(t => {
     t.addEventListener('click', () => {
       $$('#intelTabs .tab').forEach(x => x.classList.remove('on'));
       t.classList.add('on');
       const cat = t.dataset.cat;
       $$('.intel-card', flow).forEach((c, i) => {
-        const match = cat === 'all' || INTEL[i].tag === ({cash:'资金',prop:'产权',build:'建造',event:'事件',bounty:'悬赏',explore:'探索',system:'系统'})[cat];
+        const match = cat === 'all' || INTEL[i].tag === CAT_LABEL[cat];
         c.style.display = match ? '' : 'none';
       });
     });

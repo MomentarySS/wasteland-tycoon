@@ -87,7 +87,9 @@
     const rect = board.getBoundingClientRect();
     const W = Math.max(200, rect.width  - padX);
     const H = Math.max(200, rect.height - padY);
-    if (W < 200 || H < 200) return;
+    // 下限由上面两行的 Math.max(200, …) 保证：此前紧跟其后的
+    // `if (W < 200 || H < 200) return;` 恒为假（W/H 已钳到 ≥200），属误导性的死
+    // 守卫，删除。真正的保护就是这行钳位本身。
 
     let cw = Math.floor((W - GAP * (N - 1)) / N);
     let ch = Math.floor(cw / ASPECT);
