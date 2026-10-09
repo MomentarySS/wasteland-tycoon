@@ -42,15 +42,6 @@ if (typeof window !== 'undefined') {
   unlockEvents.forEach(evt => window.addEventListener(evt, unlockHandler, { once: false }));
 }
 
-/** 棋盘始终平面（2.5D 已移除） */
-export function isBoardTiltEnabled() {
-  return false;
-}
-
-export function setBoardTilt(_on) {
-  applyBoardTilt(false);
-}
-
 export function applyBoardTilt(_on) {
   if (!document.body || !document.body.classList) return;
   const cl = document.body.classList;
@@ -62,11 +53,6 @@ export function applyBoardTilt(_on) {
 /** 顶面贴图：始终开启，不可关闭 */
 export function isTileArtEnabled() {
   return true;
-}
-
-export function setTileArt(_on) {
-  applyTileArt(true);
-  render();
 }
 
 export function applyTileArt(_on) {
@@ -101,10 +87,6 @@ export function slotAvatarHTML(i) {
 
 export function getSlotAvatars() { return slotAvatars; }
 export function getSlotAvatarStore() { return slotAvatars; }
-
-export function getDomRefs() {
-  return { tilesEl, tokenLayer, logEl, actionsEl, diceEl };
-}
 
 function tileDisplayName(t) {
   if (t.name) return t.name;

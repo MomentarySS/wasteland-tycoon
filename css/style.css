@@ -896,11 +896,3 @@ body.cs-open{overflow:hidden;}
 .legacyItem .liCost button:hover{ background:#e0b830; }
 .legacyNote{ font-size:10px;color:#7a8a80;margin-top:10px;line-height:1.4; }
 #legacyClose{ margin-top:12px;width:100%;padding:8px; }
-
-.legacyResult{ text-align:center;padding:16px; }
-.legacyResult h2{ margin:0 0 12px;color:#c9a227; }
-.lrEarned{ font-size:20px;margin-bottom:8px; }
-.lrEarned strong{ color:#c9a227;font-size:28px; }
-.lrTotal{ font-size:14px;color:#9fb0a6;margin-bottom:8px; }
-.lrStats{ font-size:12px;color:#7a8a80;margin-bottom:16px; }
-#legacyContinue{ padding:8px 24px; }

@@ -236,12 +236,13 @@ if (state.G.players.length !== 2) throw new Error('玩家创建失败');
   if (tilesEl.children.length !== data.TILES.length) throw new Error('棋盘渲染格数异常: ' + tilesEl.children.length);
   if (!document.body.classList.contains('no-tilt')) throw new Error('棋盘应为平面模式');
   if (!document.body.classList.contains('tile-art')) throw new Error('tile-art 应默认开启');
-  view.setBoardTilt(true);
-  if (!document.body.classList.contains('no-tilt')) throw new Error('2.5D 已移除，应保持平面');
-  view.setTileArt(false);
-  if (!document.body.classList.contains('tile-art')) throw new Error('tile-art 不可关闭');
   view.render();
   if (tilesEl.children.length !== data.TILES.length) throw new Error('渲染格数异常');
+  // 「2.5D 已移除、顶面贴图常开」是两条真不变量，原先却经由恒为 no-op 的
+  // setBoardTilt / setTileArt 去断言（那两条 API 已随 2.5D 一并删除），等于什么都没验。
+  // 改为 render 之后直接查 DOM 状态。
+  if (!document.body.classList.contains('no-tilt')) throw new Error('2.5D 已移除，应保持平面');
+  if (!document.body.classList.contains('tile-art')) throw new Error('tile-art 应常开');
 }
 
 const t0 = Date.now();

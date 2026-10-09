@@ -3,8 +3,7 @@ export {
   WASTELAND_EMOJI, avatarHTML, slotAvatarHTML, getSlotAvatars,
   fitBoard, log, clearLog, setDice, setActionsHTML,
   render, renderPlayers, buildTokens, placeToken, updateTilePreview,
-  setActiveTile, isBoardTiltEnabled, setBoardTilt, applyBoardTilt,
-  isTileArtEnabled, setTileArt, applyTileArt, repositionAllTokens
+  setActiveTile, repositionAllTokens
 } from './view-core.js';
 
 export { buildSetup } from './view-setup.js';

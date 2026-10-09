@@ -1,7 +1,7 @@
 // ============================================================
 // view-legacy.js — 遗产商店 UI
 // ============================================================
-import { getLegacyMeta, purchaseBonus, LEGACY_BONUSES, recordRun } from './legacy.js';
+import { getLegacyMeta, purchaseBonus, LEGACY_BONUSES } from './legacy.js';
 import { openModal, closeModal } from './view-modal.js';
 
 export function showLegacyShop() {
@@ -48,24 +48,3 @@ export function showLegacyShop() {
   const closeBtn = document.getElementById('legacyClose');
   if (closeBtn) closeBtn.onclick = closeModal;
 }
-
-/** 显示遗产结算界面 */
-export function showLegacyResult(runResult) {
-  const result = recordRun(runResult);
-  const meta = result.meta;
-
-  let html = '<div class="legacyResult">';
-  html += '<h2>📜 对局结束</h2>';
-  html += `<div class="lrEarned">获得 <strong>${result.pointsEarned}</strong> 遗产点</div>`;
-  html += `<div class="lrTotal">总遗产点：${result.totalPoints}</div>`;
-  html += `<div class="lrStats">存活回合：${runResult.turns || 0} · 道德：${runResult.moral || 0} · 章节：${runResult.chaptersCompleted || 0}</div>`;
-  html += '<button class="alt" id="legacyContinue">继续</button>';
-  html += '</div>';
-
-  openModal(html);
-
-  const btn = document.getElementById('legacyContinue');
-  if (btn) btn.onclick = closeModal;
-}
-
-export { recordRun };
