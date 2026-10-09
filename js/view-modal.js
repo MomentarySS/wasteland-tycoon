@@ -260,6 +260,19 @@ function useHandCard(p, id) {
   }
 }
 
+/** 弹窗动作的统一收尾：关闭 → 执行 → 渲染 → 若已集齐核弹密钥先确认发射，否则交还回合。
+ *  这段此前在黑市 3 处、矿坑 2 处逐字重复，而掩体的 2 处漏了核弹确认分支。
+ *  说明：bunkerRest / bunkerFortify 当前都不调用 tryGrantNukeKey，所以掩体路径今天
+ *  并不会真的漏掉确认（没有 grant 就没有 canLaunchNuke 翻转）。但一旦掩体新增密钥
+ *  发放，那两处会立刻变成「集齐密钥却拿不到发射确认」的真实缺陷，故此处统一收口。 */
+function settleAndContinue(p, fn) {
+  closeModal();
+  fn(p);
+  render();
+  if (canLaunchNuke(p)) showNukeLaunchConfirm(p, () => afterHumanAction(p));
+  else afterHumanAction(p);
+}
+
 export function showBlackMarket(p) {
   const canSteal = p.caps >= STEAL_PRICE;
   const hand = Array.isArray(p.cards) ? p.cards : [];
@@ -275,21 +288,9 @@ export function showBlackMarket(p) {
   openModal(html);
   haptic('medium');
   ttsSpeak(SET_PIECE_LINES.blackMarket);
-  document.getElementById('bmSteal').onclick = () => {
-    closeModal(); blackMarketSteal(p); render();
-    if (canLaunchNuke(p)) showNukeLaunchConfirm(p, () => afterHumanAction(p));
-    else afterHumanAction(p);
-  };
-  document.getElementById('bmBuyCard').onclick = () => {
-    closeModal(); blackMarketBuyCard(p); render();
-    if (canLaunchNuke(p)) showNukeLaunchConfirm(p, () => afterHumanAction(p));
-    else afterHumanAction(p);
-  };
-  document.getElementById('bmCard').onclick = () => {
-    closeModal(); blackMarketCard(p); render();
-    if (canLaunchNuke(p)) showNukeLaunchConfirm(p, () => afterHumanAction(p));
-    else afterHumanAction(p);
-  };
+  document.getElementById('bmSteal').onclick = () => settleAndContinue(p, blackMarketSteal);
+  document.getElementById('bmBuyCard').onclick = () => settleAndContinue(p, blackMarketBuyCard);
+  document.getElementById('bmCard').onclick = () => settleAndContinue(p, blackMarketCard);
   document.getElementById('bmLeave').onclick = () => { closeModal(); afterHumanAction(p); };
 }
 
@@ -307,16 +308,8 @@ export function showRadiation(p) {
   openModal(html);
   haptic('medium');
   ttsSpeak(SET_PIECE_LINES.radiation);
-  document.getElementById('radDeep').onclick = () => {
-    closeModal(); radiationMine(p, true); render();
-    if (canLaunchNuke(p)) showNukeLaunchConfirm(p, () => afterHumanAction(p));
-    else afterHumanAction(p);
-  };
-  document.getElementById('radShallow').onclick = () => {
-    closeModal(); radiationMine(p, false); render();
-    if (canLaunchNuke(p)) showNukeLaunchConfirm(p, () => afterHumanAction(p));
-    else afterHumanAction(p);
-  };
+  document.getElementById('radDeep').onclick = () => settleAndContinue(p, () => radiationMine(p, true));
+  document.getElementById('radShallow').onclick = () => settleAndContinue(p, () => radiationMine(p, false));
   document.getElementById('radLeave').onclick = () => { closeModal(); afterHumanAction(p); };
 }
 
@@ -333,8 +326,8 @@ export function showBunker(p) {
   openModal(html);
   haptic('medium');
   ttsSpeak(SET_PIECE_LINES.bunker);
-  document.getElementById('bkRest').onclick = () => { closeModal(); bunkerRest(p); render(); afterHumanAction(p); };
-  document.getElementById('bkFort').onclick = () => { closeModal(); bunkerFortify(p); render(); afterHumanAction(p); };
+  document.getElementById('bkRest').onclick = () => settleAndContinue(p, bunkerRest);
+  document.getElementById('bkFort').onclick = () => settleAndContinue(p, bunkerFortify);
   document.getElementById('bkLeave').onclick = () => { closeModal(); afterHumanAction(p); };
 }
 
