@@ -1,20 +1,22 @@
 #!/usr/bin/env node
 // subType mechanism regression test.
 // The smoke test does NOT exercise subType mechanics, so "tests pass" alone would prove nothing.
-// Drives the real modules via the same DOM stub approach as scripts/balance-probe.mjs.
+// Drives the real modules via the shared DOM stub in scripts/dom-stub.mjs.
 //
 // ESCAPED LITERALS: every CJK *string literal* below is a \uXXXX escape on purpose
 // (the trailing CJK comments are safe -- they are never parsed as tokens).
 // This file was originally written through PowerShell Set-Content, which re-encoded the
 // UTF-8 bytes as ANSI and silently truncated CJK literals into U+FFFD, eating the closing
 // quote. Keeping literals escaped makes that failure mode unreachable.
-import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import { installDomStub, loadModule } from './dom-stub.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
-global.setTimeout = (fn) => setImmediate(() => fn());
+// DOM / window / fetch 桩：与 smoke.test.mjs、scripts/balance-probe.mjs 共用
+// scripts/dom-stub.mjs。
+const { getEl, tick } = installDomStub({ root: ROOT });
 
 // CJK tile names (escaped so this file stays ASCII)
 const NAME_LANDMARK = '\u63a0\u593a\u8005\u519b\u9600'; // 掠夺者军阀
@@ -24,70 +26,8 @@ const NAME_CURSED = '\u6539\u88c5\u5de5\u574a';     // 改装工坊
 const NAME_NORMAL = '\u65ad\u88c2\u5929\u6865';     // 断裂天桥
 const EN_DASH = '\u2013';                            // rentDisplay range separator
 
-// --- minimal DOM stub (only what rules*.js touch) ---
-const cache = {};
-const mkStyle = () => ({ setProperty(k, v) { this[k] = v; } });
-function mkEl(id) {
-  return {
-    id, _html: '', textContent: '', value: '', style: mkStyle(), dataset: {}, children: [],
-    classList: { s: new Set(), add(c) { this.s.add(c); }, remove(c) { this.s.delete(c); }, toggle(c, on) { on ? this.s.add(c) : this.s.delete(c); }, contains(c) { return this.s.has(c); } },
-    set innerHTML(v) { this._html = String(v); this.children.length = 0; }, get innerHTML() { return this._html; },
-    appendChild(c) { this.children.push(c); return c; },
-    prepend(c) { this.children.unshift(c); return c; },
-    insertBefore(c, ref) { if (!ref) this.children.push(c); else { const i = this.children.indexOf(ref); if (i < 0) this.children.push(c); else this.children.splice(i, 0, c); } return c; },
-    get firstChild() { return this.children[0] || null; },
-    remove() { }, addEventListener() { }, removeEventListener() { },
-    setAttribute(k, v) { if (String(k).startsWith('data-')) this.dataset[dataKey(k)] = String(v); else this[k] = String(v); },
-    getAttribute(k) { const v = attrOf(this, k); return v === undefined ? null : v; },
-    removeAttribute(k) { if (String(k).startsWith('data-')) delete this.dataset[dataKey(k)]; else delete this[k]; },
-    querySelector() { return null; }, querySelectorAll() { return []; },
-    get offsetWidth() { return 1; }, focus() { }, scrollIntoView() { },
-    getBoundingClientRect() { return { top: 0, left: 0, width: 54, height: 54 }; },
-    set onclick(fn) { this._onclick = fn; }, get onclick() { return this._onclick; },
-  };
-}
-const getEl = id => (cache[id] ||= mkEl(id));
-// A faithful stub has to keep dataset and data-* attributes in sync: view-core.js
-// clears a variant via removeAttribute('data-subtype'), which in a real DOM also
-// drops dataset.subtype. With a no-op removeAttribute the "no stale bleed" assertion
-// would pass for the wrong reason (or fail for the wrong one).
-function dataKey(attr) {
-  return attr.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-}
-function attrOf(el, attr) { return attr.startsWith('data-') ? el.dataset[dataKey(attr)] : null; }
-(function setupTilePreview() {
-  const tp = mkEl('tilePreview');
-  const mkSub = cls => { const el = mkEl(cls); el.className = cls.replace('.', ''); el.hidden = false; return el; };
-  const subs = { '.tpName': mkSub('tpName'), '.tpMeta': mkSub('tpMeta'), '.tpIcon': mkSub('tpIcon'), '.tpArt': mkSub('tpArt') };
-  tp.querySelector = sel => subs[sel] || null;
-  cache.tilePreview = tp;
-})();
-(function setupActions() {
-  const actions = mkEl('actions');
-  Object.defineProperty(actions, 'innerHTML', {
-    set(html) { actions._html = String(html); actions.children.length = 0; for (const id of [...String(html).matchAll(/id="([^"]+)"/g)].map(m => m[1])) if (!cache[id]) cache[id] = mkEl(id); },
-    get() { return actions._html; },
-  });
-  cache.actions = actions;
-})();
-global.document = {
-  getElementById: getEl, createElement: () => mkEl('dyn'),
-  querySelector: () => null, querySelectorAll: () => [], addEventListener() { },
-  body: (() => { const b = mkEl('body'); b.classList = { s: new Set(['no-tilt']), add(c) { this.s.add(c); }, remove(c) { this.s.delete(c); }, toggle(c, on) { on ? this.s.add(c) : this.s.delete(c); }, contains(c) { return this.s.has(c); } }; return b; })(),
-};
-const store = {};
-global.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
-global.window = { addEventListener() { }, removeEventListener() { }, AudioContext: undefined, webkitAudioContext: undefined, speechSynthesis: undefined, SpeechSynthesisUtterance: undefined, navigator: { serviceWorker: undefined } };
-Object.defineProperty(global, 'navigator', { value: { serviceWorker: undefined }, configurable: true, writable: true });
-global.alert = () => { }; global.confirm = () => true; global.prompt = () => null;
-global.requestAnimationFrame = fn => setImmediate(fn);
-global.fetch = async (url) => {
-  const txt = fs.readFileSync(path.join(ROOT, String(url).replace(/^\.?\//, '')), 'utf8');
-  return { ok: true, status: 200, json: async () => JSON.parse(txt), text: async () => txt };
-};
-const tick = () => new Promise(r => setImmediate(r));
 
-const load = f => import(pathToFileURL(path.join(ROOT, 'js', f)).href);
+const load = f => loadModule(ROOT, f);
 const data = await load('data.js');
 const state = await load('state.js');
 const rules = await load('rules.js');

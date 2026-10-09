@@ -2,8 +2,8 @@
 // scripts/balance-probe.mjs —— 对局平衡基线探针
 //
 // 目的：在改动地产机制前，先用真实引擎量出当前平衡基线，避免"照文档抄数字"。
-// 做法：自带与 smoke.test.mjs 同源的轻量 DOM 桩，驱动真实 ES 模块跑完整全 AI 对局，
-//       统计终局净值 / 存活人数 / 终局回合 / 持有地产数。
+// 做法：自带与 smoke.test.mjs 共用的轻量 DOM 桩（scripts/dom-stub.mjs），驱动真实 ES
+//       模块跑完整全 AI 对局，统计终局净值 / 存活人数 / 终局回合 / 持有地产数。
 //
 // 用法：
 //   node scripts/balance-probe.mjs                    # 默认 20 局对抗
@@ -13,10 +13,11 @@
 //   node scripts/balance-probe.mjs --json            # 仅输出 JSON，便于对比存档
 //   node scripts/balance-probe.mjs --save base.json   # 同时写入基线文件
 //
-// 退出码恒为 0（这是测量工具，不做断言）；回归判定见 docs/v1.8.0-plan.md。
+// 退出码：正常出基线为 0；0 局跑完时为 1（基线是 NaN/Infinity，不可用）。
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import { installDomStub, loadModule } from './dom-stub.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -34,78 +35,12 @@ const AS_JSON = args.includes('--json');
 const saveIdx = args.indexOf('--save');
 const SAVE_TO = saveIdx >= 0 && args[saveIdx + 1] ? args[saveIdx + 1] : null;
 
-// ---------------- 加速：所有 setTimeout 走 setImmediate ----------------
-global.setTimeout = (fn) => setImmediate(() => fn());
-
-// ---------------- 轻量 DOM 桩（与 smoke.test.mjs 同源）----------------
-const cache = {};
-const mkStyle = () => ({ setProperty(k, v) { this[k] = v; } });
-function mkEl(id) {
-  return {
-    id, _html: '', textContent: '', value: '', style: mkStyle(), dataset: {}, children: [],
-    classList: { s: new Set(), add(c) { this.s.add(c); }, remove(c) { this.s.delete(c); }, toggle(c, on) { on ? this.s.add(c) : this.s.delete(c); }, contains(c) { return this.s.has(c); } },
-    set innerHTML(v) { this._html = String(v); this.children.length = 0; }, get innerHTML() { return this._html; },
-    appendChild(c) { this.children.push(c); return c; },
-    prepend(c) { this.children.unshift(c); if (this.children.length > 400) this.children.length = 400; return c; },
-    insertBefore(c, ref) { if (!ref) { this.children.push(c); } else { const i = this.children.indexOf(ref); if (i < 0) this.children.push(c); else this.children.splice(i, 0, c); } return c; },
-    get firstChild() { return this.children[0] || null; },
-    remove() { }, addEventListener() { }, removeEventListener() { }, setAttribute() { }, getAttribute() { return null; }, removeAttribute() { },
-    querySelector() { return null; }, querySelectorAll() { return []; },
-    get offsetWidth() { return 1; }, focus() { }, scrollIntoView() { },
-    getBoundingClientRect() { return { top: 0, left: 0, width: 54, height: 54 }; },
-    set onclick(fn) { this._onclick = fn; }, get onclick() { return this._onclick; },
-  };
-}
-const getEl = id => (cache[id] ||= mkEl(id));
-(function setupTilePreview() {
-  const tp = mkEl('tilePreview');
-  const mkSub = cls => { const el = mkEl(cls); el.className = cls.replace('.', ''); el.hidden = false; return el; };
-  const subs = { '.tpName': mkSub('tpName'), '.tpMeta': mkSub('tpMeta'), '.tpIcon': mkSub('tpIcon'), '.tpArt': mkSub('tpArt') };
-  tp.querySelector = sel => subs[sel] || null;
-  cache.tilePreview = tp;
-})();
-(function setupActions() {
-  const actions = mkEl('actions');
-  actions._html = '';
-  Object.defineProperty(actions, 'innerHTML', {
-    set(html) {
-      actions._html = String(html);
-      actions.children.length = 0;
-      for (const id of [...String(html).matchAll(/id="([^"]+)"/g)].map(m => m[1])) if (!cache[id]) cache[id] = mkEl(id);
-    },
-    get() { return actions._html; },
-  });
-  cache.actions = actions;
-})();
-global.document = {
-  getElementById: getEl,
-  createElement: () => mkEl('dyn'),
-  querySelector: () => null,
-  querySelectorAll: () => [],
-  addEventListener() { },
-  body: (() => { const b = mkEl('body'); b.classList = { s: new Set(['no-tilt']), add(c) { this.s.add(c); }, remove(c) { this.s.delete(c); }, toggle(c, on) { on ? this.s.add(c) : this.s.delete(c); }, contains(c) { return this.s.has(c); } }; return b; })(),
-};
-const store = {};
-global.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
-global.window = {
-  addEventListener() { }, removeEventListener() { },
-  AudioContext: undefined, webkitAudioContext: undefined,
-  speechSynthesis: undefined, SpeechSynthesisUtterance: undefined,
-  navigator: { serviceWorker: undefined },
-};
-Object.defineProperty(global, 'navigator', { value: { serviceWorker: undefined }, configurable: true, writable: true });
-global.alert = () => { };
-global.confirm = () => true;
-global.prompt = () => null;
-global.requestAnimationFrame = fn => setImmediate(fn);
-global.fetch = async (url) => {
-  const txt = fs.readFileSync(path.join(ROOT, String(url).replace(/^\.?\//, '')), 'utf8');
-  return { ok: true, status: 200, json: async () => JSON.parse(txt), text: async () => txt };
-};
-const tick = () => new Promise(r => setImmediate(r));
+// DOM / window / fetch 桩：与 smoke.test.mjs、scripts/subtype-test.mjs 共用
+// scripts/dom-stub.mjs。alert 保持默认静默 —— 本工具做统计，不做断言。
+const { getEl, tick } = installDomStub({ root: ROOT });
 
 // ---------------- 载入真实模块 ----------------
-const load = f => import(pathToFileURL(path.join(ROOT, 'js', f)).href);
+const load = f => loadModule(ROOT, f);
 const data = await load('data.js');
 const state = await load('state.js');
 const rules = await load('rules.js');

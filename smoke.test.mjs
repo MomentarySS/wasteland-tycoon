@@ -1,8 +1,9 @@
 // 模块级冒烟测试：DOM 桩 + fetch 桩，加载真实 ES 模块并跑完整对局
 // 运行： node smoke.test.mjs
-import { readFileSync, existsSync } from 'fs';
+import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
+import { installDomStub, loadModule } from './scripts/dom-stub.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -20,107 +21,12 @@ process.on('uncaughtException', e => {
   errors.push(s); console.error(s); process.exitCode = 1;
 });
 
-// 加速：所有 setTimeout 走 setImmediate（Node 会把 setTimeout(fn,0) 钳到 1ms，太慢）
-global.setTimeout = (fn, _ms, ...a) => setImmediate(() => fn(...a));
-const tick = () => new Promise(r => setImmediate(r));
-
-// ---------------- DOM 桩 ----------------
-const cache = {};
-function mkStyle() {
-  const s = { setProperty(k, v) { this[k] = v; } };
-  return s;
-}
-function mkEl(id) {
-  return {
-    id, _html: '', textContent: '', value: '', style: mkStyle(), dataset: {}, children: [],
-    classList: { s: new Set(), add(c) { this.s.add(c); }, remove(c) { this.s.delete(c); }, toggle(c, on) { on ? this.s.add(c) : this.s.delete(c); }, contains(c) { return this.s.has(c); } },
-    // 与真实 DOM 一致：设置 innerHTML 清空子节点（棋盘/玩家列表等渲染结构可计数断言）
-    set innerHTML(v) { this._html = String(v); this.children.length = 0; }, get innerHTML() { return this._html; },
-    appendChild(c) { this.children.push(c); return c; },
-    prepend(c) { this.children.unshift(c); if (this.children.length > 400) this.children.length = 400; return c; },
-    insertBefore(c, ref) { if (!ref) { this.children.push(c); } else { const i = this.children.indexOf(ref); if (i < 0) this.children.push(c); else this.children.splice(i, 0, c); } return c; },
-    get firstChild() { return this.children[0] || null; },
-    remove() { }, addEventListener() { }, removeEventListener() { }, setAttribute() { }, getAttribute() { return null; }, removeAttribute() { },
-    querySelector() { return null; }, querySelectorAll() { return []; },
-    get offsetWidth() { return 1; }, focus() { }, scrollIntoView() { },
-    getBoundingClientRect() { return { top: 0, left: 0, width: 54, height: 54 }; },
-    set onclick(fn) { this._onclick = fn; }, get onclick() { return this._onclick; },
-  };
-}
-const getEl = id => (cache[id] ||= mkEl(id));
-
-// 中央预览 DOM（view-core v2）
-(function setupTilePreview() {
-  const tp = mkEl('tilePreview');
-  const mkSub = cls => {
-    const el = mkEl(cls);
-    el.className = cls.replace('.', '');
-    el.hidden = false;
-    return el;
-  };
-  const subs = { '.tpName': mkSub('tpName'), '.tpMeta': mkSub('tpMeta'), '.tpIcon': mkSub('tpIcon'), '.tpArt': mkSub('tpArt') };
-  tp.querySelector = sel => subs[sel] || null;
-  cache.tilePreview = tp;
-})();
-
-// 操作区 mock：setActionsHTML 会把按钮 HTML 塞进来，我们需要让 game.js 里的
-// getElementById('rollBtn'/'buyBtn'/'upBtn'/'endBtn'/'mgBtn'/'rb') 能找到元素
-// 并支持 onclick 赋值/调用。这里做一个轻量解析器，从 HTML 里提取 id 并注册到 cache。
-(function setupActions() {
-  const actions = mkEl('actions');
-  actions._html = '';
-  Object.defineProperty(actions, 'innerHTML', {
-    set(html) {
-      actions._html = String(html);
-      actions.children.length = 0;
-      // 提取 <button id="xxx"> 并创建 mock 元素
-      const ids = [...html.matchAll(/id="([^"]+)"/g)].map(m => m[1]);
-      ids.forEach(id => {
-        if (!cache[id]) cache[id] = mkEl(id);
-      });
-    },
-    get() { return actions._html; }
-  });
-  cache.actions = actions;
-})();
-
-const document = {
-  getElementById: getEl,
-  createElement: () => mkEl('dyn'),
-  querySelector: () => null,
-  querySelectorAll: () => [],
-  addEventListener() { },
-  body: (() => {
-    const b = mkEl('body');
-    b.classList = { s: new Set(['no-tilt']), add(c) { this.s.add(c); }, remove(c) { this.s.delete(c); }, toggle(c, on) { on ? this.s.add(c) : this.s.delete(c); }, contains(c) { return this.s.has(c); } };
-    return b;
-  })(),
-};
-const store = {};
-global.document = document;
-global.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
-global.window = {
-  addEventListener() { },
-  removeEventListener() { },
-  AudioContext: undefined,
-  webkitAudioContext: undefined,
-  speechSynthesis: undefined,
-  SpeechSynthesisUtterance: undefined,
-  navigator: { serviceWorker: undefined },
-};          // 无 AudioContext → 音频模块自动降级
-// Node 22 的 globalThis.navigator 只有 getter，需用 defineProperty 覆盖
-Object.defineProperty(global, 'navigator', { value: { serviceWorker: undefined }, configurable: true, writable: true });
-global.alert = m => { throw new Error('alert: ' + m); };
-global.confirm = () => true;
-global.prompt = () => null;  // 拍卖出价：人类玩家不参与
-global.requestAnimationFrame = fn => setImmediate(fn);
-global.fetch = async (url) => {
-  const txt = readFileSync(join(HERE, String(url).replace(/^\.?\//, '')), 'utf8');
-  return { ok: true, status: 200, json: async () => JSON.parse(txt), text: async () => txt };
-};
+// DOM / window / fetch 桩：与 scripts/balance-probe.mjs、scripts/subtype-test.mjs 共用
+// scripts/dom-stub.mjs。alert 选 'throw' —— 意外弹窗在本测试里必须暴露。
+const { getEl, store, tick } = installDomStub({ root: HERE, alert: 'throw' });
 
 // ---------------- 载入真实模块（必须用 file:// 绝对 URL）----------------
-const load = f => import(pathToFileURL(join(HERE, 'js', f)).href);
+const load = f => loadModule(HERE, f);
 
 const config = await load('config.js');
 const state = await load('state.js');
