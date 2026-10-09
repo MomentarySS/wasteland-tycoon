@@ -312,14 +312,13 @@ function spawnRing(x, y, color, scale = 2.2, ms = 480) {
 function spawnBurst(x, y, color, count = 8) {
   const layer = fxLayer();
   if (!layer || RM) return;
-  const n = RM ? 3 : count;
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < count; i++) {
     const dot = document.createElement('span');
     dot.className = 'fxLandDot';
     dot.style.left = x + 'px';
     dot.style.top = y + 'px';
     dot.style.background = color;
-    const ang = (Math.PI * 2 * i) / n + Math.random() * .4;
+    const ang = (Math.PI * 2 * i) / count + Math.random() * .4;
     const dist = 28 + Math.random() * 36;
     trimFxLayer();
     layer.appendChild(dot);

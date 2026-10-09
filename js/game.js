@@ -18,6 +18,7 @@ import { pickMission, isChainMission, isFactionMission, isNukeMission } from './
 import { sfx, NUKE_LAUNCH_SFX_MS } from './audio.js';
 import { rollDice3D, hopToken, landDust, haptic, screenShake, footprint, pathGhost } from './fx.js';
 import { formatChoiceResult, playTileLandFx, showEventSummary } from './fx-events.js';
+import { getCellMetrics } from './board-metrics.js';
 // playNukeCutscene / playNukeStrike 已随 launchNuke 迁至 nuke.js
 import { applyLegacyToGame, getLegacyMeta, recordRun } from './legacy.js';
 import { rollMutators, applyMutators, resetMutatorFields } from './mutators.js';

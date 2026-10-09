@@ -62,15 +62,15 @@ function sceneHTML(sc) {
   }
 }
 
-/** 字幕打字机；skip.resolve 非空时立即补全 */
-function typewriter(el, text, skip) {
+/** 字幕打字机；返回 interval 句柄，供调用方在跳过时立即补全 */
+function typewriter(el, text) {
   if (RM || !text) { el.textContent = text; return null; }
   el.textContent = '';
   let i = 0;
   const timer = setInterval(() => {
     i++;
     el.textContent = text.slice(0, i);
-    if (i >= text.length) { clearInterval(timer); if (skip) skip.twDone = true; }
+    if (i >= text.length) { clearInterval(timer); }
   }, 34);
   return timer;
 }
@@ -84,7 +84,7 @@ function waitOrSkip(ms, skip) {
 }
 
 /** 播放一段分镜序列；点击过场层跳过当前幕 */
-export async function playCutscene(scenes, opts) {
+export async function playCutscene(scenes) {
   if (!ENABLED || !Array.isArray(scenes) || !scenes.length) return;
   if (layer) removeLayer();
   buildLayer();
@@ -92,7 +92,7 @@ export async function playCutscene(scenes, opts) {
   const titleEl = layer.querySelector('.csTitle');
   const subEl = layer.querySelector('.csSub');
   const speed = RM ? 0.35 : 1;
-  const skip = { flag: false, resolve: null, twDone: false };
+  const skip = { flag: false, resolve: null };
   const onSkip = () => {
     skip.flag = true;
     if (skip.resolve) skip.resolve();
@@ -107,7 +107,7 @@ export async function playCutscene(scenes, opts) {
       }
       if (subEl) subEl.classList.remove('in');
       if (titleEl) {
-        const tw = typewriter(titleEl, sc.title, skip);
+        const tw = typewriter(titleEl, sc.title);
         if (tw) {
           await waitOrSkip(Math.min(sc.title.length * 34 + 120, 900 * speed), skip);
           clearInterval(tw);

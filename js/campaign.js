@@ -148,6 +148,9 @@ function pickIntroVariant(block, moral) {
   for (const v of variants) {
     if (m >= v.minMoral) return v;
   }
+  // 兜底：数据上末位变体的 minMoral 恒为 -Infinity，正常不会落到这里。
+  // 保留是因为 CHAPTER_INTROS / ENDINGS 为手写内容，新增章节漏写兜底变体时
+  // 这行仍能保证返回一个变体，而不是 undefined。
   return variants[variants.length - 1];
 }
 
@@ -192,11 +195,8 @@ export function evaluateCampaignCoop(human, ally, ctx, idx = 0) {
     if (o.key === 'moral') {
       // 道德取人类值（决策主体）
       v = o.get(human, ctx) || 0;
-    } else if (o.key === 'caps' || o.key === 'net') {
-      // 瓶盖/身家取双方总和
-      v = teammates.reduce((sum, p) => sum + (o.get(p, ctx) || 0), 0);
     } else {
-      // 地产/垄断/设施取双方总和
+      // 瓶盖 / 身家 / 地产 / 垄断 / 设施一律取双方总和
       v = teammates.reduce((sum, p) => sum + (o.get(p, ctx) || 0), 0);
     }
     return { text: o.text, goal: o.goal, value: v, done: v >= o.goal };
