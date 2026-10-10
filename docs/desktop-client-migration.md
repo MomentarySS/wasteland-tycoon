@@ -119,3 +119,67 @@ MiniMax IPC 通过 `electron/preload.cjs` 暴露的受限接口调用；渲染�
    - 该报错出自 Chromium GPU 合成层（`gpu\command_buffer\service\shared_image\shared_image_manager.cc`），与本版的 JS 机制改动无直接关联，但**未完成对照实验**，不能断言为既有问题：原计划用 v1.7.3 做同条件对照，该安装器因与已安装的 1.8.0 同 `appId` 而挂起，已终止。
    - 另需注意：v1.7.3 文档记的「0 条 ERROR」**很可能是对空日志点的名**——本轮首次启动时 stdout 仅 2 字节、stderr 0 字节，同样会得到「0 ERROR」。改用 `--enable-logging --log-file=` 后才拿到真实日志。**日志判据必须在确认日志非空的前提下才成立。**
 2. **卸载后残留 `resources\app.asar`（29,197,807 字节）**在隔离安装目录内，其余文件均已清除。退出码为 0，快捷方式无残留。该残留随隔离目录保留，且该文件当前被其他进程占用，`rm --` 可恢复删除多次失败（`DeleteDirectory` 报 "The system call level is not correct"，重命名探测报「另一个进程正在使用此文件」），未绕过可恢复删除强制清理，需人工处理。`test/acceptance-180/` 因此仍以 `??` 出现在 `git status`。
+
+## v1.8.1 修复轮（2026-10-10）
+
+**本版不是功能版。** 内容是 2026-10-09 OCR 全仓审查报告的执行结果，共 24 个 commit，范围 `0a1dc89..b9eef08`，39 文件 **+532 / −577**。按仓库发布流程「含新功能走 minor」，本轮无新增面向用户功能，故走 patch。
+
+### 内容
+
+**P0（1 项）**
+
+- `js/game.js` 补 `evaluateCampaignCoop` 导入，修复**合作闯关回合结算直接崩溃**。回归用例走 `game.js` 的真实入口链（`chGo → takeTurn → afterHumanAction → endBtn → endTurn`），并用变异测试确认过该用例真能抓回归。
+
+**P1 安全与一致性（6 项）**
+
+- `js/tts.js`：`cancelTts` 用**世代号 `_gen` 隔离**队列，而不是把计数减到 0。
+- `.gitignore` 忽略 `test/acceptance-*/`，验收产物不再污染 `git status`。
+- 视图层三处 HTML 注入点收敛（`escapeHtml` 补单引号 + `short`/`moral` 转义与归整）。
+- `electron/main.js`：`openExternal` 加 `http(s)` 白名单；生产包关闭 F12。
+- `electron/minimax-tts.js`：补 `options` 转发，错误回显抹除 API Key。
+- `index.html` 加 Content-Security-Policy。
+
+**P2 清理与收敛（11 项）**
+
+- 死代码清理：零引用死导出、失效的 `tokenIcon` / `uiArtUrl` / `UI_ART`、未接线的遗产结算界面与 2.5D 空壳 API、死分支与死条件、只写不读的 CSS 变量；顺带补上 `getCellMetrics` 的缺失导入。
+- `js/config.js` 抽出 `TYPE_LABEL` / `tileDisplayName` 共用实现，去掉 `iconColor` 的重复副本。
+- 价格字面量收进常量（`CARD_PRICE` / `STEAL_PRICE` / `MINE_COST_DEEP` / `MINE_COST_SHALLOW`），消除「改价只改一处不生效」。
+- `js/view-modal.js`：弹窗动作收尾统一为 `settleAndContinue`，补上掩体缺失的核弹确认分支。
+- `js/rules.js`：抽出两组重复的地块筛选。
+- 新增 `js/fx-env.js`，抽取表现层环境探测小工具。
+
+**脚手架修正与文档（4 项）**：`subtype-test` 的 volatile 确定性断言恒真、`balance-probe` 零局跑完改为硬失败、`desktop-dev` 补 `spawn` 的 error 监听、canvas 渐变 memo 的 A/B 实测结论落文档；以及 `layout-*-preview` 三处瑕疵与三份重复 DOM 桩合并为 `scripts/dom-stub.mjs`（删 241 行）。
+
+### 验证
+
+- `npm test`（smoke）**PASSED**，退出码 0。含新增的「合作闯关回合结算校验通过」。
+- `scripts/subtype-test.mjs`：**pass=49 fail=0**（v1.8.0 为 48/48）。
+- `scripts/subtype-design-check.mjs`：**PASS**，全部 subType 在 8% 上限内，退出码 0。
+- `scripts/balance-probe.mjs --games 3`：4P 中位净值 3030，**0 破产**，全员存活 3/3，退出码 0。⚠️ **口径不同**：此处为 3 局快速抽样，基线 3043 与 v1.8.0 的验收均是 20 局；换算成 −0.43% 仅供粗判，**不可当作与 v1.8.0 同口径的平衡回归结论**。`balance-probe` 自带的判据是「中位偏移 >15% 才算动了」。
+- mimo 端点失败回退有离线桩测试 **9/9**（该临时脚本已在验证后删除）。
+- CSP、canvas 重构、fx 工具重构三处**实跑真实 Electron** 验证：`ELECTRON_ENABLE_LOGGING=1` + 临时 `console-message` 监听 + `executeJavaScript` 自动开局，探针已全部还原。
+- DOM 桩合并后按 `HEAD` 逐项比对业务代码计数一致（smoke 断言 147/147、subtype-test `ok()` 33/33、常量 6/6、balance-probe 输出 17/17、`report` 16/16）。
+
+### 未做的验收，如实记录
+
+**本轮没有构建安装包，也没有实机安装验收。** 与上面 v1.7.1 / v1.7.2 / v1.7.3 / v1.8.0 四节不同，以下项目在本轮**缺失**，不能拿上面的闸门结果顶替：
+
+- `npm run desktop:build` 未执行，因此无 `废土大亨 Setup 1.8.1.exe` 的字节数 / SHA256 / blockmap。
+- 静默安装 `/S` 与卸载 `/S` 未执行，无对应退出码记录。
+- ASAR 内容核对未执行。
+- 安装后启动日志未采集，**GPU ERROR 是否仍为 4 条未复验**。
+
+已做的替代验证是「**在开发态实跑真实 Electron**」（CSP / canvas / fx 三处），它能证明运行时不报错，但**不能替代打包后的产物核对**。发布前若需要与前四节同格式的完整验收，需补跑构建与安装环节。
+
+### 与原审查报告的偏离，如实记录
+
+原报告的 6 处建议经实测后未照原样执行。**后续若再拿到同一份报告，不要照单重施**：
+
+1. 报告 P1-4 说「只改 `main.js:145`」——无效。**修复前** `minimax-tts.js:138` 实际是无参 `await init()`，只改 main 那一处兜底逻辑根本走不到；**两处一起改**才真修好。（该行现在是 `await init(opts)`，行号已被本轮修复占用，引用时以当前代码为准。）
+2. 报告 P1-6 说「补 `_pending = 0`」——会引入负计数回归，改用世代号 `_gen` 隔离。
+3. 报告 P1-9 说在 `validateSave` 归整不合适——结论采纳，改放到 `loadGame`。
+4. `CARD_PRICE` 实为 **4 处**不是报告说的 3 处；处理时顺带收进 `STEAL_PRICE`（`config.js`）与 `MINE_COST_DEEP` / `MINE_COST_SHALLOW`（`rules.js`）。
+5. 掩体缺核弹确认分支是**潜伏不一致、当前不可达**（`bunkerRest` / `bunkerFortify` 不调 `tryGrantNukeKey`）。已修，但已在代码注释中标明其真实性质，不应按「线上正在丢钥匙」理解。
+6. `fx.js` 的 `ENABLED` 比另两个模块多一条 `document.body` 判定——**未借重构抹平**，各模块表达式原样保留。
+
+另有三处经复核后判定**不需要改**：`sideOf()` 实测只有 `board-canvas.js` 一份实现，view-core 无第二份，未做合并；`setBoardTilt` / `setTileArt` 并非 0 调用（`js/view.js` barrel 与 `smoke.test.mjs` 都在用），且那两条断言恒真——改为 render 后直接查 DOM，保留真不变量；`campaign.js:151` 末位 return 是手写数据兜底，**保留**，仅补注释。

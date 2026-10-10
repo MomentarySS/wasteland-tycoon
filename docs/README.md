@@ -9,6 +9,7 @@
 
 - [v1.7.2 发布收口计划](v1.7.2-release-plan.md)：版本切换、构建验证、实机验收与发布步骤
 - [v1.8.0 实施计划](v1.8.0-plan.md)：prop subType 与 mutator 视觉变种，含平衡基线实测
+- [v1.8.1 修复轮验收](desktop-client-migration.md#v181-修复轮2026-10-10)：OCR 全仓审查报告的 24 个修复 commit，含**未做的验收**与**对原报告的偏离**记录
 
 ## 设计与研究
 
