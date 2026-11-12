@@ -1,6 +1,6 @@
 # Windows 桌面客户端
 
-> 当前实现说明：v1.8.1。本文以仓库代码和 `package.json` 为准。
+> 当前实现说明：v1.9.0。本文以仓库代码和 `package.json` 为准。
 
 ## 产品范围
 
@@ -37,7 +37,7 @@ npm run desktop:build
 
 在线语音 IPC 通过 `electron/preload.cjs` 暴露的受限接口调用；渲染进程不直接读取密钥。
 
-> 2026-11-12：MiniMax 在线链路已移除，当前为「仅预录 + MiMo + 自定义 OpenAI 兼容 TTS」。下方 v1.7.x / v1.8.x 验收记录中的 MiniMax 日志、`minimax-tts.js` 引用和缓存目录属于当时状态，保留原样，不代表当前实现。
+> 2026-11-12（v1.9.0）：MiniMax 在线链路已移除，当前为「仅预录 + MiMo + 自定义 OpenAI 兼容 TTS」。下方 v1.7.x / v1.8.x 验收记录中的 MiniMax 日志、`minimax-tts.js` 引用和缓存目录属于当时状态，保留原样，不代表当前实现。
 
 ## 主要目录
 
