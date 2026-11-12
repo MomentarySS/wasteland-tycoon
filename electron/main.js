@@ -1,5 +1,5 @@
 // electron/main.js —— 桌面客户端主进程
-// 把 www/ 装进 BrowserWindow；在线语音走 MiniMax 或小米 MiMo TTS
+// 把 www/ 装进 BrowserWindow；在线语音走自定义 OpenAI 兼容 TTS 或小米 MiMo TTS
 import { app, BrowserWindow, ipcMain, dialog, shell, Menu, safeStorage } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -84,14 +84,19 @@ function createWindow() {
 ipcMain.handle('app:getVersion', () => app.getVersion());
 ipcMain.handle('app:getPlatform', () => process.platform);
 
-let minimaxTts = null;
-async function getMinimax() {
-  if (!minimaxTts) minimaxTts = await import('./minimax-tts.js');
-  return minimaxTts;
+let customTts = null;
+async function getCustom() {
+  if (!customTts) customTts = await import('./custom-tts.js');
+  return customTts;
 }
 
+const KEY_FILE_BY_PROVIDER = {
+  mimo: '.mimo-api-key',
+  custom: '.custom-tts-api-key',
+};
+
 function userKeyPath(provider, userData = app.getPath('userData')) {
-  return path.join(userData, provider === 'mimo' ? '.mimo-api-key' : '.minimax-api-key');
+  return path.join(userData, KEY_FILE_BY_PROVIDER[provider] || `.${provider}-api-key`);
 }
 
 function readUserApiKey(provider, userData) {
@@ -124,7 +129,7 @@ function providerOptions(provider) {
     root: ROOT,
     userData,
     userDataApiKey: readUserApiKey(provider, userData),
-    cacheDir: path.join(userData, provider === 'mimo' ? 'mimo-tts-cache' : 'minimax-tts-cache'),
+    cacheDir: path.join(userData, `${provider}-tts-cache`),
   };
 }
 
@@ -135,64 +140,67 @@ function normalizeApiKey(value) {
   return key;
 }
 
-ipcMain.handle('minimax:init', async () => {
+function customOptions(config = {}) {
+  return {
+    ...providerOptions('custom'),
+    baseUrl: config && config.baseUrl,
+    model: config && config.model,
+    voice: config && config.voice,
+  };
+}
+
+ipcMain.handle('custom:init', async (_evt, config) => {
   try {
-    const m = await getMinimax();
-    return await m.init(providerOptions('minimax'));
+    return await (await getCustom()).init(customOptions(config));
   } catch (e) {
-    console.error('[minimax:init] 失败:', e);
-    return { ok: false, error: String(e && e.message || e) };
+    console.error('[custom:init] 失败:', e && e.message);
+    return { ok: false, error: '自定义 TTS 初始化失败' };
   }
 });
 
-ipcMain.handle('minimax:speak', async (_evt, text, opts) => {
-  try {
-    const m = await getMinimax();
-    const r = await m.speak(text, { ...providerOptions('minimax'), ...(opts || {}) });
-    if (!r || !r.ok) return { ok: false, error: (r && r.error) || 'synth failed' };
-    const raw = r.mp3;
-    const mp3 = raw instanceof Uint8Array ? new Uint8Array(raw) : Uint8Array.from(raw || []);
-    return { ok: true, mp3, cached: !!r.cached };
-  } catch (e) {
-    console.error('[minimax:speak] 失败:', e);
-    return { ok: false, error: String(e && e.message || e) };
-  }
+ipcMain.handle('custom:status', async (_evt, config) => {
+  try { return await (await getCustom()).init(customOptions(config)); }
+  catch (_) { return { ok: false }; }
 });
 
-ipcMain.handle('minimax:status', async () => {
-  try {
-    const m = await getMinimax();
-    return await m.init(providerOptions('minimax'));
-  } catch (_) {
-    return { ok: false };
-  }
-});
-
-ipcMain.handle('minimax:saveKey', async (_evt, key) => {
+ipcMain.handle('custom:saveKey', async (_evt, key) => {
   try {
     const normalized = normalizeApiKey(key);
-    if (!normalized) return { ok: false, error: '请输入有效的 MiniMax API Key' };
-    const options = providerOptions('minimax');
-    const saved = saveUserApiKey('minimax', normalized, options.userData);
+    if (!normalized) return { ok: false, error: '请输入有效的自定义 TTS API Key' };
+    const opts = providerOptions('custom');
+    const saved = saveUserApiKey('custom', normalized, opts.userData);
     if (!saved.ok) return saved;
-    const m = await getMinimax();
-    return await m.init({ ...options, userDataApiKey: normalized });
+    // 服务地址 / 模型 / 音色由渲染层保存；这里只落 Key，随后由 status 验证。
+    return { ok: true };
   } catch (e) {
-    console.error('[minimax:saveKey] 失败:', e && e.message);
-    return { ok: false, error: '保存 MiniMax API Key 失败' };
+    console.error('[custom:saveKey] 失败:', e && e.message);
+    return { ok: false, error: '保存自定义 TTS API Key 失败' };
   }
 });
 
-ipcMain.handle('minimax:clearKey', async () => {
+ipcMain.handle('custom:clearKey', async () => {
   try {
-    const m = await getMinimax();
-    const options = providerOptions('minimax');
-    const deleted = deleteUserApiKey('minimax', options.userData);
+    const opts = providerOptions('custom');
+    const deleted = deleteUserApiKey('custom', opts.userData);
     if (!deleted.ok) return deleted;
-    return await m.init({ ...options, userDataApiKey: '' });
+    return { ok: true };
   } catch (e) {
-    console.error('[minimax:clearKey] 失败:', e && e.message);
-    return { ok: false, error: '清除 MiniMax API Key 失败' };
+    console.error('[custom:clearKey] 失败:', e && e.message);
+    return { ok: false, error: '清除自定义 TTS API Key 失败' };
+  }
+});
+
+ipcMain.handle('custom:speak', async (_evt, text, opts) => {
+  try {
+    const m = await getCustom();
+    const config = opts || {};
+    const result = await m.speak(text, { ...customOptions(config), speed: config.speed });
+    if (!result || !result.ok) return { ok: false, error: (result && result.error) || 'custom synthesis failed' };
+    const audio = result.audio instanceof Uint8Array ? new Uint8Array(result.audio) : Uint8Array.from(result.audio || []);
+    return { ok: true, audio, format: result.format || 'mp3', cached: !!result.cached, voice: result.voice };
+  } catch (e) {
+    console.error('[custom:speak] 失败:', e && e.message);
+    return { ok: false, error: '自定义 TTS 语音合成失败' };
   }
 });
 
@@ -263,9 +271,6 @@ ipcMain.handle('mimo:speak', async (_evt, text, opts) => {
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   createWindow();
-  getMinimax().then((m) => {
-    m.init(providerOptions('minimax')).catch((e) => console.error('[minimax] 预热失败', e));
-  }).catch((e) => console.error('[minimax] 模块加载失败', e));
 });
 
 app.on('window-all-closed', () => {

@@ -5,12 +5,12 @@ contextBridge.exposeInMainWorld('wastelandDesktop', {
   getVersion: () => ipcRenderer.invoke('app:getVersion'),
   getPlatform: () => ipcRenderer.invoke('app:getPlatform'),
 
-  minimax: {
-    init: () => ipcRenderer.invoke('minimax:init'),
-    speak: (text, opts) => ipcRenderer.invoke('minimax:speak', text, opts),
-    status: () => ipcRenderer.invoke('minimax:status'),
-    saveKey: (key) => ipcRenderer.invoke('minimax:saveKey', key),
-    clearKey: () => ipcRenderer.invoke('minimax:clearKey'),
+  custom: {
+    init: (config) => ipcRenderer.invoke('custom:init', config),
+    speak: (text, opts) => ipcRenderer.invoke('custom:speak', text, opts),
+    status: (config) => ipcRenderer.invoke('custom:status', config),
+    saveKey: (key) => ipcRenderer.invoke('custom:saveKey', key),
+    clearKey: () => ipcRenderer.invoke('custom:clearKey'),
   },
   mimo: {
     init: () => ipcRenderer.invoke('mimo:init'),

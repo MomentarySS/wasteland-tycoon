@@ -117,7 +117,7 @@ export async function speak(text, opts = {}) {
   const rateHint = speed < 0.95 ? '请用偏慢的语速' : speed > 1.1 ? '请用偏快的语速' : '请用自然、清晰的语速';
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 30000);
-  // 端点回退（与 minimax-tts.js 同构）：已知可用的优先，其余按 ENDPOINTS 顺序试。
+  // 端点回退：已知可用的优先，其余按 ENDPOINTS 顺序试。
   // 配额 / Key 类错误换主机通常也没用，但两个主机同属小米官方域，多一次失败的代价
   // 远小于「猜错主机导致 Key 发往错误入口」的风险。
   const urls = endpoint ? [endpoint, ...ENDPOINTS.filter((u) => u !== endpoint)] : ENDPOINTS.slice();

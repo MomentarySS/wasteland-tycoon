@@ -6,8 +6,10 @@ import {
   WASTELAND_EMOJI, slotAvatarHTML, getSlotAvatarStore
 } from './view-core.js';
 import {
-  getVoiceSource, setVoiceSource, MINIMAX_VOICES, getMinimaxVoice, setMinimaxVoice,
-  MIMO_VOICES, getMimoVoice, setMimoVoice, onlineKeyStatus, saveOnlineKey, clearOnlineKey
+  getVoiceSource, setVoiceSource,
+  MIMO_VOICES, getMimoVoice, setMimoVoice,
+  getCustomTtsConfig, setCustomTtsConfig,
+  onlineKeyStatus, saveOnlineKey, clearOnlineKey
 } from './tts.js';
 import { showLegacyShop } from './view-legacy.js';
 
@@ -41,11 +43,8 @@ export function buildSetup() {
   }
 
   const curSrc = getVoiceSource();
-  const curVoice = getMinimaxVoice();
+  const curCustom = getCustomTtsConfig();
   const curMimoVoice = getMimoVoice();
-  const voiceOpts = MINIMAX_VOICES.map((v) =>
-    '<option value="' + v.id.replace(/"/g, '&quot;') + '"' + (v.id === curVoice ? ' selected' : '') + '>' + v.label + '</option>'
-  ).join('');
   const mimoVoiceOpts = MIMO_VOICES.map((v) =>
     '<option value="' + v.id.replace(/"/g, '&quot;') + '"' + (v.id === curMimoVoice ? ' selected' : '') + '>' + v.label + '</option>'
   ).join('');
@@ -82,17 +81,19 @@ export function buildSetup() {
     +     '<div class="optRow"><span>语音播报</span><select id="ttsOn"><option value="on" selected>开</option><option value="off">关</option></select></div>'
     +     '<div class="optRow"><span>播报语速</span><select id="ttsRate"><option value="0.9">慢</option><option value="1.05" selected>正常</option><option value="1.5">快</option></select></div>'
     +     '<div class="optRow"><span>语音来源</span><select id="ttsSrc">'
-    +       '<option value="minimax"' + (curSrc === 'minimax' ? ' selected' : '') + '>MiniMax 在线（全部播报）</option>'
+    +       '<option value="voice"' + (curSrc === 'voice' ? ' selected' : '') + '>仅预录语音（随包）</option>'
     +       '<option value="mimo"' + (curSrc === 'mimo' ? ' selected' : '') + '>小米 MiMo 在线（全部播报）</option>'
-    +       '<option value="voice"' + (curSrc === 'voice' ? ' selected' : '') + '>仅 MiniMax 预录</option>'
+    +       '<option value="custom"' + (curSrc === 'custom' ? ' selected' : '') + '>自定义 TTS（OpenAI 兼容）</option>'
     +     '</select></div>'
-    +     '<div class="optRow" id="minimaxVoiceRow"><span>MiniMax 音色</span><select id="ttsVoice">' + voiceOpts + '</select></div>'
     +     '<div class="optRow" id="mimoVoiceRow"><span>MiMo 音色</span><select id="mimoVoice">' + mimoVoiceOpts + '</select></div>'
+    +     '<div class="optRow" id="customBaseRow"><span>服务地址</span><input class="ttsCustomInput" id="customBaseUrl" type="text" placeholder="https://api.example.com/v1" maxlength="500" spellcheck="false"></div>'
+    +     '<div class="optRow" id="customModelRow"><span>模型</span><input class="ttsCustomInput" id="customModel" type="text" placeholder="tts-1" maxlength="128" spellcheck="false"></div>'
+    +     '<div class="optRow" id="customVoiceRow"><span>音色</span><input class="ttsCustomInput" id="customVoice" type="text" placeholder="alloy" maxlength="128" spellcheck="false"></div>'
     +     '<div class="ttsKeyEntry" id="ttsKeyEntry">'
     +       '<button type="button" class="alt ttsKeyToggle" id="ttsKeyToggle">🔑 设置在线语音 API Key</button>'
     +       '<div class="ttsKeyPanel" id="ttsKeyPanel" hidden>'
-    +         '<label class="ttsKeyLabel" for="ttsApiKey" id="ttsKeyLabel">MiniMax API Key</label>'
-    +         '<a class="ttsKeyDocs" id="ttsKeyDocs" href="https://platform.minimax.cn/docs/guides/speech-t2a-websocket" target="_blank" rel="noreferrer">打开服务商官方接口与 Key 页面 ↗</a>'
+    +         '<label class="ttsKeyLabel" for="ttsApiKey" id="ttsKeyLabel">API Key</label>'
+    +         '<a class="ttsKeyDocs" id="ttsKeyDocs" href="https://mimo.mi.com/models/zh-CN/mimo-v2.5-tts" target="_blank" rel="noreferrer">打开服务商官方接口与 Key 页面 ↗</a>'
     +         '<input id="ttsApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴 API Key；保存后输入框会清空">'
     +         '<div class="ttsKeyActions"><button type="button" id="ttsKeySave">保存并启用在线语音</button><button type="button" class="alt" id="ttsKeyClear">清除本机 Key</button></div>'
     +         '<span class="ttsKeyStatus" id="ttsKeyStatus" role="status">Key 使用 Windows 安全存储保存在当前用户的应用数据目录。</span>'
@@ -161,34 +162,47 @@ export function buildSetup() {
   const keyDocs = document.getElementById('ttsKeyDocs');
   const keyToggle = document.getElementById('ttsKeyToggle');
   const keyStatus = document.getElementById('ttsKeyStatus');
-  const minimaxVoiceRow = document.getElementById('minimaxVoiceRow');
   const mimoVoiceRow = document.getElementById('mimoVoiceRow');
+  const customBaseRow = document.getElementById('customBaseRow');
+  const customModelRow = document.getElementById('customModelRow');
+  const customVoiceRow = document.getElementById('customVoiceRow');
+  const customBaseInput = document.getElementById('customBaseUrl');
+  const customModelInput = document.getElementById('customModel');
+  const customVoiceInput = document.getElementById('customVoice');
   const voiceHint = document.getElementById('ttsVoiceHint');
   const updateTtsProviderControls = () => {
     const provider = ttsSrcSel ? ttsSrcSel.value : curSrc;
-    const online = provider === 'minimax' || provider === 'mimo';
     const isMimo = provider === 'mimo';
+    const isCustom = provider === 'custom';
+    const online = isMimo || isCustom;
     const keyEntry = document.getElementById('ttsKeyEntry');
     if (keyEntry) keyEntry.hidden = !online;
-    if (minimaxVoiceRow) minimaxVoiceRow.hidden = !online || isMimo;
     if (mimoVoiceRow) mimoVoiceRow.hidden = !isMimo;
-    if (keyLabel) keyLabel.textContent = isMimo ? '小米 MiMo API Key' : 'MiniMax API Key';
-    if (keyDocs) keyDocs.href = isMimo
-      ? 'https://mimo.mi.com/models/zh-CN/mimo-v2.5-tts'
-      : 'https://platform.minimax.cn/docs/guides/speech-t2a-websocket';
-    if (keyToggle) keyToggle.textContent = isMimo ? '🔑 设置小米 MiMo API Key' : '🔑 设置 MiniMax API Key';
+    if (customBaseRow) customBaseRow.hidden = !isCustom;
+    if (customModelRow) customModelRow.hidden = !isCustom;
+    if (customVoiceRow) customVoiceRow.hidden = !isCustom;
+    if (keyLabel) keyLabel.textContent = isMimo ? '小米 MiMo API Key' : '自定义 TTS API Key';
+    if (keyDocs) {
+      keyDocs.hidden = isCustom;
+      if (isMimo) keyDocs.href = 'https://mimo.mi.com/models/zh-CN/mimo-v2.5-tts';
+    }
+    if (keyToggle) keyToggle.textContent = isMimo ? '🔑 设置小米 MiMo API Key' : '🔑 设置自定义 TTS API Key';
     if (voiceHint) voiceHint.textContent = isMimo
       ? '使用 MiMo-V2.5-TTS；支持 API Key 和 Token Plan Key，音色可选苏打、白桦、冰糖、茉莉。点顶部「测音」试听。'
-      : 'MiniMax 在线音色可在上方选择；点顶部「测音」试听。预录模式只播放包内已有的固定语句。';
+      : isCustom
+        ? '按 OpenAI 兼容格式请求「服务地址 + /audio/speech」；服务地址、模型、音色和 Key 都保存在本机。点顶部「测音」试听。'
+        : '仅播放随包预录语音；未命中的句子不发声，也不会自动切换其它引擎。';
   };
 
   async function refreshKeyStatus() {
-    if (!keyStatus || !ttsSrcSel || (ttsSrcSel.value !== 'minimax' && ttsSrcSel.value !== 'mimo')) return;
+    if (!keyStatus || !ttsSrcSel || (ttsSrcSel.value !== 'mimo' && ttsSrcSel.value !== 'custom')) return;
     keyStatus.textContent = '正在读取本机 Key 状态…';
     const status = await onlineKeyStatus(ttsSrcSel.value);
     keyStatus.textContent = !status.available
       ? '请在 Windows 桌面版中配置 Key。'
-      : status.ok ? '已配置 Key；可点顶部「测音」验证连接。' : '尚未配置 Key。';
+      : status.ok
+        ? '已配置 Key；可点顶部「测音」验证连接。'
+        : (status.error ? '尚未就绪：' + status.error : '尚未配置 Key。');
   }
 
   if (ttsSrcSel) {
@@ -199,10 +213,17 @@ export function buildSetup() {
     };
     setVoiceSource(ttsSrcSel.value);
   }
-  const ttsVoiceSel = document.getElementById('ttsVoice');
-  if (ttsVoiceSel) {
-    ttsVoiceSel.onchange = () => setMinimaxVoice(ttsVoiceSel.value);
-    setMinimaxVoice(ttsVoiceSel.value);
+  if (customBaseInput) {
+    customBaseInput.value = curCustom.baseUrl;
+    customBaseInput.oninput = () => setCustomTtsConfig({ baseUrl: customBaseInput.value });
+  }
+  if (customModelInput) {
+    customModelInput.value = curCustom.model;
+    customModelInput.oninput = () => setCustomTtsConfig({ model: customModelInput.value });
+  }
+  if (customVoiceInput) {
+    customVoiceInput.value = curCustom.voice;
+    customVoiceInput.oninput = () => setCustomTtsConfig({ voice: customVoiceInput.value });
   }
   const mimoVoiceSel = document.getElementById('mimoVoice');
   if (mimoVoiceSel) {
@@ -218,9 +239,16 @@ export function buildSetup() {
   if (saveKeyBtn && keyInput && keyStatus) saveKeyBtn.onclick = async () => {
     const key = keyInput.value.trim();
     if (!key) { keyStatus.textContent = '请先输入 API Key。'; keyInput.focus(); return; }
+    const provider = ttsSrcSel ? ttsSrcSel.value : 'voice';
+    if (provider === 'custom') {
+      setCustomTtsConfig({
+        baseUrl: customBaseInput ? customBaseInput.value : '',
+        model: customModelInput ? customModelInput.value : '',
+        voice: customVoiceInput ? customVoiceInput.value : '',
+      });
+    }
     saveKeyBtn.disabled = true;
     keyStatus.textContent = '正在安全保存并初始化服务…';
-    const provider = ttsSrcSel ? ttsSrcSel.value : 'minimax';
     let result;
     try { result = await saveOnlineKey(provider, key); }
     catch (_) { result = { ok: false, error: '保存失败，请检查桌面客户端状态。' }; }
@@ -229,12 +257,13 @@ export function buildSetup() {
     keyStatus.textContent = result.ok
       ? 'Key 已保存在本机；点顶部「测音」验证 API Key 和播报。'
       : (result.error || '保存失败，请重试。');
+    if (result.ok && provider === 'custom') await refreshKeyStatus();
   };
   const clearKeyBtn = document.getElementById('ttsKeyClear');
   if (clearKeyBtn && keyStatus) clearKeyBtn.onclick = async () => {
     clearKeyBtn.disabled = true;
     keyStatus.textContent = '正在清除本机 Key…';
-    const provider = ttsSrcSel ? ttsSrcSel.value : 'minimax';
+    const provider = ttsSrcSel ? ttsSrcSel.value : 'voice';
     let result;
     try { result = await clearOnlineKey(provider); }
     catch (_) { result = { ok: false, error: '清除失败，请检查桌面客户端状态。' }; }
@@ -267,12 +296,4 @@ export function buildSetup() {
     diffSel.onchange = () => applyDifficultyForm(diffSel.value);
     applyDifficultyForm(diffSel.value);
   }
-}
-
-/** 从配置面板读取并持久化 TTS 设置（供 game.js 等调用，避免重复逻辑） */
-export function applyTtsSetupFromForm() {
-  const ttsSrc = document.getElementById('ttsSrc');
-  if (ttsSrc) setVoiceSource(ttsSrc.value);
-  const ttsVoice = document.getElementById('ttsVoice');
-  if (ttsVoice) setMinimaxVoice(ttsVoice.value);
 }

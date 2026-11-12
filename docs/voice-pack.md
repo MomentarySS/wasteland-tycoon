@@ -4,7 +4,7 @@
 
 导出录制任务：`npm run voice:list`（当前目标清单 **286 条 / 7749 字**），或 `npm run voice:export` 生成 `assets/voice/agent-tasks.json` 交给外部合成（音色已绑进文件名，换音色必须重跑导出）。清单为全量 286 条，当前已全部录完；文案改动后按新清单补增量即可。
 
-当前**已录 286 条 / 目标 286 条，覆盖率 100%**（2026-10-08 补录完成并实测：按运行时同一个 `voiceHash` 逐条比对，不数文件）。`assets/voice/` 下 286 个 mp3（15.6MB）与 `manifest.json` 的 286 条**双向零差异、零孤儿、无小于 64B 的损坏文件**，`www/assets/voice/` 镜像与源目录文件名逐个一致。录制参数锁定为音色 `male-qn-jingying` / 模型 `speech-2.8-hd` / 语速 1——**hash 由「音色|文案」算出，换音色会让全部 286 条同时失配**，届时只能 `--force` 全量重录。此前因 2026-09-04 起文案组装加入 `story` 字段而 hash 失配的 81 条已于 2026-10-08 清理，并按当前文案重录。`assets/voice/agent-tasks.json` 仍与当前文案 286 条逐条对齐，可作为后续增量补录清单。游戏只播放文案匹配的录音——在线语音模式下未命中由在线 TTS 兜底，选「仅 MiniMax 预录」时该句不发声。文案改动后必须重跑 `npm run voice:gen`（增量跳过已有文件，并自动清理失配的孤儿音频）；**随后必须再跑 `npm run sync:www`**——`package.json` 的 `build.files` 只含 `electron/**`、`www/**`、`package.json`，音频是 `scripts/sync-www.mjs` 镜像进 `www/` 才进安装包的，漏了这步新音频不会随包发布。
+当前**已录 286 条 / 目标 286 条，覆盖率 100%**（2026-10-08 补录完成并实测：按运行时同一个 `voiceHash` 逐条比对，不数文件）。`assets/voice/` 下 286 个 mp3（15.6MB）与 `manifest.json` 的 286 条**双向零差异、零孤儿、无小于 64B 的损坏文件**，`www/assets/voice/` 镜像与源目录文件名逐个一致。录制参数锁定为音色 `male-qn-jingying` / 模型 `speech-2.8-hd` / 语速 1——**hash 由「音色|文案」算出，换音色会让全部 286 条同时失配**，届时只能 `--force` 全量重录。此前因 2026-09-04 起文案组装加入 `story` 字段而 hash 失配的 81 条已于 2026-10-08 清理，并按当前文案重录。`assets/voice/agent-tasks.json` 仍与当前文案 286 条逐条对齐，可作为后续增量补录清单。游戏只播放文案匹配的录音——在线语音模式下未命中由在线 TTS 兜底，选「仅预录语音」时该句不发声。文案改动后必须重跑 `npm run voice:gen`（增量跳过已有文件，并自动清理失配的孤儿音频）；**随后必须再跑 `npm run sync:www`**——`package.json` 的 `build.files` 只含 `electron/**`、`www/**`、`package.json`，音频是 `scripts/sync-www.mjs` 镜像进 `www/` 才进安装包的，漏了这步新音频不会随包发布。`gen-voice.mjs` 仍调用 MiniMax T2A，需要 `MINIMAX_API_KEY` 或项目根目录 `.minimax-api-key`；游戏运行时的在线语音已不再使用 MiniMax。
 
 ## 要录
 

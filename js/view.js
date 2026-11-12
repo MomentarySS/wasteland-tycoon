@@ -47,10 +47,10 @@ function updateTtsStatus() {
     if (!el) return;
     const map = {
       disabled: '🔇 已关',
-      minimax: '✓ MiniMax',
-      'minimax-ready': '✓ MiniMax',
-      'minimax-pending': '… MiniMax',
-      'minimax-missing': '✗ 无 MiniMax',
+      custom: '✓ 自定义 TTS',
+      'custom-ready': '✓ 自定义 TTS',
+      'custom-pending': '… 自定义 TTS',
+      'custom-missing': '✗ 无自定义 TTS',
       mimo: '✓ 小米 MiMo',
       'mimo-ready': '✓ 小米 MiMo',
       'mimo-pending': '… 小米 MiMo',

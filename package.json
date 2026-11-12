@@ -14,7 +14,6 @@
     "voice:manifest": "node scripts/gen-voice.mjs --manifest-only",
     "voice:audition": "node scripts/gen-voice.mjs --audition",
     "voice:gen": "node scripts/gen-voice.mjs",
-    "tts:minimax": "node scripts/test-minimax-tts.mjs",
     "desktop:dev": "node scripts/desktop-dev.mjs",
     "desktop:build": "node scripts/build-desktop.mjs"
   },

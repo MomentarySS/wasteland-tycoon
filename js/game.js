@@ -23,7 +23,7 @@ import { getCellMetrics } from './board-metrics.js';
 import { applyLegacyToGame, getLegacyMeta, recordRun } from './legacy.js';
 import { rollMutators, applyMutators, resetMutatorFields } from './mutators.js';
 import { getNarrativeSeed, applyNarrativeStart, formatNarrativeIntro } from './narrative.js';
-import { setTtsEnabled, setTtsRate, unlockTts, cancelTts, preloadTTS, setVoiceSource, setMinimaxVoice, ttsSpeak } from './tts.js';
+import { setTtsEnabled, setTtsRate, unlockTts, cancelTts, preloadTTS, setVoiceSource, ttsSpeak } from './tts.js';
 import { canLaunchNuke, tryNukeKeyFromChipFactory, launchNuke } from './nuke.js';
 import { narrativeSpeakText, chapterClearSpeakText, GAMEOVER_LINES, choiceResultSpeakText } from './voice-lines.js';
 import { giveCard, randomCardId, applyForcedRoll } from './cards.js';
@@ -258,10 +258,8 @@ export function startGame() {
   // 语音播报（点击「启动」即用户手势，可在此解锁）
   const ttsOn = document.getElementById('ttsOn') ? document.getElementById('ttsOn').value === 'on' : true;
   const ttsRate = document.getElementById('ttsRate') ? document.getElementById('ttsRate').value : '1.05';
-  const ttsSrc = document.getElementById('ttsSrc') ? document.getElementById('ttsSrc').value : 'minimax';
-  const ttsVoice = document.getElementById('ttsVoice') ? document.getElementById('ttsVoice').value : '';
+  const ttsSrc = document.getElementById('ttsSrc') ? document.getElementById('ttsSrc').value : 'voice';
   setVoiceSource(ttsSrc);
-  if (ttsVoice) setMinimaxVoice(ttsVoice);
   setTtsEnabled(ttsOn); setTtsRate(ttsRate); cancelTts();
   if (ttsOn) {
     unlockTts();

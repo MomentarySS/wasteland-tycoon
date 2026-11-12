@@ -20,6 +20,7 @@ www/
 .step-api-key
 .minimax-api-key
 .mimo-api-key
+.custom-tts-api-key
 .minimax-group-id
 .minimax-tts-cache/
 

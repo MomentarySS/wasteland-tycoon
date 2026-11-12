@@ -29,19 +29,21 @@ npm run desktop:build
 
 | 来源 | 行为 |
 |---|---|
-| MiniMax 在线 | 默认来源；通过 Electron 主进程调用 MiniMax T2A，覆盖动态播报和固定旁白 |
+| 仅预录语音 | 默认来源；只播放随包语音清单中已录制的固定语句；缺少对应录音时不会自动切换到在线或系统语音 |
 | 小米 MiMo 在线 | 通过 Xiaomi MiMo-V2.5-TTS OpenAI 兼容接口合成完整播报；支持内置中文音色 |
-| MiniMax 预录 | 只播放随包语音清单中已录制的固定语句；缺少对应录音时不会自动切换到在线或系统语音 |
+| 自定义 TTS | 按 OpenAI 兼容 `/audio/speech` 调用用户填写的服务地址、模型和音色；覆盖动态播报和固定旁白 |
 
-系统 `speechSynthesis` 不作为运行时降级链路。在线语音需要有效的服务商 API Key 和网络连接。开局配置可录入并清除 MiniMax / MiMo Key；Electron 主进程使用 `safeStorage` 加密后保存在当前用户的应用数据目录，不传回页面、不进入存档。也可通过 `MINIMAX_API_KEY` / `MIMO_API_KEY` 环境变量，或本地 `.minimax-api-key` / `.mimo-api-key` 文件配置；这些文件已被 `.gitignore` 排除，切勿提交密钥。
+系统 `speechSynthesis` 不作为运行时降级链路。在线语音需要有效的服务商 API Key 和网络连接。开局配置可录入并清除 MiMo / 自定义 TTS 的 Key；Electron 主进程使用 `safeStorage` 加密后保存在当前用户的应用数据目录，不传回页面、不进入存档。也可通过 `MIMO_API_KEY` / `CUSTOM_TTS_API_KEY` 环境变量，或本地 `.mimo-api-key` / `.custom-tts-api-key` 文件配置；这些文件已被 `.gitignore` 排除，切勿提交密钥。自定义 TTS 的服务地址、模型和音色保存在本机 `localStorage`，不进入存档。
 
-MiniMax IPC 通过 `electron/preload.cjs` 暴露的受限接口调用；渲染进程不直接读取密钥。
+在线语音 IPC 通过 `electron/preload.cjs` 暴露的受限接口调用；渲染进程不直接读取密钥。
+
+> 2026-11-12：MiniMax 在线链路已移除，当前为「仅预录 + MiMo + 自定义 OpenAI 兼容 TTS」。下方 v1.7.x / v1.8.x 验收记录中的 MiniMax 日志、`minimax-tts.js` 引用和缓存目录属于当时状态，保留原样，不代表当前实现。
 
 ## 主要目录
 
 - `electron/main.js`：窗口、应用生命周期和语音 IPC
 - `electron/preload.cjs`：向渲染进程提供受限桌面接口
-- `electron/minimax-tts.js`、`electron/mimo-tts.js`：在线合成、音频缓存和服务商调用
+- `electron/custom-tts.js`、`electron/mimo-tts.js`：在线合成、音频缓存和服务商调用
 - `js/`、`css/`、`content/`、`assets/`：游戏渲染内容和数据
 - `scripts/sync-www.mjs`：生成 Electron 页面镜像
 - `scripts/build-desktop.mjs`：Windows 安装包构建入口

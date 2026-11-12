@@ -436,6 +436,7 @@ body::before{
 .setupOpts h3{margin:0 0 4px;font-size:11px;color:var(--phos);letter-spacing:2px;}
 .optRow{display:flex;justify-content:space-between;align-items:center;font-size:12px;gap:8px;}
 .optRow input{width:80px;text-align:right;}
+.optRow input.ttsCustomInput{flex:1;width:auto;min-width:0;text-align:left;}
 .optRow select{padding:3px 6px;}
 .optRow.col2{justify-content:flex-start;align-items:flex-start;flex-direction:column;gap:3px;}
 .optRow.col2 span{font-size:11px;color:var(--phos);letter-spacing:1px;}
@@ -459,7 +460,7 @@ body::before{
 .ttsKeyActions{display:flex;gap:7px;}
 .ttsKeyActions button{flex:1;padding:7px 8px;font-size:11px;}
 .ttsKeyStatus{font-size:11px;line-height:1.5;color:#9fb0a6;}
-.ttsKeyEntry[hidden],.ttsKeyPanel[hidden],#minimaxVoiceRow[hidden],#mimoVoiceRow[hidden]{display:none!important;}
+.ttsKeyEntry[hidden],.ttsKeyPanel[hidden],.optRow[hidden]{display:none!important;}
 .campIntro{line-height:1.7;font-size:13px;color:var(--ink);}
 .startBtn{width:100%;margin-top:10px;padding:10px;font-size:14px;letter-spacing:4px;}
 .slotCard{

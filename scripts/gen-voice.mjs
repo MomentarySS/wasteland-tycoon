@@ -116,7 +116,6 @@ function readSecret(envName, file) {
 function requireAuth() {
   const apiKey = readSecret('MINIMAX_API_KEY', KEY_FILE);
   // groupId 可选：T2A v2 不带 GroupId 也能通过鉴权（缺鉴权时返回 1004，缺额度时返回 2056 业务错误）。
-  // electron/minimax-tts.js 的运行时同样把 GroupId 当可选，这里与它保持一致。
   const groupId = readSecret('MINIMAX_GROUP_ID', GROUP_FILE);
   if (!apiKey) {
     console.error('缺少鉴权：请设置环境变量 MINIMAX_API_KEY，');

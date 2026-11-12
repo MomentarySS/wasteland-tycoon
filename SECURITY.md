@@ -3,7 +3,7 @@
 ## 凭据与本地数据
 
 - 不要提交 API Key、Token、密码、证书、用户数据或本地调试日志。
-- 开发脚本使用环境变量，或使用根目录下已被忽略的本地凭据文件：`.step-api-key`、`.minimax-api-key`、`.minimax-group-id`、`.mimo-api-key`。
+- 开发脚本使用环境变量，或使用根目录下已被忽略的本地凭据文件：`.step-api-key`、`.minimax-api-key`（仅预录语音生成脚本使用）、`.minimax-group-id`、`.mimo-api-key`、`.custom-tts-api-key`。
 - 桌面客户端保存的在线语音 Key 位于 Electron `userData` 目录，并通过 Windows `safeStorage` 加密；清除 Key 应使用客户端设置里的清除操作。
 - `release/`、`www/`、缓存和试听产物均为本地构建内容，不应手动强制加入版本库。
 
