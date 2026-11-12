@@ -28,13 +28,21 @@ export {
 export function gain(p, a) { p.caps += a; log(`${p.name} ${p.short}  +${a} 瓶盖`); }
 export function lose(p, a) { payCaps(p, a, '事件损失'); }
 
+/** 送进隔离区。@returns {boolean} 是否真的进了隔离区（「无法无天」突变下为 false）。
+ *  调用方必须据此决定日志与回合收尾：旧实现忽略返回值，导致无隔离区时
+ *  仍打印「被关进隔离区」，且 p.doubles 不清零，之后每次双数都会被当成三连。 */
 export function enterJail(p) {
   // 「无法无天」突变：隔离区失效
-  if (G.noJail) { log(`⛓ 无法无天：${p.name} 无视隔离区`); return; }
+  if (G.noJail) {
+    p.doubles = 0;
+    log(`⛓ 无法无天：${p.name} 无视隔离区`);
+    return false;
+  }
   p.inJail = true; p.jailTurns = 0; p.doubles = 0;
   const qIdx = TILES.findIndex(t => t.type === 'quarantine');
   if (qIdx >= 0) { p.pos = qIdx; placeToken(p, qIdx); setActiveTile(qIdx); }
   render();
+  return true;
 }
 
 export function buy(p, t) {
@@ -91,12 +99,23 @@ export function payRent(p, t) {
   }
   // 「双倍租金」突变
   r = Math.floor(r * (G.rentMult || 1));
-  p.caps -= r; o.caps += r; sfx('rent'); log(`${p.name} 向 ${o.name} 缴租 ${r}盖`);
-  // shack：收租方每次额外垫付维护费（缴租方付、收租方收，净效果为削弱该地产收益）
+  // 缴租方付不起时，房东只能收到他实际拥有的部分——照全额入账等于凭空造币，
+  // 随后破产还会把地产一并转给房东，等于让债主拿两份。
+  const paid = Math.min(r, Math.max(p.caps, 0));
+  p.caps -= r; o.caps += paid; sfx('rent');
+  log(paid < r
+    ? `${p.name} 向 ${o.name} 缴租 ${paid}/${r} 盖（不足部分以资产抵偿）`
+    : `${p.name} 向 ${o.name} 缴租 ${r}盖`);
+  // shack：维护费由收租方（地主）承担，付不起则地块废弃（docs/terrain-variants.md §50）
   const upkeep = upkeepOf(t);
   if (upkeep > 0) {
-    p.caps -= upkeep; o.caps += upkeep;
-    log(`🔧 棚户维护：${p.name} 另付 ${upkeep} 盖给 ${o.name}`);
+    if (o.caps >= upkeep) {
+      o.caps -= upkeep;
+      log(`🔧 棚户维护：${o.name} 支付 ${upkeep} 盖维护费`);
+    } else {
+      log(`🔧 棚户「${t.name}」塌了：${o.name} 现金不足 ${upkeep} 盖，地块废弃`);
+      t.owner = null; t.level = 0; t.mortgaged = false;
+    }
   }
   // cursed：污染地块，缴租方良心不安
   const hit = moralHitOf(t);
@@ -104,17 +123,23 @@ export function payRent(p, t) {
     p.moral = Math.max(0, (p.moral || 0) - hit);
     log(`☠ 污染侵蚀：${p.name} 道德 -${hit}`);
   }
-  // 「免费停车彩金」突变：租金进入奖池
-  if (G.jackpot) G.jackpotPool = (G.jackpotPool || 0) + r;
+  // 「免费停车彩金」突变：只有实际收到的租金进入奖池
+  if (G.jackpot) G.jackpotPool = (G.jackpotPool || 0) + paid;
   // 「血债血偿」：记下这笔记号，等对方下次踩你的地
   if (G.vendetta) { G._vendettaFrom = p.id; G._vendettaTo = o.id; }
   if (p.caps < 0) bankrupt(p, o);
   render();
 }
+/** @returns {number} 实际支付额（现金不足时小于 amount，缺口由破产/资产抵偿）。 */
 export function payCaps(p, amount, reason) {
   if (p.caps - amount < 0 && p.isAI) aiRaiseCash(p, amount);
-  p.caps -= amount; log(`${p.name} 支付 ${amount} ${reason}`);
+  const paid = Math.min(amount, Math.max(p.caps, 0));
+  p.caps -= amount;
+  log(paid < amount
+    ? `${p.name} 支付 ${paid}/${amount} ${reason}（不足部分以资产抵偿）`
+    : `${p.name} 支付 ${amount} ${reason}`);
   if (p.caps < 0) bankrupt(p);
+  return paid;
 }
 export function bankrupt(p, creditor) {
   p.bankrupt = true; sfx('bad'); log(`💀 ${p.name} 破产出局！`);

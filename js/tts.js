@@ -4,6 +4,7 @@
 //   voice  = 仅预录语音（随包）
 // 系统 speechSynthesis 已停用。默认仅预录，不与其它引擎混播。
 import { cleanVoiceText as cleanText, voiceHash, VOICE_DIR, VOICE_MANIFEST_URL } from './voice-lines.js';
+import { escapeHtml } from './view-util.js';
 
 const SOURCE_STORAGE = 'wasteland_tts_source';
 const MIMO_VOICE_STORAGE = 'wasteland_tts_mimo_voice';
@@ -32,10 +33,9 @@ let customVoice = CUSTOM_TTS_DEFAULTS.voice;
 let lastEngine = '';
 let audioCtx = null;
 let currentAudio = null;
+let currentStop = null;   // 当前播放的「立即结算」开关：取消/被打断时用它兑现 Promise
 let debugHidden = true;
 try { if (localStorage.getItem('ttsDebugHidden') === '0') debugHidden = false; } catch (_) {}
-let cachedZhVoice = null;
-let browserVoicesHooked = false;
 let customReady = false;
 let customInfo = null;
 let mimoReady = false;
@@ -81,52 +81,48 @@ function sourceOrder() {
   return source === 'mimo' ? ['mimo'] : ['custom'];
 }
 
-function pickZhVoice() {
-  if (typeof speechSynthesis === 'undefined') return null;
-  if (cachedZhVoice) return cachedZhVoice;
-  try {
-    const voices = speechSynthesis.getVoices();
-    cachedZhVoice = voices.find((v) => /^zh(-|_)/i.test(v.lang))
-      || voices.find((v) => /chinese|中文|Huihui|Yaoyao|Kangkang|Ting-Ting|Meijia/i.test(v.name))
-      || null;
-  } catch (_) { cachedZhVoice = null; }
-  return cachedZhVoice;
-}
-
-function initBrowserVoices() {
-  if (typeof speechSynthesis === 'undefined' || browserVoicesHooked) return;
-  browserVoicesHooked = true;
-  pickZhVoice();
-  speechSynthesis.addEventListener('voiceschanged', () => {
-    cachedZhVoice = null;
-    pickZhVoice();
-  });
-}
-
-export function browserTtsSupported() {
-  return typeof speechSynthesis !== 'undefined';
-}
-
-function playBlob(blob) {
+/** 播放一段音频。@returns {Promise<boolean>} 是否正常播完。
+ *  旧实现的问题：暂停不会触发 ended/error，Promise 要等 60s 兜底定时器；
+ *  定时器成功后也不清，导致每次播报都多留一分钟的 Audio + blob URL；
+ *  autoplay 被拒又和正常结束走同一分支，于是「没响」也被记成引擎可用。 */
+function playBlob(blob, gen) {
   return new Promise((resolve) => {
+    if (gen != null && gen !== _gen) { resolve(false); return; }
+    let audio = null;
+    let url = '';
+    let timer = null;
+    let settled = false;
+    const stop = () => finish(false);
+    function finish(ok) {
+      if (settled) return;
+      settled = true;
+      if (timer) { clearTimeout(timer); timer = null; }
+      try { if (audio) audio.pause(); } catch (_) {}
+      try { if (url) URL.revokeObjectURL(url); } catch (_) {}
+      if (currentAudio === audio) currentAudio = null;
+      if (currentStop === stop) currentStop = null;
+      resolve(ok);
+    }
     try {
-      if (currentAudio) { try { currentAudio.pause(); } catch (_) {} currentAudio = null; }
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
+      // 先让上一条立即结算（而不是把它晾到 60s 定时器）
+      if (currentStop) currentStop();
+      url = URL.createObjectURL(blob);
+      audio = new Audio(url);
       currentAudio = audio;
+      currentStop = stop;
       audio.volume = volume;
-      const done = () => {
-        try { URL.revokeObjectURL(url); } catch (_) {}
-        if (currentAudio === audio) currentAudio = null;
-        resolve();
-      };
-      audio.onended = done;
-      audio.onerror = done;
+      // 语速对预录/在线音频同样生效：旧实现只设 volume，「播报语速」对默认预录源无效
+      try {
+        audio.playbackRate = Math.max(0.5, Math.min(2, Number(rate) || 1));
+        audio.preservesPitch = true;
+      } catch (_) {}
+      audio.onended = () => finish(true);
+      audio.onerror = () => finish(false);
       const p = audio.play();
-      if (p && p.catch) p.catch(done);
-      setTimeout(done, 60000);
+      if (p && p.catch) p.catch(() => finish(false));
+      timer = setTimeout(() => finish(false), 60000);
     } catch (_) {
-      resolve();
+      finish(false);
     }
   });
 }
@@ -189,34 +185,6 @@ function audioToBlob(data, type = 'audio/mpeg') {
   return null;
 }
 
-async function speakBrowser(text) {
-  if (!browserTtsSupported()) return false;
-  initBrowserVoices();
-  return new Promise((resolve) => {
-    try {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'zh-CN';
-      u.rate = Math.max(0.5, Math.min(2.5, rate * 1.1));
-      u.volume = volume;
-      const voice = pickZhVoice();
-      if (voice) u.voice = voice;
-      let done = false;
-      const finish = (ok) => {
-        if (done) return;
-        done = true;
-        resolve(ok);
-      };
-      u.onend = () => finish(true);
-      u.onerror = () => finish(false);
-      speechSynthesis.speak(u);
-      setTimeout(() => finish(false), 45000);
-    } catch (_) {
-      resolve(false);
-    }
-  });
-}
-
 async function ensureCustom() {
   const desk = desktopApi();
   if (!desk || !desk.custom) return false;
@@ -234,32 +202,31 @@ async function ensureCustom() {
   }
 }
 
-async function speakCustom(text) {
+async function synthCustom(text) {
   const desk = desktopApi();
   if (!desk || !desk.custom) {
     console.warn('[TTS] 自定义 TTS 不可用：非桌面壳');
-    return false;
+    return null;
   }
-  if (!(await ensureCustom())) return false;
+  if (!(await ensureCustom())) return null;
   const result = await desk.custom.speak(text, {
     speed: Math.max(0.5, Math.min(2, Number(rate) || 1)),
-    baseUrl: customBaseUrl,
+    // 主进程只接受 model / voice / speed；服务地址以「保存 Key 时绑定的 origin」为准，
+    // 这里传 baseUrl 也不会被采用（旧版主进程会直接用，等于把 Key 交给渲染层决定去向）。
     model: customModel,
     voice: customVoice,
   });
   if (!result || !result.ok) {
     console.warn('[TTS] 自定义 TTS 合成失败', result && result.error);
-    return false;
+    return null;
   }
   const type = result.format === 'wav' ? 'audio/wav' : result.format === 'ogg' ? 'audio/ogg' : 'audio/mpeg';
   const blob = audioToBlob(result.audio, type);
   if (!blob || blob.size < 64) {
     console.warn('[TTS] 自定义 TTS 音频为空');
-    return false;
+    return null;
   }
-  lastEngine = 'custom';
-  await playBlob(blob);
-  return true;
+  return { blob, engine: 'custom' };
 }
 
 async function ensureMimo() {
@@ -279,26 +246,24 @@ async function ensureMimo() {
   }
 }
 
-async function speakMimo(text) {
+async function synthMimo(text) {
   const desk = desktopApi();
   if (!desk || !desk.mimo) {
     console.warn('[TTS] MiMo 不可用：非桌面壳');
-    return false;
+    return null;
   }
-  if (!(await ensureMimo())) return false;
+  if (!(await ensureMimo())) return null;
   const result = await desk.mimo.speak(text, { speed: Math.max(0.5, Math.min(2, Number(rate) || 1)), voice: mimoVoice });
   if (!result || !result.ok) {
     console.warn('[TTS] MiMo 合成失败', result && result.error);
-    return false;
+    return null;
   }
   const blob = audioToBlob(result.audio, 'audio/wav');
   if (!blob || blob.size < 64) {
     console.warn('[TTS] MiMo 音频为空');
-    return false;
+    return null;
   }
-  lastEngine = 'mimo';
-  await playBlob(blob);
-  return true;
+  return { blob, engine: 'mimo' };
 }
 
 let voiceManifestPromise = null;
@@ -330,50 +295,47 @@ function loadVoiceManifest() {
 
 export function voicePackStatus() { return voicePackState; }
 
-async function speakVoice(text) {
+/** 预录语音：只负责拿到 Blob，播放与引擎标记交给 speakOne 统一处理。 */
+async function synthVoice(text) {
   const manifest = await loadVoiceManifest();
-  if (!manifest) return false;
+  if (!manifest) return null;
   const key = voiceHash(manifest.meta.voice, text);
   const entry = manifest.lines[key];
-  if (!entry || !entry.file) return false;
+  if (!entry || !entry.file) return null;
   let blob;
   try {
     blob = await fetchPrerecorded(entry.file);
   } catch (_) {
-    return false;   // 缓存未命中且取不到：按原语义视为该句不可播，交给引擎链下一档
+    return null;   // 缓存未命中且取不到：按原语义视为该句不可播，交给引擎链下一档
   }
-  lastEngine = 'voice';
-  await playBlob(blob);
-  return true;
+  if (!blob || blob.size < 64) return null;
+  return { blob, engine: 'voice' };
 }
 
-async function speakOne(text) {
+async function speakOne(text, gen) {
+  if (gen !== _gen) return false;
   const order = sourceOrder();
   for (const eng of order) {
+    if (gen !== _gen) return false;
     try {
-      if (eng === 'custom') {
-        const ok = await speakCustom(text);
-        if (ok) return;
-        continue;
-      }
-      if (eng === 'mimo') {
-        const ok = await speakMimo(text);
-        if (ok) return;
-        continue;
-      }
-      if (eng === 'voice') {
-        const ok = await speakVoice(text);
-        if (ok) return;
-        continue;
-      }
-      if (eng === 'browser') {
-        continue;
-      }
+      let got = null;
+      if (eng === 'custom') got = await synthCustom(text);
+      else if (eng === 'mimo') got = await synthMimo(text);
+      else if (eng === 'voice') got = await synthVoice(text);
+      if (!got) continue;
+      // 合成是异步的：等它回来时可能已经换局/关播报，结果必须丢弃而不是补播
+      if (gen !== _gen) return false;
+      const ok = await playBlob(got.blob, gen);
+      if (gen !== _gen) return false;
+      if (!ok) continue;          // 播放失败（autoplay/解码）：不算引擎可用，试下一档
+      lastEngine = got.engine;    // 只在真正播完之后标记，避免「测音没响却显示就绪」
+      return true;
     } catch (e) {
       console.warn('[TTS] 引擎失败，尝试下一档:', eng, e && e.message);
     }
   }
   console.warn('[TTS] 所有引擎均失败');
+  return false;
 }
 
 let _chain = Promise.resolve();
@@ -392,10 +354,9 @@ export function initTTS() {
 }
 
 export function preloadTTS() {
-  if (source === 'voice') loadVoiceManifest();
-  else if (source === 'mimo') ensureMimo().catch(() => {});
-  else ensureCustom().catch(() => {});
-  return Promise.resolve(true);
+  if (source === 'voice') return loadVoiceManifest();
+  if (source === 'mimo') return ensureMimo().catch(() => false);
+  return ensureCustom().catch(() => false);
 }
 
 export function ttsEngineStatus() {
@@ -431,15 +392,20 @@ export async function testTts() {
       console.warn('[TTS] testTts 无预录条目');
       return null;
     }
-    const ok = await speakVoice(cleanText(first.text));
-    return ok ? 'voice' : null;
+    const got = await synthVoice(cleanText(first.text));
+    if (!got) return null;
+    const ok = await playBlob(got.blob, _gen);
+    if (!ok) return null;
+    lastEngine = got.engine;
+    return got.engine;
   }
+  let ok = false;
   try {
-    await speakOne('测试语音：废土大亨语音播报正常');
+    ok = await speakOne('测试语音：废土大亨语音播报正常', _gen);
   } catch (e) {
     console.warn('[TTS] testTts', e && e.message);
   }
-  return lastEngine || null;
+  return ok ? (lastEngine || null) : null;
 }
 
 export function updateTtsDebugPanel() {
@@ -452,14 +418,14 @@ export function updateTtsDebugPanel() {
     el.style.display = 'block';
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:2px"><span>TTS 调试面板</span><span id="ttsDbgClose" title="关闭调试面板" style="cursor:pointer;padding:0 4px;border:1px solid #0f0;border-radius:2px;line-height:1.3">✕</span></div>
-      <div>来源: ${source}</div>
-      <div>自定义 TTS: ${desk && desk.custom ? (customReady ? '✓ ' + ((customInfo && customInfo.model) || customModel) : '…') : '✗ 非桌面'}</div>
-      <div>服务地址: ${customBaseUrl || '未设置'}</div>
-      <div>小米 MiMo: ${desk && desk.mimo ? (mimoReady ? '✓ ' + ((mimoInfo && mimoInfo.model) || 'online') : '…') : '✗ 非桌面'}</div>
-      <div>音色: ${source === 'mimo' ? mimoVoice : customVoice}</div>
+      <div>来源: ${escapeHtml(source)}</div>
+      <div>自定义 TTS: ${desk && desk.custom ? (customReady ? '✓ ' + escapeHtml((customInfo && customInfo.model) || customModel) : '…') : '✗ 非桌面'}</div>
+      <div>服务地址: ${escapeHtml(customBaseUrl || '未设置')}</div>
+      <div>小米 MiMo: ${desk && desk.mimo ? (mimoReady ? '✓ ' + escapeHtml((mimoInfo && mimoInfo.model) || 'online') : '…') : '✗ 非桌面'}</div>
+      <div>音色: ${escapeHtml(source === 'mimo' ? mimoVoice : customVoice)}</div>
       <div>Voice: ${voicePackState === 'ready' ? '✓ 预录' : '✗'}</div>
-      <div>状态: ${status}</div>
-      <div>LastEngine: ${lastEngine || '无'}</div>
+      <div>状态: ${escapeHtml(status)}</div>
+      <div>LastEngine: ${escapeHtml(lastEngine || '无')}</div>
     `;
     const closeBtn = document.getElementById('ttsDbgClose');
     if (closeBtn) closeBtn.onclick = () => {
@@ -525,7 +491,10 @@ export async function saveOnlineKey(provider, key) {
   const desk = desktopApi();
   const api = provider === 'mimo' ? desk && desk.mimo : provider === 'custom' ? desk && desk.custom : null;
   if (!api || !api.saveKey) return { ok: false, error: '此功能需要 Windows 桌面版' };
-  const result = await api.saveKey(key);
+  // 自定义 TTS 的地址随 Key 一起交给主进程绑定：之后换地址必须重新保存 Key。
+  const result = provider === 'custom'
+    ? await api.saveKey(key, getCustomTtsConfig())
+    : await api.saveKey(key);
   if (provider === 'mimo') { mimoReady = !!(result && result.ok); mimoInfo = result || null; }
   else if (provider === 'custom') { customReady = false; customInfo = null; }
   try { window.dispatchEvent(new Event('wasteland-tts-changed')); } catch (_) {}
@@ -537,7 +506,7 @@ export async function clearOnlineKey(provider) {
   const api = provider === 'mimo' ? desk && desk.mimo : provider === 'custom' ? desk && desk.custom : null;
   if (!api || !api.clearKey) return { ok: false, error: '此功能需要 Windows 桌面版' };
   const result = await api.clearKey();
-  if (provider === 'mimo') { mimoReady = !!(result && result.ok); mimoInfo = result || null; }
+  if (provider === 'mimo') { mimoReady = false; mimoInfo = null; }
   else if (provider === 'custom') { customReady = false; customInfo = null; }
   try { window.dispatchEvent(new Event('wasteland-tts-changed')); } catch (_) {}
   return result;
@@ -559,13 +528,13 @@ export function unlockTts() {
 
 export function cancelTts() {
   _chain = Promise.resolve();
-  // 队列计数一并归零，并换代：被遗弃链上的播报最长要等 60s 安全定时器才 settle，
-  // 期间它们会各自执行 _pending--，若不换代会把新链的计数减成负数、队列上限从此失效。
+  // 队列计数一并归零，并换代：被遗弃链上的播报会在合成前/播放前检查世代号后自行退出，
+  // _pending 只由同代条目递减，避免旧链把新链计数减成负数。
   _gen++;
   _pending = 0;
-  if (typeof speechSynthesis !== 'undefined') {
-    try { speechSynthesis.cancel(); } catch (_) {}
-  }
+  // 关键：让正在播的那条立刻结算并暂停。旧实现只 pause，不 settle，
+  // 于是这条播报要等 60s 定时器，期间队列计数虚高、后续播报被丢弃。
+  if (currentStop) { try { currentStop(); } catch (_) {} }
   if (currentAudio) { try { currentAudio.pause(); } catch (_) {} currentAudio = null; }
 }
 
@@ -576,7 +545,7 @@ let _gen = 0;
 function enqueue(t) {
   const gen = _gen;
   _pending++;
-  _chain = _chain.then(() => speakOne(t)).catch(() => {})
+  _chain = _chain.then(() => speakOne(t, gen)).catch(() => {})
     .finally(() => { if (gen === _gen) _pending--; });
   return _chain;
 }

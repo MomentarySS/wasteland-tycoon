@@ -3,9 +3,15 @@
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
+import { setTimeout as nodeSetTimeout } from 'node:timers';
 import { installDomStub, loadModule } from './scripts/dom-stub.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+
+// dom-stub 把所有 setTimeout 换成 setImmediate，方便游戏动画在测试里瞬间推进。
+// 但 TTS 的 60s 兜底定时器也会被折叠成立即触发，等于把「取消是否真的能立即结算」
+// 这条 bug 隐藏掉 —— TTS 用例里临时换回真实定时器。
+const stubSetTimeout = global.setTimeout;
 
 const errors = [];
 // 关键：装上处理器后 Node 不会再用退出码 1 结束，进程会继续跑到底部那句
@@ -215,6 +221,34 @@ rentTile.owner = 1; rentTile.level = 1; rentTile.mortgaged = false;
 rules.payRent(renter, rentTile);
 if (rentTile.owner !== null) throw new Error('payRent 应清除破产 owner');
 
+// ---------------- 回归：AI 交易估值方向（2026-11-12 审查） ----------------
+// aiTradeAccept(b, aProps, gc, bProps, wc)：aProps/gc 是发起方给 AI 的（AI 收进），
+// bProps/wc 是 AI 让出的。旧实现整体取反，AI 会拒绝赚钱交易、接受亏本交易。
+data.TILES.forEach(t => { if ('owner' in t) { t.owner = null; t.level = 0; t.mortgaged = false; } });
+const tradeAI = { id: 1, caps: 1000 };
+const tradeProps = data.TILES.filter(t => t.type === 'prop');
+const cheapT = tradeProps.slice().sort((a, b) => a.price - b.price)[0];
+const priceyT = tradeProps.slice().sort((a, b) => b.price - a.price)[0];
+if (cheapT.group === priceyT.group) throw new Error('交易用例需要不同组的两块地');
+if (!rulesCore.aiTradeAccept(tradeAI, [], 100, [], 0)) throw new Error('AI 白收 100 盖却拒绝');
+if (rulesCore.aiTradeAccept(tradeAI, [], 0, [], 100)) throw new Error('AI 白付 100 盖却接受');
+if (!rulesCore.aiTradeAccept(tradeAI, [priceyT], 0, [cheapT], 0)) throw new Error('AI 用便宜地换贵地应接受');
+if (rulesCore.aiTradeAccept(tradeAI, [cheapT], 0, [priceyT], 0)) throw new Error('AI 用贵地换便宜地应拒绝');
+
+// ---------------- 回归：付不起的租金不许凭空造币 ----------------
+// 旧实现按全额给房东入账，随后破产又把地产一并转给房东，等于债主拿两份。
+const richRentTile = data.TILES.find(t => t.type === 'prop' && !t.subType && t.rent >= 12);
+if (!richRentTile) throw new Error('缺少可用于租金回归的普通地产');
+data.TILES.forEach(t => { if ('owner' in t) { t.owner = null; t.level = 0; t.mortgaged = false; } });
+Object.assign(state.G, { pacifist: false, rentMult: 1, jackpot: false, vendetta: false, rentSnowball: false });
+const brokePayer = { id: 0, name: '穷鬼', caps: 5, bankrupt: false, inJail: false, jailTurns: 0, moral: 0 };
+const landlordP = { id: 1, name: '房东', caps: 0, bankrupt: false, inJail: false, jailTurns: 0, moral: 0 };
+state.G.players = [brokePayer, landlordP]; state.G.current = 0; state.G.lastRoll = 6;
+richRentTile.owner = 1;
+rules.payRent(brokePayer, richRentTile);
+if (!brokePayer.bankrupt) throw new Error('付不起租金却没破产');
+if (landlordP.caps !== 5) throw new Error('房东只应收实际可付的 5 盖，实际 ' + landlordP.caps);
+
 // 破产资产转移
 const A = { id: 0, name: 'A', caps: 0, bankrupt: false, inJail: false, jailTurns: 0, getOut: 1 };
 const B = { id: 1, name: 'B', caps: 100, bankrupt: false, inJail: false, jailTurns: 0, getOut: 0 };
@@ -227,6 +261,140 @@ if (!A.bankrupt) throw new Error('破产标记失败');
 if (tp.owner !== 1) throw new Error('破产地块未转移给债主');
 if (B.caps !== 140) throw new Error('破产现金未转移，实际 ' + B.caps);
 if (B.getOut !== 1) throw new Error('免罚卡未转移');
+
+// ---------------- P1 回归（2026-11-12 审查第二批） ----------------
+// C5：「无法无天」突变下 enterJail 必须返回 false，并清掉双数计数
+state.G.noJail = true;
+const noJailProbe = { id: 0, name: '甲', doubles: 3, inJail: false, jailTurns: 0, bankrupt: false };
+const didJail = rules.enterJail(noJailProbe);
+state.G.noJail = false;
+if (didJail !== false) throw new Error('「无法无天」下 enterJail 应返回 false');
+if (noJailProbe.doubles !== 0) throw new Error('未关押时双数计数必须清零，否则下次双数会被当成三连');
+if (noJailProbe.inJail) throw new Error('「无法无天」下不应进入隔离区');
+
+// C6：任务兜底不得绕过 requires / requiresRep
+const lockedPile = [{ id: 'locked_once', once: true, requires: ['flag_never'], title: '锁', choices: [] }];
+const lockedPlayer = { flags: [], missionDone: [], factionRep: {} };
+if (missionsMod.pickMission(lockedPile, lockedPlayer) !== null) {
+  throw new Error('任务兜底绕过了 requires：未解锁的连锁任务被放出来了');
+}
+const donePile = [{ id: 'done_once', once: true, requires: [], title: '已完成', choices: [] }];
+if (missionsMod.pickMission(donePile, { flags: [], missionDone: ['done_once'], factionRep: {} }) !== null) {
+  throw new Error('已完成的一次性任务被重放');
+}
+
+// C13：payCaps 必须回报实际支付额（付不起时不按全额记账）
+const payProbe = { id: 0, name: '穷', caps: 5, bankrupt: false, inJail: false, jailTurns: 0 };
+state.G.players = [payProbe];
+data.TILES.forEach(t => { if ('owner' in t) { t.owner = null; t.level = 0; t.mortgaged = false; } });
+const actuallyPaid = rules.payCaps(payProbe, 20, '测试税');
+if (actuallyPaid !== 5) throw new Error('payCaps 实际支付额应为 5，实际 ' + actuallyPaid);
+
+// A4：生存模式没有身家目标；破产即走专属结局
+state.G.mode = 'survival'; state.G.targetWealth = 3000;
+const wealthProbe = { bankrupt: false };
+if (game.targetWealthReached(wealthProbe, 9999)) throw new Error('生存模式不应因身家目标提前胜利');
+state.G.mode = 'versus';
+if (!game.targetWealthReached(wealthProbe, 9999)) throw new Error('对抗模式身家达标应判胜');
+
+state.G.mode = 'survival';
+state.G.players = [{ id: 0, name: '幸存者', short: '幸', isAI: false, caps: 0, pos: 0, bankrupt: true, inJail: false, jailTurns: 0, flags: [], missionDone: [], factionRep: {} }];
+state.G.current = 0; state.G.turn = 12; state.G.gameOver = false; state.G.targetWealth = 0;
+await game.takeTurn();
+if (state.G.endKind !== 'survival') throw new Error('生存模式破产应走 survival 结局，实际 ' + state.G.endKind);
+if (!state.G.gameOver) throw new Error('生存模式破产未结束对局');
+
+// C7：合作模式「2 条铁路或 2 座设施」必须按队伍去重，不能把两人各 1 相加
+data.TILES.forEach(t => { if ('owner' in t) { t.owner = null; t.level = 0; t.mortgaged = false; } });
+const coopRails = data.TILES.filter(t => t.type === 'rail');
+const coopUtils = data.TILES.filter(t => t.type === 'util');
+coopRails[0].owner = 0; coopUtils[0].owner = 1;
+const coopA = { id: 0, caps: 0, moral: 0, bankrupt: false };
+const coopB = { id: 1, caps: 0, moral: 0, bankrupt: false };
+const coopCtx = { TILES: data.TILES, netWorth: rules.netWorth };
+const rCoopInfra = campaign.evaluateCampaignCoop(coopA, coopB, coopCtx, 2);
+const coopInfraObj = rCoopInfra.objs.find(o => o.text.includes('铁路'));
+if (!coopInfraObj) throw new Error('第三章缺少 infra 目标');
+if (coopInfraObj.value !== 1 || coopInfraObj.done) {
+  throw new Error('合作 infra 应按队伍去重（1 铁路 + 1 设施 = 1，未达成），实际 ' + coopInfraObj.value + ' done=' + coopInfraObj.done);
+}
+coopRails[1].owner = 0;
+const rCoopInfra2 = campaign.evaluateCampaignCoop(coopA, coopB, coopCtx, 2);
+const coopInfraObj2 = rCoopInfra2.objs.find(o => o.text.includes('铁路'));
+if (!coopInfraObj2.done) throw new Error('队伍拥有 2 条铁路时应达成 infra 目标');
+
+// C8：固定布局必须连顺序一起还原
+data.shuffleBoard();
+data.resetBoardOrder();
+if (!data.TILES.every((t, i) => t.artIndex === i)) {
+  throw new Error('resetBoardOrder 未还原 content/tiles.json 的原始顺序');
+}
+
+// ---------------- P2 安全回归：TTS 服务地址白名单 ----------------
+const endpointMod = await import(pathToFileURL(join(HERE, 'electron', 'tts-endpoint.js')).href);
+const epCheck = (u, o) => endpointMod.normalizeTtsBaseUrl(u, o);
+if (!epCheck('https://api.example.com/v1').ok) throw new Error('公网 https 应放行');
+if (epCheck('http://api.example.com/v1').ok) throw new Error('公网 http 必须拒绝（Key 会明文出网）');
+if (!epCheck('http://127.0.0.1:9880').ok) throw new Error('本机 http 应放行（本地 TTS 服务）');
+if (!epCheck('http://localhost:5000').ok) throw new Error('localhost http 应放行');
+if (epCheck('https://192.168.1.10/v1').ok) throw new Error('私网 https 默认应拒绝');
+if (!epCheck('https://192.168.1.10/v1', { allowPrivate: true }).ok) throw new Error('显式放行后私网应可用');
+if (epCheck('https://169.254.169.254').ok) throw new Error('链路本地/元数据地址必须拒绝');
+if (epCheck('file:///etc/passwd').ok) throw new Error('非 http(s) 协议必须拒绝');
+if (epCheck('https://user:pass@api.example.com').ok) throw new Error('内嵌账号密码的地址必须拒绝');
+if (epCheck('').ok) throw new Error('空地址必须拒绝');
+const normalizedEp = epCheck('https://api.example.com/v1');
+if (normalizedEp.url !== 'https://api.example.com/v1/audio/speech') {
+  throw new Error('地址补全规则异常: ' + normalizedEp.url);
+}
+if (!endpointMod.sameOrigin('https://api.example.com/v1', 'https://api.example.com/v2')) {
+  throw new Error('sameOrigin 应认同源');
+}
+if (endpointMod.sameOrigin('https://a.example.com', 'https://b.example.com')) {
+  throw new Error('sameOrigin 不应跨主机');
+}
+
+// ---------------- P2 安全回归：存档字段收敛 ----------------
+const saveNormalizer = await import(pathToFileURL(join(HERE, 'js', 'view-save.js')).href);
+const hostileSave = {
+  v: 4, mode: '<img src=x onerror=alert(1)>', campaign: 99, turn: 'NaN',
+  SALARY: 'x', STARTCAPS: -5, targetWealth: Infinity, current: 99,
+  tiles: data.TILES.map(() => ({ owner: 999, level: 99, mortgaged: 'yes', price: -1 })),
+  players: [{
+    id: 0, name: '<img src=x>', short: '<b>', color: 'red;position:fixed', caps: 'oops', pos: 999,
+    cards: ['<svg onload=alert(1)>', 'march'], flags: [123, 'ok'], missionDone: 'nope',
+    factionRep: { eagle: 'x' }, avatar: 'http://evil.example/x.png',
+  }],
+  boardArtOrder: [0, 0, 0],
+  ruleState: { rentMult: '9', jackpot: 1, unknownKey: 'x' },
+};
+const normSave = saveNormalizer.normalizeSave(hostileSave);
+if (normSave.mode !== 'versus') throw new Error('非法模式未被收敛: ' + normSave.mode);
+if (normSave.campaign !== 5) throw new Error('章节索引未被钳制: ' + normSave.campaign);
+if (normSave.turn !== 0) throw new Error('非法回合数未被收敛: ' + normSave.turn);
+if (normSave.STARTCAPS !== 0) throw new Error('负数初始资金未被钳制: ' + normSave.STARTCAPS);
+if (normSave.players[0].color !== '') throw new Error('非法颜色未被拒绝: ' + normSave.players[0].color);
+if (normSave.players[0].pos !== config.TILES_COUNT - 1) throw new Error('越界位置未被钳制: ' + normSave.players[0].pos);
+if (normSave.players[0].cards.length !== 1 || normSave.players[0].cards[0] !== 'march') {
+  throw new Error('未知卡牌 id 未被过滤: ' + JSON.stringify(normSave.players[0].cards));
+}
+if (normSave.players[0].avatar !== '') throw new Error('非 data:image 头像未被拒绝');
+if (normSave.players[0].flags.length !== 1) throw new Error('非字符串 flag 未被过滤');
+if (normSave.tiles[0].owner !== null) throw new Error('越界 owner 未被置空');
+if (normSave.tiles[0].level !== 2) throw new Error('越界等级未被钳制到 2');
+if (normSave.boardArtOrder !== null) throw new Error('非法棋盘排列未被拒绝');
+if (normSave.ruleState.rentMult !== 9 || normSave.ruleState.jackpot !== true) throw new Error('规则字段类型未收敛');
+if ('unknownKey' in normSave.ruleState) throw new Error('未知规则字段未被丢弃');
+
+// C12：连锁任务只看前置依赖，不再把「一次性」当连锁
+if (missionsMod.isChainMission({ once: true })) throw new Error('一次性任务不应被标成连锁任务');
+if (missionsMod.isChainMission({ once: false })) throw new Error('普通任务不应被标为连锁任务');
+if (!missionsMod.isChainMission({ requires: ['flag_a'] })) throw new Error('有前置旗标的任务应标为连锁');
+if (!missionsMod.isChainMission({ requiresRep: { eagle: 1 } })) throw new Error('有声望要求的任务应标为连锁');
+
+// C14：突变因子「空解锁列表」必须等于全部可用（旧代码会把空数组当白名单 → 0 个因子）
+const mutsProbe = await load('mutators.js');
+if (mutsProbe.rollMutators(3, []).length !== 3) throw new Error('空解锁列表应视为全部突变因子可用');
 
 console.log('规则函数校验通过');
 
@@ -347,9 +515,11 @@ console.log('闯关调度:', state.G.campaign, '| gameOver:', state.G.gameOver);
 
 // ---------------- 存读档 v4 ----------------
 const saveMod = await import(pathToFileURL(join(HERE, 'js', 'view-save.js')).href);
+state.G.players[0].luckyUsed = true;   // 「幸运开局」已用：必须随档保存
 saveMod.saveGame();
 const snap = JSON.parse(store.wasteland_save);
 if (snap.v !== 4) throw new Error('存档版本应为 4');
+if (snap.players[0].luckyUsed !== true) throw new Error('存档未保存 luckyUsed');
 if (!snap.players[0].factionRep || snap.players[0].factionRep.eagle !== 0) throw new Error('存档应含 factionRep');
 if (snap.mode !== 'campaign') throw new Error('存档未保存 mode');
 if (typeof snap.campaign !== 'number') throw new Error('存档未保存 campaign');
@@ -360,6 +530,7 @@ state.G.campaign = 99;
 saveMod.loadGame();
 if (state.G.mode !== 'campaign') throw new Error('读档未恢复 mode');
 if (state.G.campaign === 99) throw new Error('读档未恢复 campaign');
+if (!state.G.players[0].luckyUsed) throw new Error('读档未恢复 luckyUsed（幸运开局会重复发放）');
 
 // 已结束对局读档应恢复胜利界面
 state.G.gameOver = true;
@@ -379,6 +550,25 @@ store.wasteland_save = JSON.stringify({
 });
 saveMod.loadGame();
 if (state.G.turn !== 5) throw new Error('v2 存档未正确读入');
+
+// ---------------- P2 安全回归：手改存档经过 loadGame 会被收敛 ----------------
+store.wasteland_save = JSON.stringify({
+  v: 4, mode: 'versus', campaign: 0, turn: 3, current: 0,
+  SALARY: 200, STARTCAPS: 1500, targetWealth: 0, gameOver: false,
+  tiles: data.TILES.map(() => ({ owner: 0, level: 99, mortgaged: 'x', price: -5 })),
+  players: [{
+    id: 0, name: '<img src=x onerror=alert(1)>', short: 'x', isAI: false, caps: 'oops', pos: 0,
+    cards: ['<svg onload=alert(1)>'], flags: [], missionDone: [],
+    factionRep: { eagle: 'x' }, avatar: 'http://evil.example/x.png',
+  }],
+  boardArtOrder: [1, 2, 3],
+});
+saveMod.loadGame();
+if (data.TILES[0].level !== 2) throw new Error('手改存档的等级未被收敛到 0..2');
+if (data.TILES[0].owner !== 0) throw new Error('合法 owner 被误清');
+if (state.G.players[0].cards.length !== 0) throw new Error('未知卡牌 id 在 loadGame 后仍存在');
+if (state.G.players[0].avatar !== '') throw new Error('非 data:image 头像在 loadGame 后仍存在');
+if (state.G.mode !== 'versus') throw new Error('非法模式在 loadGame 后仍存在');
 
 console.log('闯关 / 存档 / 叙事校验通过');
 
@@ -489,6 +679,47 @@ await tick();
 
 console.log('人类 E2E：完整回合 + 买地 + 升级 校验通过');
 
+// ---------------- 回归：落地面板的「结束回合」必须一步生效 ----------------
+// 旧实现把该按钮接到 afterHumanAction，只重建操作栏、不结束回合，玩家得点两次。
+const idleHuman = state.G.players.find(p => !p.isAI) || state.G.players[0];
+data.TILES.forEach(t => { if ('owner' in t) { t.owner = null; t.level = 0; t.mortgaged = false; } });
+const freePropIdx = data.TILES.findIndex(t => t.type === 'prop');
+idleHuman.pos = freePropIdx;
+idleHuman.extraRoll = false;
+idleHuman.bankrupt = false;
+state.G.current = idleHuman.id;
+state.G.pendingTile = null;
+state.G.targetWealth = 0;  // 身家达标会走 gameWin 分支，测不到回合推进
+state.G.gameOver = true;   // 只测「本回合是否推进」，阻止后续 AI 链；endTurn 不因 gameOver 提前返回
+await game.resolveTile(idleHuman);
+const oneClickEnd = document.getElementById('endBtn');
+if (!oneClickEnd) throw new Error('落地面板未渲染结束回合按钮');
+const turnBeforeEnd = state.G.turn;
+oneClickEnd.onclick();
+if (state.G.turn === turnBeforeEnd) throw new Error('落地面板「结束回合」没有一步结束回合'
+  + ` (mode=${state.G.mode} target=${state.G.targetWealth} extraRoll=${idleHuman.extraRoll})`);
+
+// ---------------- 回归：读档时 pendingTile 优先于 extraRoll ----------------
+// 双数落地买地时存档，两个标记同时存在；旧顺序先判 extraRoll，读档后购买机会丢失。
+state.G.gameOver = false;
+state.G.current = idleHuman.id;
+state.G.players.forEach(p => { p.bankrupt = false; });
+data.TILES.forEach(t => { if ('owner' in t) { t.owner = null; t.level = 0; t.mortgaged = false; } });
+const pendingIdx = data.TILES.findIndex(t => t.type === 'prop');
+idleHuman.pos = pendingIdx;
+idleHuman.extraRoll = true;
+state.G.pendingTile = data.TILES[pendingIdx];
+state.G.awaitingRoll = false;
+state.G.targetWealth = 0;
+game.restoreTurnUI();
+if (!document.getElementById('buyBtn')) throw new Error('pendingTile 与 extraRoll 同时存在时，读档应优先恢复落地面板');
+// DOM 桩的 getElementById 会缓存旧节点，不能靠 rollBtn 是否存在判断，
+// 必须看本次真正渲染进操作区的 HTML。
+const restoredActionsHtml = document.getElementById('actions').innerHTML;
+if (!restoredActionsHtml.includes('buyBtn')) throw new Error('恢复落地面板时操作区未渲染购买按钮');
+if (restoredActionsHtml.includes('rollBtn')) throw new Error('恢复落地面板时不应先进补掷界面');
+state.G.gameOver = true;
+
 // ---------------- 场景 5：买地/升级 纯函数校验 ----------------
 const rulesMod = await load('rules.js');
 const buyer = { id: 0, name: '买方', caps: 1500, bankrupt: false };
@@ -515,6 +746,144 @@ if (freeProp) {
 }
 
 console.log('买地/升级 纯函数校验通过');
+
+// ---------------- 回归：隔离区一回合只能掷一次（严格规则） ----------------
+const jailHuman = {
+  id: 0, name: '囚', short: '囚', isAI: false, color: '#fff', caps: 1000, pos: 0,
+  skipNext: false, bankrupt: false, inJail: true, jailTurns: 0, getOut: 0, doubles: 0,
+  extraRoll: false, moral: 0, flags: [], missionDone: [], cards: [], factionRep: {}
+};
+const jailAI = {
+  id: 1, name: '看守', short: 'AI', isAI: true, color: '#fff', caps: 1000, pos: 0,
+  skipNext: false, bankrupt: false, inJail: false, jailTurns: 0, getOut: 0, doubles: 0,
+  extraRoll: false, moral: 0, flags: [], missionDone: [], cards: [], factionRep: {}
+};
+Object.assign(state.G, {
+  mode: 'versus', players: [jailHuman, jailAI], current: 0, turn: 12,
+  gameOver: false, targetWealth: 0, awaitingRoll: false, pendingTile: null,
+  pacifist: false, moralDrain: 0, bankInterest: false, landTax: 0,
+});
+await game.takeTurn();   // 人类在隔离区 → 隔离区面板
+if (!document.getElementById('jb3')) throw new Error('隔离区面板未渲染「掷骰逃出」');
+// 骰子由 roll() 在最前两次 Math.random 决定：0 → 1 点，0.5 → 4 点（非双数）
+const origRandom = Math.random;
+let diceCalls = 0;
+Math.random = () => (diceCalls++ === 0 ? 0 : 0.5);
+document.getElementById('jb3').onclick();
+const jailDeadline = Date.now() + 5000;
+while (jailHuman.jailTurns === 0 && Date.now() < jailDeadline) await tick();
+Math.random = origRandom;
+if (jailHuman.jailTurns !== 1) throw new Error('隔离区掷骰失败未计入 jailTurns，实际 ' + jailHuman.jailTurns);
+if (state.G.current === 0) throw new Error('隔离区失败后本回合未结束（同一回合还能再掷一次）');
+if (jailHuman.inJail !== true) throw new Error('未掷出双数不应提前离开隔离区');
+state.G.gameOver = true;   // 阻止 AI 链继续推进，只验证本回合是否结束
+await tick();
+console.log('隔离区单回合单次掷骰校验通过');
+
+// ---------------- 回归：遗产加成只作用于人类（C11） ----------------
+store.wasteland_legacy_meta = JSON.stringify({
+  points: 999, totalRuns: 3, bestScore: 0,
+  unlockedBonuses: ['getout_start', 'moral_bonus', 'start_card'],
+  unlockedMutators: [], lastEndKind: null, lastMoral: 0,
+});
+getEl('mode').value = 'legacy';
+getEl('slot0').value = 'human';
+getEl('slot1').value = 'ai';
+getEl('slot2').value = 'off';
+getEl('slot3').value = 'off';
+getEl('startCaps').value = '1500';
+getEl('target').value = '0';
+data.TILES.forEach(t => { if ('owner' in t) { t.owner = null; t.level = 0; t.mortgaged = false; } });
+game.startGame();
+const legacyHuman = state.G.players.find(p => !p.isAI);
+const legacyAI = state.G.players.find(p => p.isAI);
+if (!legacyHuman || !legacyAI) throw new Error('遗产局应有人类与 AI');
+if (legacyHuman.getOut !== 1) throw new Error('人类应获得 1 张起始出狱卡，实际 ' + legacyHuman.getOut);
+if (legacyHuman.moral !== 2) throw new Error('人类起始道德应为 2，实际 ' + legacyHuman.moral);
+if (legacyHuman.cards.length !== 1) throw new Error('人类应有 1 张起始手牌，实际 ' + legacyHuman.cards.length);
+if (legacyAI.getOut !== 0) throw new Error('AI 不应获得遗产出狱卡，实际 ' + legacyAI.getOut);
+if (legacyAI.moral !== 0) throw new Error('AI 不应获得遗产道德加成，实际 ' + legacyAI.moral);
+if (legacyAI.cards.length !== 0) throw new Error('AI 不应获得遗产手牌，实际 ' + legacyAI.cards.length);
+state.G.gameOver = true;
+console.log('遗产加成归属校验通过');
+
+// ---------------- 回归：TTS 取消 / 语速 / 引擎标记（A3） ----------------
+// 用假 Audio 复现浏览器的关键行为：pause() 不会触发 ended —— 这正是旧实现要等 60s 的原因。
+const ttsMod = await load('tts.js');
+const createdAudios = [];
+class FakeAudio {
+  constructor(url) {
+    this.url = url; this.volume = 1; this.playbackRate = 1;
+    this.paused = true; this.played = false;
+    createdAudios.push(this);
+  }
+  play() {
+    if (FakeAudio.failPlay) return Promise.reject(new Error('autoplay blocked'));
+    this.paused = false; this.played = true;
+    if (FakeAudio.autoEnd) setImmediate(() => { if (this.onended) this.onended(); });
+    return Promise.resolve();
+  }
+  pause() { this.paused = true; }
+}
+FakeAudio.autoEnd = false;
+FakeAudio.failPlay = false;
+const origAudio = global.Audio;
+global.Audio = FakeAudio;
+window.wastelandDesktop = {
+  custom: {
+    init: async () => ({ ok: true, model: 'test-model', voice: 'test-voice' }),
+    speak: async () => ({ ok: true, audio: new Uint8Array(128), format: 'mp3' }),
+    clearKey: async () => ({ ok: true }),
+  },
+  mimo: { init: async () => ({ ok: true }), clearKey: async () => ({ ok: true }) },
+};
+ttsMod.setVoiceSource('custom');
+ttsMod.setTtsEnabled(true);
+ttsMod.setTtsRate(1.5);
+global.setTimeout = nodeSetTimeout;   // 真实定时器：否则 playBlob 的 60s 兜底会被折叠成立即触发
+
+// 1) 正在播放时取消：必须立即结算（旧实现只 pause，要等 60s 定时器）
+const firstSpeak = ttsMod.ttsSpeak('测试语音一');
+for (let i = 0; i < 20 && !createdAudios.length; i++) await tick();
+if (!createdAudios.length) throw new Error('自定义 TTS 未开始播放');
+if (Math.abs(createdAudios[0].playbackRate - 1.5) > 1e-6) {
+  throw new Error('语速未应用到音频播放，playbackRate=' + createdAudios[0].playbackRate);
+}
+ttsMod.cancelTts();
+const settleResult = await Promise.race([
+  firstSpeak.then(() => 'ok'),
+  new Promise(r => setTimeout(() => r('timeout'), 800)),
+]);
+if (settleResult !== 'ok') throw new Error('cancelTts 未让正在播放的播报立即结算（旧实现要等 60s）');
+
+// 2) 取消后，旧链上排队的播报不得再播
+createdAudios.length = 0;
+const queuedA = ttsMod.ttsSpeak('取消前排队一');
+const queuedB = ttsMod.ttsSpeak('取消前排队二');
+ttsMod.cancelTts();
+await Promise.all([queuedA, queuedB]);
+await tick(); await tick();
+if (createdAudios.length) throw new Error('取消后仍播放了旧链上排队的播报');
+
+// 3) 只有正常播完才标记引擎可用
+FakeAudio.autoEnd = true;
+const doneSpeak = ttsMod.ttsSpeak('正常播完');
+await doneSpeak;
+if (ttsMod.ttsEngineStatus() !== 'custom') throw new Error('播报成功后引擎状态未标记: ' + ttsMod.ttsEngineStatus());
+
+// 4) autoplay 被拒不能报告引擎可用
+FakeAudio.autoEnd = false;
+FakeAudio.failPlay = true;
+const failTest = await ttsMod.testTts();
+if (failTest !== null) throw new Error('播放失败不应报告引擎可用，实际 ' + failTest);
+
+global.Audio = origAudio;
+ttsMod.cancelTts();
+ttsMod.setTtsEnabled(false);
+global.setTimeout = stubSetTimeout;   // 恢复 dom-stub 的「setTimeout = setImmediate」
+try { delete window.wastelandDesktop; } catch (_) { window.wastelandDesktop = undefined; }
+createdAudios.length = 0;
+console.log('TTS 取消 / 语速 / 引擎标记校验通过');
 
 // ---------------- 场景 6：mutator 视觉族（v1.8.0，纯表现层）----------------
 const mutMod = await load('mutators.js');

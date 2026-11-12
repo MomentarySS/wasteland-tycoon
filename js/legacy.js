@@ -17,12 +17,37 @@ export function getDefaultLegacy() {
   };
 }
 
+const END_KINDS = new Set(['win', 'draw', 'campaign', 'campaignLose', 'nuke', 'survival']);
+
+function finiteNumber(value, fallback = 0, min = 0, max = 1e9) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function idList(value) {
+  return Array.isArray(value)
+    ? value.filter(v => typeof v === 'string' && v.length > 0 && v.length <= 64).slice(0, 100)
+    : [];
+}
+
+/** 读 localStorage 时必须逐字段收敛：这份数据可被手改，
+ *  其中 points / totalRuns 会原样拼进遗产商店的 innerHTML，数组字段还会被 .includes 调用。 */
 export function getLegacyMeta() {
   try {
     const raw = localStorage.getItem(LEGACY_KEY);
     if (!raw) return getDefaultLegacy();
     const data = JSON.parse(raw);
-    return { ...getDefaultLegacy(), ...data };
+    if (!data || typeof data !== 'object') return getDefaultLegacy();
+    return {
+      points: finiteNumber(data.points, 0, 0, 1e9),
+      totalRuns: finiteNumber(data.totalRuns, 0, 0, 1e9),
+      bestScore: finiteNumber(data.bestScore, 0, 0, 1e9),
+      unlockedBonuses: idList(data.unlockedBonuses),
+      unlockedMutators: idList(data.unlockedMutators),
+      lastEndKind: END_KINDS.has(data.lastEndKind) ? data.lastEndKind : null,
+      lastMoral: finiteNumber(data.lastMoral, 0, -1e9, 1e9),
+    };
   } catch {
     return getDefaultLegacy();
   }

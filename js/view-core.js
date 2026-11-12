@@ -63,6 +63,14 @@ export function applyTileArt(_on) {
 
 export const WASTELAND_EMOJI = ['🧟', '☣️', '🤖', '👽', '🔥', '💀', '🛡️', '🥷', '🐺', '🦅', '⚙️', '📻'];
 const slotAvatars = [];
+const HEX_COLOR = /^#[0-9a-f]{3,8}$/i;
+
+/** 颜色会直接进 inline style（存档可被手改）：只接受 #RGB/#RRGGBB 形式，
+ *  否则回退默认色。escapeHtml 允许分号，挡不住 `color:red;position:fixed` 这类注入。 */
+function safeColor(value, fallback = '#ccc') {
+  const s = String(value || '');
+  return HEX_COLOR.test(s) ? s : fallback;
+}
 
 export function avatarHTML(p) {
   const av = p.avatar;
@@ -70,8 +78,8 @@ export function avatarHTML(p) {
   if (av && typeof av === 'string' && av.startsWith('data:')) inner = `<img class="avimg" src="${escapeHtml(av)}">`;
   else if (av) inner = `<span class="avemoji">${escapeHtml(av)}</span>`;
   else inner = playerPortrait(p.id);
-  // color 可能来自读档存档，必须转义防止破坏 style 属性边界
-  const color = escapeHtml(String(p.color || '#ccc'));
+  // color 可能来自读档存档：先白名单再进 style
+  const color = safeColor(p.color);
   return `<span class="pva" style="color:${color}">${inner}</span>`;
 }
 
@@ -216,8 +224,8 @@ function buildStripTileHTML(t) {
   // board-v2: prop 格右上角 HUD = 主人色点 + 等级徽章 + 建造图标
   if (t.type === 'prop') {
     const owner = t.owner != null && G.players[t.owner] ? G.players[t.owner] : null;
-    const ownerColor = owner ? escapeHtml(owner.color) : '';
-    const level = t.level || 0;
+    const ownerColor = owner ? safeColor(owner.color) : '';
+    const level = Math.max(0, Math.min(2, Number(t.level) || 0));
     html += `<div class="tileHud"><div class="tileRow">`;
     if (owner) html += `<span class="towner" style="background:${ownerColor};color:${ownerColor}"></span>`;
     if (level > 0) html += `<span class="tlevel" data-lv="${level}">${level}</span>`;
@@ -575,16 +583,17 @@ export function render() {
         document.getElementById('campObj').innerHTML =
           `<div class="campName">${escapeHtml(r.name)}</div><div class="campBrief">${escapeHtml(r.brief)}</div>` +
           coopNote + decayNote +
-          r.objs.map(o => `<div class="campObj ${o.done ? 'done' : ''}">${o.done ? '✔' : '○'} ${escapeHtml(o.text)} <span class="campVal">(${o.value}/${o.goal})</span></div>`).join('');
+          r.objs.map(o => `<div class="campObj ${o.done ? 'done' : ''}">${o.done ? '✔' : '○'} ${escapeHtml(o.text)} <span class="campVal">(${Number(o.value) || 0}/${Number(o.goal) || 0})</span></div>`).join('');
       }
     } else if (G.mode === 'survival') {
       campCard.style.display = '';
-      const tier = Math.floor((G.turn || 0) / 8);
+      const turnNow = Math.max(0, Math.floor(Number(G.turn) || 0));
+      const tier = Math.floor(turnNow / 8);
       const decay = tier > 0 ? tier * 5 : 0;
-      const nextTierIn = 8 - ((G.turn || 0) % 8);
+      const nextTierIn = 8 - (turnNow % 8);
       document.getElementById('campObj').innerHTML =
         `<div class="campName">☢ 生存模式</div><div class="campBrief">在无尽的废土衰减中活下去</div>` +
-        `<div class="campCoop">存活回合：${G.turn || 0}</div>` +
+        `<div class="campCoop">存活回合：${turnNow}</div>` +
         `<div class="campDecay">衰减等级 ${tier}：每回合 -${decay} 盖` +
         (tier > 0 ? `（下阶段 ${nextTierIn} 回合后 +5）` : `（${nextTierIn} 回合后开始衰减）`) +
         `</div>`;

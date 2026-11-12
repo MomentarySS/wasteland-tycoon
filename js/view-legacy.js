@@ -3,13 +3,14 @@
 // ============================================================
 import { getLegacyMeta, purchaseBonus, LEGACY_BONUSES } from './legacy.js';
 import { openModal, closeModal } from './view-modal.js';
+import { escapeHtml } from './view-util.js';
 
 export function showLegacyShop() {
   const meta = getLegacyMeta();
 
   let html = '<div class="legacyShop">';
   html += '<h2>🏪 遗产商店</h2>';
-  html += `<div class="legacyPoints">遗产点：<strong>${meta.points}</strong> · 对局：${meta.totalRuns} · 最高分：${meta.bestScore}</div>`;
+  html += `<div class="legacyPoints">遗产点：<strong>${escapeHtml(meta.points)}</strong> · 对局：${escapeHtml(meta.totalRuns)} · 最高分：${escapeHtml(meta.bestScore)}</div>`;
   html += '<div class="legacyItems">';
 
   for (const bonus of LEGACY_BONUSES) {

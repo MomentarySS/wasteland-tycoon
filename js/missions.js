@@ -32,17 +32,16 @@ export function missionEligible(m, player) {
   return true;
 }
 
-/** 从牌堆中按 flags / rep / once 筛选；连锁任务权重更高。
- *  牌堆全部为 once 且已完成时返回 null（调用方按「空频道」处理，绝不重放已完成任务重复结算） */
+/** 从牌堆中按 flags / rep / once 筛选；真正的连锁任务权重更高。
+ *  没有可接任务时返回 null（调用方按「空频道」处理）。旧兜底会把旗标/声望未解锁的
+ *  任务重新放出来，导致连锁、核弹、派系内容提前触发——宁可空频道，也不绕过解锁条件。 */
 export function pickMission(pile, player) {
-  const eligible = pile.filter((m) => missionEligible(m, player));
-  const pool = eligible.length ? eligible : pile.filter((m) => !m.once || !(player.missionDone || []).includes(m.id));
+  const pool = pile.filter((m) => missionEligible(m, player));
   if (!pool.length) return null;
 
   const weighted = [];
   for (const m of pool) {
-    const isChain = m.once || (m.requires && m.requires.length) || (m.requiresRep && Object.keys(m.requiresRep).length);
-    const w = isChain ? 3 : 1;
+    const w = isChainMission(m) ? 3 : 1;
     for (let i = 0; i < w; i++) weighted.push(m);
   }
   return weighted[Math.floor(Math.random() * weighted.length)];
@@ -54,8 +53,11 @@ export function markMissionDone(p, mission) {
   if (!p.missionDone.includes(mission.id)) p.missionDone.push(mission.id);
 }
 
+/** 连锁任务 = 需要前置旗标 / 声望的任务。
+ *  旧实现把「一次性」也当成连锁，导致 36 个电台事件里 20 个独立事件被标成
+ *  「🔗 连锁任务」并拿到 3 倍抽取权重，稀释了真正的连锁内容。 */
 export function isChainMission(m) {
-  return !!(m && ((m.requires && m.requires.length) || (m.requiresRep && Object.keys(m.requiresRep).length) || m.once));
+  return !!(m && ((m.requires && m.requires.length) || (m.requiresRep && Object.keys(m.requiresRep).length)));
 }
 
 export function isFactionMission(m) {

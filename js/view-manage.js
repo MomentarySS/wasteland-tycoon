@@ -20,7 +20,8 @@ export function renderManage() {
   if (cards.length) {
     html += `<div style="margin:6px 0 0;font-size:11px"><b style="color:var(--tech)">🃏 手牌：</b>${cards.map(id => {
       const c = cardDef(id);
-      return c ? `${c.icon}${c.name}` : id;
+      // 未知卡牌 id 可能来自手改存档：兜底路径也必须转义
+      return c ? `${c.icon}${c.name}` : escapeHtml(id);
     }).join('、')} <button class="alt" id="openHand" style="padding:2px 8px;font-size:10px">使用</button></div>`;
   }
   html += `<div style="margin:8px 0;border-top:1px solid var(--line);padding-top:8px"><b style="color:var(--amber)">抵押 / 赎回</b><br>`;
@@ -28,7 +29,7 @@ export function renderManage() {
   owned.forEach(t => {
     const mv = Math.floor(t.price / 2), um = Math.floor(t.price * 0.55);
     if (t.mortgaged) html += `<div class="row" style="margin:4px 0"><span>${escapeHtml(t.name)} <span style="color:var(--gang)">[抵押中]</span></span><button class="alt" id="um${t.id}" ${p.caps < um ? 'disabled' : ''}>赎回(${um})</button></div>`;
-    else html += `<div class="row" style="margin:4px 0"><span>${escapeHtml(t.name)} L${t.level}</span><button class="alt" id="mg${t.id}" ${t.level > 0 ? 'disabled' : ''}>抵押(+${mv})</button></div>`;
+    else html += `<div class="row" style="margin:4px 0"><span>${escapeHtml(t.name)} L${Number(t.level) || 0}</span><button class="alt" id="mg${t.id}" ${t.level > 0 ? 'disabled' : ''}>抵押(+${mv})</button></div>`;
   });
   html += `</div>`;
   const others = G.players.filter(x => x.id !== p.id && !x.bankrupt);
@@ -55,13 +56,17 @@ export function renderManage() {
 
 export function proposeTrade() {
   const a = G.turnPlayer;
-  const b = G.players[+document.getElementById('trg').value];
+  // 用 id 查找目标与地块，而不是把 select 的值当数组下标：
+  // 手改存档里的 id 可能不等于下标，旧写法会取到 undefined 并在 b.isAI 处崩溃。
+  const trgEl = document.getElementById('trg');
+  const b = G.players.find(x => String(x.id) === String(trgEl ? trgEl.value : ''));
+  if (!a || !b) { alert('交易目标无效'); return; }
   const gp = document.getElementById('gp').value;
   const gc = +document.getElementById('gc').value || 0;
   const wp = document.getElementById('wp').value;
   const wc = +document.getElementById('wc').value || 0;
-  const aProps = gp !== '' ? [TILES[+gp]] : [];
-  const bProps = wp !== '' ? [TILES[+wp]] : [];
+  const aProps = gp !== '' ? TILES.filter(t => String(t.id) === gp) : [];
+  const bProps = wp !== '' ? TILES.filter(t => String(t.id) === wp) : [];
   if (bProps.length && bProps[0].owner !== b.id) { alert('换回地块不属于该目标'); return; }
   if (aProps.some(t => t.owner !== a.id) || bProps.some(t => t.owner !== b.id)) { alert('资产归属错误'); return; }
   if (a.caps < gc || b.caps < wc) { alert('瓶盖不足'); return; }

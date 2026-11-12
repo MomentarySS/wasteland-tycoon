@@ -130,6 +130,13 @@ export function restoreBoardOrder(artOrder) {
   });
 }
 
+/** 固定布局：把棋盘还原成 content/tiles.json 的原始顺序。
+ *  「随机棋盘=关」只清归属是不够的——上一局的随机顺序会留在 TILES 里，
+ *  所谓「固定布局」实际还是随机布局。 */
+export function resetBoardOrder() {
+  restoreBoardOrder(Array.from({ length: TILES_COUNT }, (_, i) => i));
+}
+
 /** 新局重置所有可占有格（owner / level / mortgaged / price） */
 export function resetTiles() {
   TILES.forEach((t) => {

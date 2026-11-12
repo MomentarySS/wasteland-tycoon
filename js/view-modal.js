@@ -162,11 +162,13 @@ export function showMission(m, p, opts = {}) {
 
 /** 目标选择列表弹窗（拆迁令 / 换地卡等二级选择用） */
 function openTargetList(p, title, items, label, onPick) {
+  // label/title 会拼进 innerHTML，且 label 的产物包含「玩家名」（自由输入 / 可手改存档）。
+  // 统一在这里转义，避免每个调用方各转一遍、漏一个就是一个 XSS 入口。
   const rows = items.map((t, i) =>
-    `<div class="row" style="justify-content:space-between;gap:8px"><span style="font-size:12px">${label(t)}</span><button id="tg${i}">选择</button></div>`
+    `<div class="row" style="justify-content:space-between;gap:8px"><span style="font-size:12px">${escapeHtml(label(t))}</span><button id="tg${i}">选择</button></div>`
   ).join('');
   const html = `<div class="deckTag" style="color:var(--tech)">🎯 选择目标</div>
-    <h2 style="color:var(--tech);text-align:center">${title}</h2>
+    <h2 style="color:var(--tech);text-align:center">${escapeHtml(title)}</h2>
     <div style="max-height:44vh;overflow:auto">${rows}</div>
     <div id="modalActions" style="margin-top:14px"><button class="alt" id="tgBack">返回手牌</button></div>`;
   openModal(html);

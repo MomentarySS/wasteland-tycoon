@@ -9,7 +9,8 @@ contextBridge.exposeInMainWorld('wastelandDesktop', {
     init: (config) => ipcRenderer.invoke('custom:init', config),
     speak: (text, opts) => ipcRenderer.invoke('custom:speak', text, opts),
     status: (config) => ipcRenderer.invoke('custom:status', config),
-    saveKey: (key) => ipcRenderer.invoke('custom:saveKey', key),
+    // 地址随 Key 一起交给主进程绑定：第二个参数是 { baseUrl, model, voice }
+    saveKey: (key, config) => ipcRenderer.invoke('custom:saveKey', key, config),
     clearKey: () => ipcRenderer.invoke('custom:clearKey'),
   },
   mimo: {

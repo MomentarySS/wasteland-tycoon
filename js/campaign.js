@@ -42,6 +42,13 @@ export const CAMPAIGNS = [
           const r = rails >= 2 ? 2 : rails;
           const u = utils >= 2 ? 2 : utils;
           return Math.max(r, u);
+        },
+        // 合作模式必须按「队伍去重」后重算：直接累加两人的 getter 会把
+        // 「甲 1 铁路 + 乙 1 设施」误判成 2（每人各 1，谁都没达成 2 条/2 座）。
+        coopGet: (members, ctx) => {
+          const teamOwns = (type) => ctx.TILES.filter(t => t.type === type && members.some(m => t.owner === m.id)).length;
+          const rails = teamOwns('rail'), utils = teamOwns('util');
+          return Math.max(Math.min(rails, 2), Math.min(utils, 2));
         } },
       { key: 'net', text: '净身家 ≥ 3500', goal: 3500, get: (p, ctx) => ctx.netWorth(p) },
       { key: 'moral', text: '道德值 ≥ 6', goal: 6, get: (p) => p.moral || 0 },
@@ -192,11 +199,14 @@ export function evaluateCampaignCoop(human, ally, ctx, idx = 0) {
   const teammates = [human, ally].filter(Boolean);
   const objs = ch.objectives.map(o => {
     let v;
-    if (o.key === 'moral') {
+    if (o.coopGet) {
+      // 非线性目标（如「2 条铁路或 2 座设施」）：先按队伍去重再计算，不能累加个人值
+      v = o.coopGet(teammates, ctx) || 0;
+    } else if (o.key === 'moral') {
       // 道德取人类值（决策主体）
       v = o.get(human, ctx) || 0;
     } else {
-      // 瓶盖 / 身家 / 地产 / 垄断 / 设施一律取双方总和
+      // 瓶盖 / 身家 / 地产 / 垄断：双方相加（这些目标对任一方都是线性可加的）
       v = teammates.reduce((sum, p) => sum + (o.get(p, ctx) || 0), 0);
     }
     return { text: o.text, goal: o.goal, value: v, done: v >= o.goal };

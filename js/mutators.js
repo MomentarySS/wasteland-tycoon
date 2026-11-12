@@ -32,10 +32,11 @@ export const MUTATOR_POOL = [
   { id: 'nuke_race', name: '核军备竞赛', desc: '发射密钥掉落概率翻倍，AI 集齐会真的发射', icon: '☢', apply: (G) => { G.nukeRace = true; } },
 ];
 
-/** 随机抽取 N 个突变因子 */
+/** 随机抽取 N 个突变因子。
+ *  当前没有「按遗产点解锁」的写入路径，因此默认从全部 25 个里抽；
+ *  unlockedIds 仅为兼容旧存档保留（列表为空/缺省时视为全部可用）。 */
 export function rollMutators(count = 3, unlockedIds = null) {
-  // 如果未指定已解锁列表，使用全部
-  const pool = unlockedIds
+  const pool = Array.isArray(unlockedIds) && unlockedIds.length > 0
     ? MUTATOR_POOL.filter(m => unlockedIds.includes(m.id))
     : MUTATOR_POOL;
 

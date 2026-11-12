@@ -33,9 +33,18 @@ npm run desktop:build
 | 小米 MiMo 在线 | 通过 Xiaomi MiMo-V2.5-TTS OpenAI 兼容接口合成完整播报；支持内置中文音色 |
 | 自定义 TTS | 按 OpenAI 兼容 `/audio/speech` 调用用户填写的服务地址、模型和音色；覆盖动态播报和固定旁白 |
 
-系统 `speechSynthesis` 不作为运行时降级链路。在线语音需要有效的服务商 API Key 和网络连接。开局配置可录入并清除 MiMo / 自定义 TTS 的 Key；Electron 主进程使用 `safeStorage` 加密后保存在当前用户的应用数据目录，不传回页面、不进入存档。也可通过 `MIMO_API_KEY` / `CUSTOM_TTS_API_KEY` 环境变量，或本地 `.mimo-api-key` / `.custom-tts-api-key` 文件配置；这些文件已被 `.gitignore` 排除，切勿提交密钥。自定义 TTS 的服务地址、模型和音色保存在本机 `localStorage`，不进入存档。
+系统 `speechSynthesis` 不作为运行时降级链路。在线语音需要有效的服务商 API Key 和网络连接。开局配置可录入并清除 MiMo / 自定义 TTS 的 Key；Electron 主进程使用 `safeStorage` 加密后保存在当前用户的应用数据目录，不传回页面、不进入存档。也可通过 `MIMO_API_KEY` / `CUSTOM_TTS_API_KEY` 环境变量，或本地 `.mimo-api-key` / `.custom-tts-api-key` 文件配置；这些文件已被 `.gitignore` 排除，切勿提交密钥。
 
-在线语音 IPC 通过 `electron/preload.cjs` 暴露的受限接口调用；渲染进程不直接读取密钥。
+播报行为（2026-11-12 起）：播报语速对所有来源生效（预录 / MiMo / 自定义）；跳过过场、关闭播报或切换来源会立即停止当前音频，不再继续念旧台词；「测音」在播放失败时不会显示引擎可用。
+
+自定义 TTS 的服务地址规则（2026-11-12 起）：
+
+- 只接受 `https` 公网地址；`http` 只允许本机回环（`localhost` / `127.x`），远程明文连接会被拒绝，避免 API Key 明文出网。
+- 私网 / 链路本地 / `.local` 地址默认拒绝；确需使用请在启动前设置 `WASTELAND_ALLOW_PRIVATE_TTS=1`。
+- 保存 Key 时会把服务地址的 origin 一并绑定并写入应用数据目录。之后修改 Base URL 必须重新保存 Key（界面会提示「服务地址已更改」）。模型与音色不受此限制，可随时修改。
+- 渲染层不再能把 `baseUrl` 传给播报接口：主进程只采用保存时绑定的地址，只接受 `model` / `voice` / `speed`。
+
+在线语音 IPC 通过 `electron/preload.cjs` 暴露的受限接口调用；渲染进程不直接读取密钥。所有 IPC 调用都会校验来源页面，窗口导航被限制在应用自身的 `index.html`。
 
 > 2026-11-12（v1.9.0）：MiniMax 在线链路已移除，当前为「仅预录 + MiMo + 自定义 OpenAI 兼容 TTS」。下方 v1.7.x / v1.8.x 验收记录中的 MiniMax 日志、`minimax-tts.js` 引用和缓存目录属于当时状态，保留原样，不代表当前实现。
 

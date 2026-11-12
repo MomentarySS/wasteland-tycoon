@@ -167,9 +167,21 @@ G.current = 1; G.lastRoll = 6;
 const ownerObj = G.players[0];
 const ownerCapsBefore = ownerObj.caps;
 rules.payRent(G.players[1], s2);
-const paid = ownerCapsBefore === undefined ? 0 : (ownerObj.caps - ownerCapsBefore);
-ok(paid > 0, `shack owner received rent+upkeep (${paid})`);
-ok(Math.abs(paid - (sub.propBaseRent(s2, 6) * (rules.isMonopoly(s2) ? 2 : 1) + sub.upkeepOf(s2))) <= 1, `shack total = rent + upkeep (${paid})`);
+const net = ownerObj.caps - ownerCapsBefore;
+// 设计口径（docs/terrain-variants.md §50 / v1.8.0-plan §3）：租金归地主，
+// 维护费由地主自己承担 —— 净收入 = 租金 - upkeep，陷阱属性正是这么来的。
+const rent = sub.propBaseRent(s2, 6) * (rules.isMonopoly(s2) ? 2 : 1);
+ok(Math.abs(net - (rent - sub.upkeepOf(s2))) <= 1, `shack owner net = rent - upkeep (${net}, expect ${rent} - ${sub.upkeepOf(s2)})`);
+ok(net < rent, `shack upkeep must reduce owner income (net ${net} < rent ${rent})`);
+
+// 地主付不起维护费时地块废弃（而不是让缴租方替他付）
+data.TILES.forEach(restore);
+s2.owner = 0; s2.level = 0;
+ownerObj.caps = 0;
+const poorBefore = ownerObj.caps;
+rules.payRent(G.players[1], s2);
+ok(s2.owner === null, `broke shack owner loses the tile (owner=${s2.owner})`);
+ok(ownerObj.caps - poorBefore < sub.upkeepOf(s2), `broke owner never pays upkeep out of thin air (${ownerObj.caps - poorBefore})`);
 
 // cursed: moral drop
 // NOTE: the payer starts at moral 0, and payRent clamps with Math.max(0, ...),

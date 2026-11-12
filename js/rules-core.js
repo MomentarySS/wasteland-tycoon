@@ -115,15 +115,19 @@ export function aiRaiseCashPlan(p, need) {
   return steps;
 }
 
+/** AI 对一次交易的估值。参数按「谁给谁」命名，必须站在 b（AI）自己的立场算：
+ *  aProps/gc = a（发起方）给出的资产与瓶盖 → AI 收进，为 +；
+ *  bProps/wc = AI 让出的资产与瓶盖 → 为 -。
+ *  方向写反会让 AI 接受亏本交易、拒绝赚钱交易（旧实现正是如此），等于给玩家一台无限套现机。 */
 export function aiTradeAccept(b, aProps, gc, bProps, wc) {
-  let delta = 0;
-  aProps.forEach(t => { delta -= (t.mortgaged ? 0 : t.price + t.level * t.price * 0.5); });
-  bProps.forEach(t => {
+  let delta = gc - wc;
+  aProps.forEach(t => {
     delta += (t.mortgaged ? 0 : t.price + t.level * t.price * 0.5);
+    // 收到这块地后 AI 若凑齐同组，额外溢价
     const grp = TILES.filter(x => x.type === 'prop' && x.group === t.group);
     if (grp.every(x => x.owner === b.id || x === t)) delta += t.price * 0.4;
   });
-  delta += wc - gc;
+  bProps.forEach(t => { delta -= (t.mortgaged ? 0 : t.price + t.level * t.price * 0.5); });
   return delta > 0;
 }
 

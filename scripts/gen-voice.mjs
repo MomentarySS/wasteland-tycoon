@@ -136,11 +136,22 @@ async function synth({ text, voice, apiKey, groupId }) {
     audio_setting: { sample_rate: SAMPLE_RATE, bitrate: BITRATE, format: 'mp3', channel: 1 },
   };
   const qs = groupId ? `?GroupId=${encodeURIComponent(groupId)}` : '';
-  const res = await fetch(API_URL + qs, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
-    body: JSON.stringify(body),
-  });
+  // 没有超时的话，一个卡住的连接会让整个批量生成无限挂起（无重试、无退出码）
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60000);
+  let res;
+  try {
+    res = await fetch(API_URL + qs, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    throw new Error(controller.signal.aborted ? '请求超时（60s）' : ((e && e.message) || '请求失败'));
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()).slice(0, 160));
   const j = await res.json();
   const base = j.base_resp || {};
@@ -162,6 +173,8 @@ async function synthRetry(opts, tries = 3) {
     } catch (e) {
       const msg = e && e.message || String(e);
       if (i === tries) throw new Error(msg);
+      // 4xx（除 408/429）重试没有意义：Key 错、参数错再试三次只是浪费时间和额度
+      if (/^HTTP 4\d\d/.test(msg) && !/^HTTP (408|429)/.test(msg)) throw new Error(msg);
       const wait = /429|rate|限流/i.test(msg) ? 10000 : 2000 * i;
       console.warn(`  重试 ${i}/${tries - 1}（${wait}ms 后）: ${msg}`);
       await new Promise((r) => setTimeout(r, wait));

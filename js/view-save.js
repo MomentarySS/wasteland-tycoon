@@ -1,6 +1,6 @@
 // 本地存档 / 读档（v4：含回合 UI、规则状态、地块价格 + 校验）
 import { G } from './state.js';
-import { TILES, restoreBoardOrder, resetTiles } from './data.js';
+import { TILES, restoreBoardOrder, resetBoardOrder, resetTiles } from './data.js';
 import { TILES_COUNT } from './config.js';
 import { buildTokens, render, log } from './view-core.js';
 import { hideWin, showWin, showNukeWin, showCampaignEnding } from './view-modal.js';
@@ -8,6 +8,7 @@ import { restoreTurnUI } from './game.js';
 import { netWorth } from './rules.js';
 import { evaluateCampaign, evaluateCampaignCoop, campaignCount } from './campaign.js';
 import { MUTATOR_FIELDS, MUTATOR_POOL, resetMutatorFields } from './mutators.js';
+import { cardDef, HAND_LIMIT } from './cards.js';
 
 const SAVE_KEY = 'wasteland_save';
 const SAVE_VERSION = 4;
@@ -51,11 +52,157 @@ function validateSave(d) {
   return null;
 }
 
-function normalizeSave(d) {
-  const out = { ...d };
-  if (out.awaitingRoll == null) out.awaitingRoll = false;
-  if (out.lastRoll == null) out.lastRoll = 0;
-  if (out.turnPlayerId == null) out.turnPlayerId = d.turnPlayerId ?? null;
+/** 存档来自 localStorage，等同「不可信输入」：所有字段在进入游戏状态前逐项收敛。
+ *  这里的目标不是完整迁移（旧版本兼容由 validateSave 管），而是保证：
+ *  数字一定是有限数、枚举一定在表内、数组元素类型受控、id 指向真实玩家。 */
+const SAVE_MODES = new Set(['versus', 'campaign', 'coop', 'survival', 'legacy']);
+const SAVE_END_KINDS = new Set(['win', 'draw', 'campaign', 'campaignLose', 'nuke', 'survival']);
+const SAVE_DIFFICULTIES = new Set(['easy', 'standard', 'nightmare']);
+const COLOR_RE = /^#[0-9a-f]{3,8}$/i;
+
+function num(value, fallback = 0, min = -1e9, max = 1e9) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+function int(value, fallback = 0, min = 0, max = 1e9) {
+  return Math.floor(num(value, fallback, min, max));
+}
+function str(value, max = 128) {
+  return typeof value === 'string' ? value.slice(0, max) : '';
+}
+function idList(value, max = 200) {
+  return Array.isArray(value)
+    ? value.filter(v => typeof v === 'string' && v.length > 0 && v.length <= 64).slice(0, max)
+    : [];
+}
+function plainObjectLimited(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const out = {};
+  let count = 0;
+  for (const [k, v] of Object.entries(value)) {
+    if (count++ >= 16) break;
+    if (k.length > 32) continue;
+    if (typeof v === 'number' && Number.isFinite(v)) out[k] = num(v, 0, -1e6, 1e6);
+    else if (typeof v === 'string') out[k] = str(v, 120);
+    else if (typeof v === 'boolean') out[k] = v;
+  }
+  return out;
+}
+function ruleValue(value, sample) {
+  if (typeof sample === 'number') return num(value, sample, -1e9, 1e9);
+  if (typeof sample === 'boolean') return !!value;
+  if (typeof sample === 'string') return str(value, 64);
+  if (sample === null) return value == null ? null : plainObjectLimited(value);
+  return value;
+}
+
+export function normalizeSave(d) {
+  const src = (d && typeof d === 'object') ? d : {};
+  const out = {};
+  out.v = int(src.v, 0, 0, 999);
+  out.mode = SAVE_MODES.has(src.mode) ? src.mode : 'versus';
+  out.campaign = int(src.campaign, 0, 0, 5);
+  out.turn = int(src.turn, 0, 0, 1e9);
+  out.SALARY = int(src.SALARY, 200, 0, 1e9);
+  out.STARTCAPS = int(src.STARTCAPS, 1500, 0, 1e9);
+  out.targetWealth = int(src.targetWealth, 0, 0, 1e9);
+  out.difficulty = SAVE_DIFFICULTIES.has(src.difficulty) ? src.difficulty : 'standard';
+  out.taxMult = num(src.taxMult, 1, 0, 100);
+  out.aiBuyAggro = num(src.aiBuyAggro, 1, 0, 10);
+  out.aiBidAggro = num(src.aiBidAggro, 1, 0, 10);
+  out.aiUpgradeChance = num(src.aiUpgradeChance, 0.6, 0, 1);
+  out.gameOver = !!src.gameOver;
+  out.endKind = SAVE_END_KINDS.has(src.endKind) ? src.endKind : null;
+  out.awaitingRoll = !!src.awaitingRoll;
+  out.lastRoll = int(src.lastRoll, 0, 0, 12);
+  out.activeMutatorIds = idList(src.activeMutatorIds, 50);
+  out.pendingTilePos = src.pendingTilePos == null ? null : int(src.pendingTilePos, -1, 0, TILES_COUNT - 1);
+  if (out.pendingTilePos != null && out.pendingTilePos < 0) out.pendingTilePos = null;
+
+  // 玩家：id 必须是互不重复的非负整数，供地块 owner / turnPlayerId 校验
+  const players = Array.isArray(src.players) ? src.players : [];
+  const seenIds = new Set();
+  out.players = players.slice(0, 8).map((p, index) => {
+    const raw = (p && typeof p === 'object') ? p : {};
+    let pid = int(raw.id, index, 0, 1e6);
+    if (seenIds.has(pid)) pid = index;
+    seenIds.add(pid);
+    return {
+      id: pid,
+      name: str(raw.name, 32),
+      short: str(raw.short, 16),
+      isAI: !!raw.isAI,
+      color: COLOR_RE.test(String(raw.color || '')) ? String(raw.color) : '',
+      caps: int(raw.caps, 0, -1e9, 1e9),
+      pos: int(raw.pos, 0, 0, TILES_COUNT - 1),
+      skipNext: !!raw.skipNext,
+      bankrupt: !!raw.bankrupt,
+      inJail: !!raw.inJail,
+      jailTurns: int(raw.jailTurns, 0, 0, 99),
+      getOut: int(raw.getOut, 0, 0, 99),
+      doubles: int(raw.doubles, 0, 0, 9),
+      extraRoll: !!raw.extraRoll,
+      luckyUsed: !!raw.luckyUsed,
+      moral: int(raw.moral, 0, -1e6, 1e6),
+      // 头像只接受 data:image/ 前缀，避免把 http(s) 资源塞进 <img src>
+      avatar: (typeof raw.avatar === 'string' && raw.avatar.startsWith('data:image/')) ? raw.avatar.slice(0, 700000) : '',
+      flags: idList(raw.flags, 100),
+      missionDone: idList(raw.missionDone, 200),
+      // 手牌按当前卡表白名单过滤：未知 id 不再进入渲染 / 使用流程
+      cards: idList(raw.cards, 100).filter(id => cardDef(id)).slice(0, HAND_LIMIT),
+      shield: int(raw.shield, 0, 0, 99),
+      marchBonus: int(raw.marchBonus, 0, 0, 99),
+      factionRep: (() => {
+        const rep = plainObjectLimited(raw.factionRep) || {};
+        return {
+          eagle: int(rep.eagle, 0, 0, 999),
+          survivor: int(rep.survivor, 0, 0, 999),
+          tech: int(rep.tech, 0, 0, 999),
+        };
+      })(),
+    };
+  });
+
+  const validOwner = (value) => {
+    if (value == null) return null;
+    const id = Number(value);
+    return Number.isInteger(id) && seenIds.has(id) ? id : null;
+  };
+  const tiles = Array.isArray(src.tiles) ? src.tiles : [];
+  out.tiles = tiles.slice(0, TILES_COUNT).map(t => {
+    const raw = (t && typeof t === 'object') ? t : {};
+    return {
+      owner: validOwner(raw.owner),
+      level: int(raw.level, 0, 0, 2),
+      mortgaged: !!raw.mortgaged,
+      price: num(raw.price, 0, 0, 1e9),
+    };
+  });
+
+  out.current = int(src.current, 0, 0, Math.max(0, out.players.length - 1));
+  out.turnPlayerId = src.turnPlayerId == null ? null : validOwner(src.turnPlayerId);
+  out.endWinnerId = src.endWinnerId == null ? null : validOwner(src.endWinnerId);
+
+  // 布局必须是合法排列（0..N-1 各出现一次），否则交给 resetBoardOrder 兜底
+  const order = Array.isArray(src.boardArtOrder) ? src.boardArtOrder : null;
+  out.boardArtOrder = (order
+    && order.length === TILES_COUNT
+    && order.every((v, i) => Number.isInteger(v) && v >= 0 && v < TILES_COUNT)
+    && new Set(order).size === TILES_COUNT) ? order.slice() : null;
+
+  // 规则字段只接受已知键，并按默认值类型收敛
+  out.ruleState = {};
+  if (src.ruleState && typeof src.ruleState === 'object') {
+    for (const key of SAVE_RULE_FIELDS) {
+      if (!Object.prototype.hasOwnProperty.call(src.ruleState, key)) continue;
+      const sample = Object.prototype.hasOwnProperty.call(MUTATOR_FIELDS, key)
+        ? MUTATOR_FIELDS[key]
+        : (key === 'narrativeSeed' || key === 'startRepPenalty' ? null : undefined);
+      if (sample === undefined) continue;
+      out.ruleState[key] = ruleValue(src.ruleState[key], sample);
+    }
+  }
   return out;
 }
 
@@ -153,6 +300,7 @@ export function saveGame() {
       caps: p.caps, pos: p.pos, skipNext: p.skipNext, bankrupt: p.bankrupt,
       inJail: p.inJail, jailTurns: p.jailTurns, getOut: p.getOut, doubles: p.doubles,
       extraRoll: !!p.extraRoll,
+      luckyUsed: !!p.luckyUsed,   // 「幸运开局」已用标记：不存档会在读档后重复发放
       moral: p.moral || 0, avatar: p.avatar || '',
       flags: Array.isArray(p.flags) ? p.flags.slice() : [],
       missionDone: Array.isArray(p.missionDone) ? p.missionDone.slice() : [],
@@ -224,6 +372,9 @@ export function loadGame() {
   resetTiles();
   if (Array.isArray(d.boardArtOrder) && d.boardArtOrder.length === TILES.length) {
     restoreBoardOrder(d.boardArtOrder);
+  } else {
+    // 缺布局信息的旧档：还原成原始顺序，否则地块状态会被套到上一局的随机布局上
+    resetBoardOrder();
   }
 
   TILES.forEach((t, i) => {
@@ -244,6 +395,7 @@ export function loadGame() {
     short: String(p.short ?? ''),
     moral: Number.isFinite(Number(p.moral)) ? Number(p.moral) : 0,
     extraRoll: !!p.extraRoll,
+    luckyUsed: !!p.luckyUsed,
     flags: Array.isArray(p.flags) ? p.flags.slice() : [],
     missionDone: Array.isArray(p.missionDone) ? p.missionDone.slice() : [],
     cards: Array.isArray(p.cards) ? p.cards.slice() : [],

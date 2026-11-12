@@ -1,6 +1,6 @@
 // 回合流程与游戏编排
 import { G, resetSession } from './state.js';
-import { TILES, positions, ALERTS, INTEL, FACTIONS, RUINS, shuffleBoard, resetTiles } from './data.js';
+import { TILES, positions, ALERTS, INTEL, FACTIONS, RUINS, shuffleBoard, resetBoardOrder, resetTiles } from './data.js';
 import { TILES_COUNT, JAIL_FEE, COLORS, SHORT, GAME_TITLE, MAX_TURNS, MAX_TURNS_CAMPAIGN } from './config.js';
 import {
   render, showMission, buildTokens, log, setDice, placeToken,
@@ -133,7 +133,13 @@ async function handleAfterRoll(p, a, b, isAI, turnAt) {
   // 僵尸链防护：回合已推进或对局已结束 → 立即中止，不改变任何游戏状态
   if (!aliveInGame(p) || !isCurrentTurn(turnAt)) return;
   if (a === b) p.doubles = (p.doubles || 0) + 1; else p.doubles = 0;
-  if (p.doubles >= 3) { enterJail(p); log(`${p.name} 连续三次双数，被关进隔离区！`); sfx('bad'); await sleep(500); if (aliveInGame(p) && isCurrentTurn(turnAt)) endTurn(turnAt); return; }
+  if (p.doubles >= 3) {
+    const jailed = enterJail(p);
+    log(jailed ? `${p.name} 连续三次双数，被关进隔离区！` : `${p.name} 连续三次双数，但「无法无天」生效，未被关押`);
+    sfx('bad'); await sleep(500);
+    if (aliveInGame(p) && isCurrentTurn(turnAt)) endTurn(turnAt);
+    return;
+  }
   const gotDouble = a === b && !p.inJail && !p.bankrupt;
   if (gotDouble) p.extraRoll = true;
   let steps = a + b;
@@ -272,7 +278,7 @@ export function startGame() {
   // 所有模式都先清除上一局突变；之后再叠加难度、遗产、叙事和本局突变效果。
   resetMutatorFields(G);
   if (randomBoard) shuffleBoard();
-  else resetTiles();
+  else { resetBoardOrder(); resetTiles(); }   // 固定布局：连顺序一起还原，不能沿用上一局的随机排列
 
   const diffSel = document.getElementById('difficulty');
   const diffId = diffSel ? diffSel.value : 'standard';
@@ -296,12 +302,13 @@ export function startGame() {
       applyNarrativeStart(G, seed);
       if (seed.intro) log(narrativeSpeakText(seed), true);
     }
-    const unlockedMuts = meta.unlockedMutators.length > 0 ? meta.unlockedMutators : null;
+    const unlockedMuts = meta.unlockedMutators;   // 保留字段读取：旧档里可能已有解锁列表
     let mutators = rollMutators(3, unlockedMuts);
-    // 「每日重抽」遗产加成：开局可确认重抽突变因子
     let rerolls = G.MUTATOR_REROLL || 0;
+    // 「每日重抽」遗产加成：开局可确认重抽突变因子。
+    // confirm 返回 true = 点「确定」= 重抽；旧实现写成 !confirm，把「取消」当成了重抽。
     while (rerolls > 0 && mutators.length
-      && !confirm('本局突变因子：\n' + mutators.map(m => `${m.icon} ${m.name} — ${m.desc}`).join('\n')
+      && confirm('本局突变因子：\n' + mutators.map(m => `${m.icon} ${m.name} — ${m.desc}`).join('\n')
         + `\n\n是否重抽？（剩余 ${rerolls} 次）`)) {
       rerolls--;
       mutators = rollMutators(3, unlockedMuts);
@@ -316,6 +323,7 @@ export function startGame() {
   for (let i = 0; i < 4; i++) {
     const v = document.getElementById('slot' + i).value;
     if (v === 'off') continue;
+    const isAI = v === 'ai';
     const nameVal = (document.getElementById('name' + i).value || '').trim();
     // 未选头像则系统随机选一个，保证每个幸存者都有头像
     const av = slotAvatars[i] || WASTELAND_EMOJI[Math.floor(Math.random() * WASTELAND_EMOJI.length)];
@@ -324,20 +332,25 @@ export function startGame() {
     const startCaps = Math.max(100, Math.floor(G.STARTCAPS * variance));
     const rep = { eagle: 0, survivor: 0, tech: 0 };
     // 「暴君余波」等种子：人类玩家的初始派系声望受罚
-    if (v !== 'ai' && G.startRepPenalty) {
+    if (!isAI && G.startRepPenalty) {
       for (const k of Object.keys(rep)) if (G.startRepPenalty[k]) rep[k] += G.startRepPenalty[k];
     }
     G.players.push({
-      id: G.players.length, name: nameVal || ('玩家' + SHORT[i]), short: SHORT[i], isAI: v === 'ai',
+      id: G.players.length, name: nameVal || ('玩家' + SHORT[i]), short: SHORT[i], isAI,
       color: COLORS[i], caps: startCaps, pos: 0, skipNext: false, bankrupt: false,
-      inJail: false, jailTurns: 0, getOut: G.START_GETOUT || 0, doubles: 0, tokenEl: null,
-      moral: G.START_MORAL || 0, rollsTaken: 0, luckyUsed: false,
+      inJail: false, jailTurns: 0, doubles: 0, tokenEl: null,
+      // 遗产 / 叙事加成是人类玩家的成长线：不能顺手让 AI 也白嫖出狱卡与道德
+      getOut: isAI ? 0 : (G.START_GETOUT || 0),
+      moral: isAI ? 0 : (G.START_MORAL || 0), rollsTaken: 0, luckyUsed: false,
       avatar: av, flags: [], missionDone: [],
       cards: [], shield: 0, marchBonus: 0,
       factionRep: rep
     });
-    // 遗产遗物「起始手牌」：开局随机获得道具卡
-    if (G.START_CARDS) giveCard(G.players[G.players.length - 1], randomCardId());
+    // 遗产遗物「起始手牌」：数量由加成叠加决定（旧实现按布尔只发 1 张），且只给人类
+    if (!isAI) {
+      const startCards = Math.max(0, Math.floor(Number(G.START_CARDS) || 0));
+      for (let c = 0; c < startCards; c++) giveCard(G.players[G.players.length - 1], randomCardId());
+    }
   }
   if (G.mode === 'survival') {
     // 生存模式：仅 1 名人类，无 AI 对手
@@ -383,6 +396,8 @@ export function startGame() {
 }
 
 // ---------- 隔离区 ----------
+// 严格规则：隔离区内每个回合只能掷一次骰，未掷出双数即本回合结束。
+// 保释 / 出狱卡属于「回合开始时的选择」，用掉后本回合照常掷骰行进。
 function startJailTurn(p) {
   if (p.isAI) { aiJailTurn(p, G.turn); return; }
   G.turnPlayer = p; G.awaitingRoll = false;
@@ -390,9 +405,24 @@ function startJailTurn(p) {
   if (p.getOut > 0) h += `<button id="jb1">用出狱卡(${p.getOut})</button>`;
   h += `<button id="jb2">付 ${JAIL_FEE} 盖保释</button><button class="alt" id="jb3">掷骰逃出</button>`;
   setActionsHTML(h);
-  if (p.getOut > 0) document.getElementById('jb1').onclick = () => { p.getOut--; leaveJail(p); };
-  document.getElementById('jb2').onclick = () => { if (p.caps >= JAIL_FEE) { p.caps -= JAIL_FEE; leaveJail(p); } else alert('瓶盖不足'); };
+  if (p.getOut > 0) document.getElementById('jb1').onclick = () => {
+    p.getOut--; log(`🔓 ${p.name} 使用出狱卡`); leaveJailAndRoll(p, G.turn);
+  };
+  document.getElementById('jb2').onclick = () => {
+    if (p.caps < JAIL_FEE) { alert('瓶盖不足'); return; }
+    p.caps -= JAIL_FEE; log(`💸 ${p.name} 支付 ${JAIL_FEE} 盖保释金`);
+    leaveJailAndRoll(p, G.turn);
+  };
   document.getElementById('jb3').onclick = () => jailRoll(p);
+}
+/** 保释 / 出狱卡：离开隔离区后本回合照常掷骰（不再额外赠送一次掷骰） */
+async function leaveJailAndRoll(p, turnAt) {
+  if (!aliveInGame(p) || !isCurrentTurn(turnAt)) return;
+  p.inJail = false; p.jailTurns = 0; p.doubles = 0;
+  render(); sfx('good'); log(`${p.name} 离开隔离区`);
+  if (p.isAI) { await aiRoll(p); return; }
+  G.turnPlayer = p; G.awaitingRoll = true;
+  humanActionUI(p);
 }
 async function jailRoll(p) {
   const turnAt = G.turn;
@@ -410,21 +440,34 @@ async function jailRoll(p) {
     if (p.isAI) endTurn(turnAt);
     return;
   }
+  // 未掷出双数：本次回合的掷骰机会已用完，直接换人（旧实现会重开面板，人类一回合能连掷三次）
   p.jailTurns++;
-  if (p.jailTurns >= 3) { log(' 关满3回合，强制离开'); leaveJail(p, turnAt); return; }
-  if (p.isAI) { await sleep(400); if (aliveInGame(p) && isCurrentTurn(turnAt)) await aiJailTurn(p, turnAt); }
-  else { startJailTurn(p); }
+  if (p.jailTurns >= 3) { log(`⛓ ${p.name} 关满 3 回合，强制离开隔离区`); forceLeaveJail(p, turnAt); return; }
+  log(`${p.name} 未能掷出双数，本回合结束`);
+  if (p.isAI) await sleep(300);
+  if (aliveInGame(p) && isCurrentTurn(turnAt)) endTurn(turnAt);
 }
 async function aiJailTurn(p, turnAt) {
-  if (p.getOut > 0) { p.getOut--; leaveJail(p, turnAt); return; }
-  if (p.jailTurns >= 1 && p.caps > JAIL_FEE * 2) { p.caps -= JAIL_FEE; leaveJail(p, turnAt); return; }
+  if (!aliveInGame(p) || !isCurrentTurn(turnAt)) return;
+  if (p.getOut > 0) { p.getOut--; log(`🔓 ${p.name} 使用出狱卡`); await leaveJailAndRoll(p, turnAt); return; }
+  if (p.caps > JAIL_FEE * 2) { p.caps -= JAIL_FEE; log(`💸 ${p.name} 支付 ${JAIL_FEE} 盖保释金`); await leaveJailAndRoll(p, turnAt); return; }
   await jailRoll(p);
 }
-function leaveJail(p, turnAt) { p.inJail = false; p.jailTurns = 0; p.doubles = 0; render(); log(`${p.name} 离开隔离区`); sfx('good'); endTurn(turnAt); }
+/** 关满三回合：强制出狱，本回合不再掷骰 */
+function forceLeaveJail(p, turnAt) {
+  p.inJail = false; p.jailTurns = 0; p.doubles = 0;
+  render(); sfx('good');
+  endTurn(turnAt);
+}
 
 // ---------- 落地结算 ----------
 function tileLandFx(p, type) {
   if (p && p.tokenEl) playTileLandFx(type, p.tokenEl);
+}
+/** 芯片厂开核弹钥匙：所有落地分支都必须覆盖。购买 / 强化 / 拍卖面板都会提前
+ *  return，把钩子放在函数尾部等于让人类在同一落点上比 AI 少一次开钥匙机会。 */
+function tryChipFactoryKey(p, t) {
+  if (!G.gameOver && !p.bankrupt) tryNukeKeyFromChipFactory(p, t);
 }
 
 export async function resolveTile(p, opts = {}) {
@@ -445,6 +488,7 @@ export async function resolveTile(p, opts = {}) {
       if (G.auctionAll) {
         log(`🔨 拍卖狂潮：「${t.name}」自动进入拍卖`);
         await auction(t);
+        tryChipFactoryKey(p, t);
         if (p.isAI) { endTurn(opts.turnAt); return true; }
         afterHumanAction(p);
         return true;
@@ -452,6 +496,7 @@ export async function resolveTile(p, opts = {}) {
       if (p.isAI) { if (aiShouldBuy(p, t)) buy(p, t); }
       else {
         G.pendingTile = t;
+        tryChipFactoryKey(p, t);
         setActionsHTML(
           `<button id="buyBtn" ${p.caps < t.price ? 'disabled' : ''}>购买 (${t.price}盖)</button>
            <button class="alt" id="aucBtn">拍卖</button>
@@ -468,6 +513,7 @@ export async function resolveTile(p, opts = {}) {
       else if (t.type === 'prop' && t.level < 2) {
         const ok = canUpgrade(p, t);
         G.pendingTile = t;
+        tryChipFactoryKey(p, t);
         setActionsHTML(
           `<button id="upBtn" ${!ok || p.caps < t.price ? 'disabled' : ''}>强化为${t.level + 1 === 1 ? '棚户' : '地堡'} (${t.price}盖)</button>
            <button class="alt" id="mgBtn">资产/交易</button>
@@ -478,7 +524,7 @@ export async function resolveTile(p, opts = {}) {
         return;
       }
       // 人类玩家拥有该地块但无法升级（已升满 / 铁路 / 设施）→ 直接给出「资产/结束回合」，避免回合卡死
-      if (!p.isAI) { afterHumanAction(p); return; }
+      if (!p.isAI) { tryChipFactoryKey(p, t); afterHumanAction(p); return; }
     } else { payRent(p, t); }
   } else if (t.type === 'event') {
     const eventTileId = p.pos;
@@ -517,13 +563,16 @@ export async function resolveTile(p, opts = {}) {
       p.shield--;
       log(`🛡 护盾生效：${p.name} 免缴${t.name} ${amount}盖`); sfx('good');
     } else {
-      log(`${p.name} 缴纳${t.name} ${amount}盖`); sfx('bad'); payCaps(p, amount, t.name);
-      // 「免费停车彩金」突变：税款进入奖池
-      if (G.jackpot && amount > 0) { G.jackpotPool = (G.jackpotPool || 0) + amount; log(`🎁 彩金池累积至 ${G.jackpotPool} 盖`); }
+      sfx('bad');
+      // 只有实际付出去的税款进奖池：付不起时不凭空造币
+      const paid = payCaps(p, amount, t.name);
+      if (G.jackpot && paid > 0) { G.jackpotPool = (G.jackpotPool || 0) + paid; log(`🎁 彩金池累积至 ${G.jackpotPool} 盖`); }
     }
   } else if (t.type === 'quarantine') {
     tileLandFx(p, 'quarantine');
-    enterJail(p); log(`${p.name} 被关进隔离区`); sfx('bad');
+    const jailed = enterJail(p);
+    log(jailed ? `${p.name} 被关进隔离区` : `${p.name} 踩中隔离区，但「无法无天」生效`);
+    sfx('bad');
     screenShake(1.1); haptic('heavy');
     render(); endTurn(opts.turnAt); return true;   // 返回 true 表示本回合已在此结束
   } else if (t.type === 'safe') {
@@ -565,9 +614,18 @@ export async function resolveTile(p, opts = {}) {
   render();
   if (!p.isAI) afterHumanAction(p);
 }
+/** 人类主动结束本回合。落地面板（购买/强化）里的「结束回合」必须一步结束：
+ *  旧实现只是重建操作栏，玩家得再点一次；期间 pendingTile 已被清掉，
+ *  双数待补掷的情况也会被吞掉。 */
+function endHumanTurn(p) {
+  G.pendingTile = null;
+  if (p.extraRoll) { afterHumanAction(p); return; }   // 双数：按规则先补掷
+  setActionsHTML('');
+  endTurn();
+}
 function wireMeta(p) {
   const mg = document.getElementById('mgBtn'); if (mg) mg.onclick = () => { G.turnPlayer = p; renderManage(); };
-  const eb = document.getElementById('endBtn'); if (eb) eb.onclick = () => afterHumanAction(p);
+  const eb = document.getElementById('endBtn'); if (eb) eb.onclick = () => endHumanTurn(p);
   wireNukeBtn(p);
 }
 function nukeBtnHtml(p) {
@@ -644,6 +702,11 @@ function triggerWeather() {
     scheduleWeatherExpiry();
   }
 }
+/** 身家达标判胜。生存模式没有目标（游玩手册：无限回合，撑到破产为止），
+ *  必须在这里排除——判定放在生存分支之前，漏掉这一条会让生存局提前普通胜利结束。 */
+export function targetWealthReached(p, net) {
+  return G.mode !== 'survival' && G.targetWealth > 0 && !p.bankrupt && net >= G.targetWealth;
+}
 function endTurn(turnAt) {
   // 僵尸链防护：仅当前回合的链可以结算；turnAt 落后说明回合已被推进，忽略
   if (!isCurrentTurn(turnAt)) return;
@@ -671,8 +734,8 @@ function endTurn(turnAt) {
         return;
       }
     }
-  } else {
-    if (G.targetWealth > 0 && !me.bankrupt && netWorth(me) >= G.targetWealth) { gameWin(me); return; }
+  } else if (targetWealthReached(me, netWorth(me))) {
+    gameWin(me); return;
   }
   // 生存模式：破产即结束，显示存活回合数
   if (G.mode === 'survival') {
@@ -749,6 +812,9 @@ function gameDraw() {
   if (G.mode === 'legacy') recordLegacyRun();
 }
 function nextPlayer() {
+  // 生存模式：唯一玩家破产即结束（此前该判定被「全员破产 → 协议中断」抢先，
+  // survivalLose 实际不可达，玩家永远看不到「生存 N 回合」）
+  if (G.mode === 'survival' && G.players[0] && G.players[0].bankrupt) { survivalLose(G.players[0]); return; }
   let n = G.current;
   let tries = 0;
   let wrapped = false;
@@ -763,9 +829,8 @@ function nextPlayer() {
   G.current = n; G.turn = (G.turn || 0) + 1;
   applyWastelandDecay();
   if (G.gameOver) return;
-  // 衰减/辐射可能直接把玩家打死：生存模式走专属结局，全员死亡走协议中断
+  // 衰减/辐射可能直接把玩家打死：全员死亡走协议中断
   if (G.players.every(p => p.bankrupt)) { gameDraw(); return; }
-  if (G.mode === 'survival' && G.players[0].bankrupt) { survivalLose(G.players[0]); return; }
   render(); takeTurn();
 }
 /** 「均富协议」突变：全体现金重新平均分配（致敬大富翁4 均富卡） */
@@ -825,6 +890,13 @@ export function restoreTurnUI() {
   const p = G.players[G.current];
   if (!p || p.bankrupt) { takeTurn(); return; }
   if (p.inJail) { startJailTurn(p); return; }
+  // 落地面板优先于补掷：双数落地买地时存档，pendingTile 与 extraRoll 会同时存在，
+  // 旧顺序先判 extraRoll，读档后购买机会直接丢失。
+  if (G.pendingTile != null) {
+    G.turnPlayer = p;
+    resolveTile(p);
+    return;
+  }
   if (p.extraRoll) {
     G.turnPlayer = p;
     afterHumanAction(p);
@@ -833,11 +905,6 @@ export function restoreTurnUI() {
   if (G.awaitingRoll) {
     G.turnPlayer = p;
     humanActionUI(p);
-    return;
-  }
-  if (G.pendingTile != null) {
-    G.turnPlayer = p;
-    resolveTile(p);
     return;
   }
   takeTurn();

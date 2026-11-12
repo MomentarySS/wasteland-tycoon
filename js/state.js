@@ -29,6 +29,7 @@ export function resetSession() {
   G.endWinnerId = null;
   G.awaitingRoll = false;
   G.pendingTile = null;
+  G.forcedRoll = null;   // 遥控骰：不重置会把上一局锁定的点数带进新局
   G.turnPlayer = null;
   G.lastRoll = 0;
   G.current = 0;

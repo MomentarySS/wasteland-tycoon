@@ -4,11 +4,13 @@
 import { existsSync, readFileSync, mkdirSync, writeFileSync, readdirSync, unlinkSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { normalizeTtsBaseUrl } from './tts-endpoint.js';
 
 const DEFAULT_MODEL = 'tts-1';
 const DEFAULT_VOICE = 'alloy';
 const MAX_CACHE_FILES = 80;
 const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
+const MAX_ERROR_BYTES = 4096;
 const TIMEOUT_MS = 30000;
 const AUDIO_EXT = /\.(mp3|wav|ogg)$/i;
 
@@ -18,17 +20,33 @@ let model = DEFAULT_MODEL;
 let voice = DEFAULT_VOICE;
 let cacheDir = '';
 
-/** 只接受 http(s)；未以 /audio/speech 结尾时按 OpenAI 兼容约定补齐。 */
-function normalizeBaseUrl(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  let u;
-  try { u = new URL(raw); } catch (_) { return ''; }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
-  if (!u.hostname) return '';
-  const pathPart = u.pathname.replace(/\/+$/, '');
-  const full = u.origin + pathPart;
-  return /\/audio\/speech$/i.test(full) ? full : full + '/audio/speech';
+/** 流式读取并在超过上限时中止，避免对端在没有 Content-Length 时撑爆主进程内存。 */
+async function readBytesLimited(res, maxBytes) {
+  if (!res.body || typeof res.body.getReader !== 'function') {
+    const buf = Buffer.from(await res.arrayBuffer());
+    return { bytes: buf.subarray(0, maxBytes), truncated: buf.length > maxBytes };
+  }
+  const reader = res.body.getReader();
+  const chunks = [];
+  let total = 0;
+  let truncated = false;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = Buffer.from(value);
+    const room = maxBytes - total;
+    if (room <= 0) { truncated = true; break; }
+    if (chunk.length > room) {
+      chunks.push(chunk.subarray(0, room));
+      total += room;
+      truncated = true;
+      break;
+    }
+    chunks.push(chunk);
+    total += chunk.length;
+  }
+  if (truncated) { try { await reader.cancel(); } catch (_) {} }
+  return { bytes: Buffer.concat(chunks), truncated };
 }
 
 function cacheKey(text, speed) {
@@ -92,10 +110,12 @@ export async function init(opts = {}) {
     try { apiKey = readFileSync(path.join(opts.root, '.custom-tts-api-key'), 'utf8').trim(); }
     catch (_) { apiKey = ''; }
   }
-  baseUrl = normalizeBaseUrl(opts.baseUrl || process.env.CUSTOM_TTS_BASE_URL || '');
+  // 地址校验先于 Key 检查：地址非法时不要把 Key 状态透出去，也不要发任何请求。
+  const endpoint = normalizeTtsBaseUrl(opts.baseUrl || process.env.CUSTOM_TTS_BASE_URL || '');
+  baseUrl = endpoint.ok ? endpoint.url : '';
   model = String(opts.model || DEFAULT_MODEL).trim().slice(0, 128) || DEFAULT_MODEL;
   voice = String(opts.voice || DEFAULT_VOICE).trim().slice(0, 128) || DEFAULT_VOICE;
-  if (!baseUrl) return { ok: false, error: '缺少自定义 TTS 服务地址（Base URL）', model, voice };
+  if (!endpoint.ok) return { ok: false, error: endpoint.error, model, voice };
   if (!apiKey) return { ok: false, error: '缺少 CUSTOM_TTS_API_KEY / .custom-tts-api-key', model, voice };
   if (cacheDir) { try { mkdirSync(cacheDir, { recursive: true }); } catch (_) {} }
   return { ok: true, baseUrl, model, voice };
@@ -144,8 +164,9 @@ export async function speak(text, opts = {}) {
 
     const contentType = (res.headers.get('content-type') || '').toLowerCase();
     if (!res.ok) {
-      const raw = await res.text();
-      throw new Error('HTTP ' + res.status + ': ' + scrub(errorDetail(raw)));
+      // 错误体只读 4KB：此前 res.text() 无上限，对端可以借此让主进程分配任意大缓冲区。
+      const errBody = await readBytesLimited(res, MAX_ERROR_BYTES);
+      throw new Error('HTTP ' + res.status + ': ' + scrub(errorDetail(errBody.bytes.toString('utf8'))));
     }
 
     const declared = Number(res.headers.get('content-length') || 0);
@@ -154,15 +175,18 @@ export async function speak(text, opts = {}) {
     let audio;
     let format;
     if (contentType.includes('application/json')) {
-      // 部分兼容服务把音频放在 JSON 的 base64 字段里。
-      const raw = await res.text();
+      // 部分兼容服务把音频放在 JSON 的 base64 字段里；上限按 base64 膨胀预留余量。
+      const jsonCap = Math.ceil(MAX_AUDIO_BYTES * 1.4) + 65536;
+      const body = await readBytesLimited(res, jsonCap);
+      if (body.truncated) throw new Error('响应音频过大');
+      const raw = body.bytes.toString('utf8');
       audio = decodeJsonAudio(raw);
       if (!audio) throw new Error('响应缺少音频: ' + scrub(raw.slice(0, 120)));
       format = 'mp3';
     } else {
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length > MAX_AUDIO_BYTES) throw new Error('响应音频过大');
-      audio = buf;
+      const body = await readBytesLimited(res, MAX_AUDIO_BYTES);
+      if (body.truncated) throw new Error('响应音频过大');
+      audio = body.bytes;
       format = formatFromContentType(contentType);
     }
     if (!audio || audio.length < 64) throw new Error('响应缺少音频');

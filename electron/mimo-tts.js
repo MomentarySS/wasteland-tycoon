@@ -10,10 +10,37 @@ const ENDPOINTS = [PAY_AS_YOU_GO_ENDPOINT, TOKEN_PLAN_ENDPOINT];
 const MODEL = 'mimo-v2.5-tts';
 const DEFAULT_VOICE = '苏打';
 const MAX_CACHE_FILES = 80;
+const MAX_RESPONSE_BYTES = 24 * 1024 * 1024;
+const MAX_ERROR_BYTES = 4096;
 
 let apiKey = '';
 let endpoint = '';   // 最近一次试通的端点；空 = 尚未确定，按 ENDPOINTS 顺序试
 let cacheDir = '';
+
+/** 流式读取文本并在超过上限时中止，避免对端用无 Content-Length 的超大响应撑爆内存。 */
+async function readTextLimited(res, maxBytes) {
+  if (!res.body || typeof res.body.getReader !== 'function') {
+    return (await res.text()).slice(0, maxBytes);
+  }
+  const reader = res.body.getReader();
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = Buffer.from(value);
+    const room = maxBytes - total;
+    if (room <= 0) { try { await reader.cancel(); } catch (_) {} return Buffer.concat(chunks).toString('utf8'); }
+    if (chunk.length > room) {
+      chunks.push(chunk.subarray(0, room));
+      try { await reader.cancel(); } catch (_) {}
+      return Buffer.concat(chunks).toString('utf8');
+    }
+    chunks.push(chunk);
+    total += chunk.length;
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
 
 function cacheKey(text, speed, voice) {
   return createHash('sha1').update(`${voice}|${MODEL}|${speed}|${text}`).digest('hex').slice(0, 16);
@@ -46,14 +73,11 @@ function pruneCache() {
 export async function init(opts = {}) {
   cacheDir = opts.cacheDir || (opts.userData && path.join(opts.userData, 'mimo-tts-cache')) || '';
   apiKey = String(opts.userDataApiKey || process.env.MIMO_API_KEY || '').trim();
-  const keyFiles = [];
-  if (opts.root) keyFiles.push(path.join(opts.root, '.mimo-api-key'));
-  keyFiles.push(path.join(process.cwd(), '.mimo-api-key'));
-  if (!apiKey) {
-    for (const file of keyFiles) {
-      try { apiKey = readFileSync(file, 'utf8').trim(); } catch (_) { apiKey = ''; }
-      if (apiKey) break;
-    }
+  // 只认应用自己传入的项目根目录：打包后 cwd 取决于快捷方式的「起始位置」，
+  // 一个被塞到 cwd 的 .mimo-api-key 会静默变成凭证来源。
+  if (!apiKey && opts.root) {
+    try { apiKey = readFileSync(path.join(opts.root, '.mimo-api-key'), 'utf8').trim(); }
+    catch (_) { apiKey = ''; }
   }
   if (!apiKey) return { ok: false, error: '缺少 MIMO_API_KEY / .mimo-api-key', model: MODEL, voice: DEFAULT_VOICE };
   // 端点不再按密钥前缀（tp-/ttp-）猜测：前缀约定一旦调整或用户的 Key 形态不符，
@@ -80,7 +104,10 @@ async function requestOnce(url, t, voice, rateHint, signal) {
       stream: false,
     }),
   });
-  const raw = await response.text();
+  const declared = Number(response.headers.get('content-length') || 0);
+  const cap = response.ok ? MAX_RESPONSE_BYTES : MAX_ERROR_BYTES;
+  if (declared > cap) throw new Error('MiMo 响应过大');
+  const raw = await readTextLimited(response, cap);
   let result;
   try { result = JSON.parse(raw); } catch (_) { result = null; }
   if (!response.ok) {
@@ -103,7 +130,7 @@ export async function speak(text, opts = {}) {
     const info = await init(opts);
     if (!info.ok) return { ok: false, error: info.error };
   }
-  const voice = String(opts.voice || DEFAULT_VOICE).trim() || DEFAULT_VOICE;
+  const voice = String(opts.voice || DEFAULT_VOICE).trim().slice(0, 64) || DEFAULT_VOICE;
   const speed = Math.max(0.5, Math.min(2, Number(opts.speed) || 1));
   const key = cacheKey(t, speed, voice);
   const file = cacheDir ? path.join(cacheDir, key + '.wav') : '';
