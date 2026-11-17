@@ -6,7 +6,7 @@ import { G } from './state.js';
 import { TILES, positions } from './data.js';
 import { tileIcon, buildingSVG, iconColor } from './icons.js';
 import { tileArtUrl, zoneTexUrl } from './assets-art.js';
-import { getCellMetrics, invalidateCellMetricsCache } from './board-metrics.js';
+import { getCellMetrics } from './board-metrics.js';
 import { tileDisplayName } from './config.js';
 
 const ENABLED = typeof document !== 'undefined' && !!document.documentElement;
@@ -73,10 +73,18 @@ export function initBoardCanvas(hoverCb) {
   return true;
 }
 
-/** fitBoard 后同步 canvas 物理尺寸（dpr 缩放保证文字清晰） */
+/**
+ * fitBoard 后同步 canvas 物理尺寸（dpr 缩放保证文字清晰）。
+ *
+ * **幂等**：给 canvas 赋 width/height 会清空位图并重置整个上下文状态，代价极高
+ * （M0 实测：每次 render 分配 6MB@1080p / 22.5MB@2× / 61.3MB@4K@150%）。
+ * 尺寸与 DPR 都没变时直接返回，只在小窗尺寸/缩放真变化时才重新分配。
+ *
+ * 另外不再每次调用都 `invalidateCellMetricsCache()`：`fitBoard()` 末尾已经失效过缓存，
+ * 这里再失效只会把刚算好的几何又算一遍（强制读 layout）。
+ */
 export function resizeBoardCanvas() {
   if (!isCanvasMode()) return false;
-  invalidateCellMetricsCache();
   const m = getCellMetrics();
   cellW = m.cellW; cellH = m.cellH; gap = m.gap;
   const inner = canvas.parentElement;
@@ -86,12 +94,16 @@ export function resizeBoardCanvas() {
   const h = parseFloat(cs.height) || 0;
   if (w <= 0 || h <= 0) return false;
   boardW = w; boardH = h;
-  dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+  const dprNow = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+  const pw = Math.max(1, Math.round(w * dprNow));
+  const ph = Math.max(1, Math.round(h * dprNow));
+  if (canvas.width === pw && canvas.height === ph && dpr === dprNow) return true;
+  dpr = dprNow;
+  canvas.width = pw;
+  canvas.height = ph;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   canvas.style.width = w + 'px';
   canvas.style.height = h + 'px';
-  canvas.width = Math.max(1, Math.round(w * dpr));
-  canvas.height = Math.max(1, Math.round(h * dpr));
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return true;
 }
 
@@ -310,7 +322,17 @@ function wrapText(text, maxW) {
 // 二分找最大字号：让 name 在 (maxW, maxH) 内、≤ maxLines 行，且文字总高 ≤ maxH
 // 文字总高（alphabetic 基线、行距 1.12） = (lines-1) * fs * 1.12 + fs
 // 字号越小 → 行数越少、文字越窄、总高越小 → 单调，故可二分
+//
+// **结果缓存**：格子名 + 格子尺寸（宽/高/行数上限/字号上限）决定一切，
+// 而同一布局下这些值几乎不变。M0 实测每帧 868 次 measureText，绝大多数是这里的
+// 二分 × 逐字测量重复劳动；缓存后每帧的文本测量降到接近 0。
+const fitCache = new Map();
+const FIT_CACHE_MAX = 1024;   // 44 格 × 少量尺寸档，足够覆盖
+
 function fitFontSizeToCell(name, maxW, maxH, maxLines, fontFamily, hardMaxFs) {
+  const key = name + '|' + maxW + '|' + maxH + '|' + maxLines + '|' + hardMaxFs;
+  const hit = fitCache.get(key);
+  if (hit) return hit;
   const LINEMUL = 1.12;
   let lo = 5, hi = hardMaxFs;
   let best = { fs: 5, lines: [] };
@@ -331,6 +353,8 @@ function fitFontSizeToCell(name, maxW, maxH, maxLines, fontFamily, hardMaxFs) {
     }
     if (hi - lo < 0.3) break;
   }
+  if (fitCache.size >= FIT_CACHE_MAX) fitCache.clear();
+  fitCache.set(key, best);
   return best;
 }
 
