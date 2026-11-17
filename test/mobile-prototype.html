@@ -1,0 +1,1074 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>废土大亨 · 竖屏路径式聚焦原型（390px）</title>
+<!--
+  ============================================================================
+  废土大亨 · 手机端「路径式聚焦」原型
+  ----------------------------------------------------------------------------
+  来源：docs/remaster-plan.md 附录 C（C2 方向 B / C4 验证目标 / C6 下一步）
+        docs/code-review-2026-11-12.md（仅作背景，本原型不接入任何规则代码）
+  日期：2026-11-12
+
+  这是什么：
+    · 一个 390px 宽的竖屏交互原型，验证「只渲染当前位置 ±3 格 + 滑动浏览」
+      的单手操作与文字可读性。
+    · 单文件、零依赖、零网络请求：双击即可在浏览器打开，不需要服务器。
+
+  它不是什么（明确边界）：
+    · 不 import 游戏任何模块（js/rules.js / game.js / view-core.js 一概不碰）
+    · 不写入 G / TILES / wasteland_save；演示状态只存在于内存，刷新即清空
+    · 不实现真实规则：购买 / 升级 / 抵押的数值是演示口径，不代表平衡设计
+    · 不进游戏主流程，不参与 npm test，不影响打包产物
+
+  数据：
+    · 44 块地块 = content/tiles.json 的 2026-11-12 快照，逐字复制（含顺序）。
+      真实手办中应直接读 content/tiles.json，不要维护第二份。
+    · 类型名 / 分区名 / 分组色 与 js/config.js、js/board-canvas.js 对齐。
+
+  怎么验：
+    1. 直接打开本文件（或任意静态服务器指向 test/ 目录）。
+    2. 浏览器窗口窄于 420px 时，原型铺满窗口；宽窗口里是一个 390×844 机身。
+    3. 上滑 / 下滑 = 沿路径浏览；松手吸附到最近一格。
+    4. 点「掷骰前进」= 演示移动；落点可操作时自动弹出落地面板（可关闭该开关）。
+    5. 点当前格 = 打开落地面板（购买 / 升级 / 抵押）。
+    6. 点右上角「检测」= 可读性 + 单手操作测量报告（含拇指热区与标注）。
+  ============================================================================
+-->
+<style>
+/* ---------------- 基础 ---------------- */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  margin:0;background:#050706;color:var(--ink);
+  font-family:"PingFang SC","Microsoft YaHei UI","Noto Sans CJK SC","Source Han Sans SC",system-ui,-apple-system,sans-serif;
+  display:flex;align-items:center;justify-content:center;min-height:100vh;
+  font-size:16px;
+}
+:root{
+  --bg:#0b0f0e; --panel:#141a18; --line:#2a3431;
+  --ink:#e8f0ea; --ink2:#9fb0a6; --ink3:#6f7d76;
+  --amber:#c9a227; --phos:#7fae6e; --danger:#d05a4a;
+  --p0:#e84c3d; --p1:#3498db; --p2:#2ecc71; --p3:#f1c40f;
+  --ui-scale:1;
+}
+html{font-size:calc(16px * var(--ui-scale))}
+
+/* ---------------- 机身 ---------------- */
+#phone{
+  position:relative;width:min(390px,100vw);height:min(844px,100vh);
+  background:var(--bg);overflow:hidden;display:flex;flex-direction:column;
+  border-radius:30px;box-shadow:0 24px 70px rgba(0,0,0,.65),0 0 0 1px #1d2422;
+}
+@media (max-width:419px),(max-height:879px){ #phone{border-radius:0;box-shadow:none} }
+
+/* ---------------- 顶栏 ---------------- */
+#topbar{
+  flex:0 0 56px;height:56px;display:flex;align-items:center;gap:8px;padding:0 12px;
+  background:linear-gradient(180deg,#131a17,#0e1311);border-bottom:1px solid var(--line);
+  overflow:hidden;
+}
+.brand{font-weight:800;font-size:1rem;letter-spacing:.5px;white-space:nowrap;flex:0 0 auto}
+.stats{display:flex;gap:5px;margin-left:auto;flex:0 1 auto;min-width:0;overflow:hidden}
+.stat{
+  display:inline-block;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  font-size:.6875rem;color:var(--ink2);background:#18201d;border:1px solid var(--line);
+  padding:3px 7px;border-radius:999px;white-space:nowrap;font-variant-numeric:tabular-nums;
+}
+/* 触屏目标 ≥44px：顶栏只有 56px 高，按钮做成满高减 6px */
+#btnTest{
+  flex:0 0 auto;align-self:stretch;margin:4px 0;min-width:52px;
+  font-size:.75rem;font-weight:700;color:var(--amber);
+  background:#1c1a10;border:1px solid #4a3f18;border-radius:10px;
+}
+
+/* ---------------- 路径视口 ---------------- */
+#viewport{position:relative;flex:1 1 auto;overflow:hidden;touch-action:none;user-select:none;cursor:grab}
+#viewport:active{cursor:grabbing}
+#strip{position:absolute;inset:0}
+
+.card{
+  position:absolute;left:12px;right:12px;top:0;border-radius:14px;overflow:hidden;
+  background:#101514;border:1px solid var(--line);will-change:transform;
+  transform-origin:50% 50%;
+}
+.card .art{position:absolute;inset:0;background:linear-gradient(155deg,var(--g1),var(--g2))}
+.card .art::after{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(45deg,rgba(255,255,255,.035) 0 2px,transparent 2px 7px);
+}
+.card .glyph{
+  position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);
+  font-size:2.4rem;font-weight:800;color:rgba(255,255,255,.10);pointer-events:none;
+}
+.card .body{
+  position:absolute;left:0;right:0;bottom:0;padding:7px 10px 8px;
+  background:linear-gradient(180deg,rgba(6,9,8,0),rgba(6,9,8,.90) 34%);
+}
+.card .nm{font-weight:700;font-size:.75rem;line-height:1.18;color:#f8fbf9;text-shadow:0 1px 2px rgba(0,0,0,.65)}
+.card .meta{font-size:.6875rem;color:#b9c8bf;margin-top:1px;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.card.focus{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber),0 8px 24px rgba(0,0,0,.55)}
+.card.focus .nm{font-size:1.0625rem}
+.card.centered .nm{color:#fff}
+.card.dim{opacity:.62}
+.card.far{opacity:.34}
+
+.card .idxTag{
+  position:absolute;left:10px;top:8px;font-size:.625rem;font-weight:700;color:rgba(255,255,255,.55);
+  background:rgba(0,0,0,.35);border-radius:4px;padding:1px 5px;font-variant-numeric:tabular-nums;
+}
+.card.focus .idxTag{display:none}
+.card .token{
+  position:absolute;left:10px;top:8px;width:26px;height:26px;border-radius:50%;
+  background:var(--p0);color:#fff;display:none;align-items:center;justify-content:center;
+  font-size:.75rem;font-weight:800;border:2px solid rgba(255,255,255,.85);
+  box-shadow:0 2px 8px rgba(0,0,0,.6);
+}
+.card.focus .token{display:flex}
+.card .hud{position:absolute;right:8px;top:8px;display:flex;gap:4px;align-items:center}
+.card .hud .dot{width:10px;height:10px;border-radius:50%;border:1.5px solid rgba(0,0,0,.65)}
+.card .hud .lv{
+  min-width:16px;height:16px;padding:0 3px;border-radius:5px;font-size:10px;font-weight:800;
+  display:inline-flex;align-items:center;justify-content:center;color:#000;background:#c9a227;
+}
+.card .hud .lv2{background:#a31515;color:#fff}
+.card .hud .m{
+  font-size:9px;color:#d05a4a;border:1px solid #d05a4a;border-radius:3px;padding:0 2px;
+  text-decoration:none;line-height:1.4;
+}
+
+/* 焦点线 / 提示 / 回中 */
+#focusMark{
+  position:absolute;left:16px;right:16px;height:1px;top:46%;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(201,162,39,.45),transparent);
+}
+#hint{
+  position:absolute;left:50%;transform:translateX(-50%);top:8px;
+  font-size:.6875rem;color:var(--ink2);background:rgba(8,11,10,.82);
+  border:1px solid var(--line);border-radius:999px;padding:4px 10px;
+  pointer-events:none;text-shadow:0 1px 2px #000;white-space:nowrap;z-index:14;
+}
+#camPill{
+  position:absolute;left:50%;bottom:12px;transform:translateX(-50%) translateY(6px);
+  min-height:44px;display:inline-flex;align-items:center;justify-content:center;
+  background:rgba(20,26,23,.94);border:1px solid var(--amber);color:var(--amber);
+  border-radius:999px;padding:0 16px;font-size:.75rem;font-weight:700;white-space:nowrap;
+  opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:15;
+}
+#camPill.on{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+
+/* 进度轨 */
+#rail{position:absolute;left:0;top:0;bottom:0;width:3px;background:#18201d;z-index:5}
+#railCam{position:absolute;top:0;left:0;width:100%;background:var(--amber);opacity:.65}
+#railPos{
+  position:absolute;left:50%;width:9px;height:9px;border-radius:50%;background:var(--phos);
+  border:2px solid #0b0f0e;transform:translate(-50%,-50%);box-shadow:0 0 8px rgba(127,174,110,.8);
+}
+
+/* ---------------- 底栏（拇指区） ---------------- */
+#bar{
+  flex:0 0 auto;display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,#121816,#0b100e);border-top:1px solid var(--line);
+}
+#bar button{
+  flex:1;min-height:50px;padding:0 2px;border-radius:12px;border:1px solid var(--line);
+  background:#1a221f;color:var(--ink);font-size:.9375rem;font-weight:600;font-family:inherit;
+  white-space:nowrap;overflow:hidden;
+}
+/* 主操作多分一点宽度，避免大字号档下「掷骰前进」换行 */
+#bar button.primary{
+  flex:1.3;
+  background:linear-gradient(180deg,#d8b23a,#a8851f);color:#1a1408;
+  border-color:#e0bd4a;font-weight:800;
+}
+#bar button:disabled{opacity:.38}
+#bar button:active{filter:brightness(1.2)}
+
+/* ---------------- 落地面板 ---------------- */
+#scrim{position:absolute;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .2s;z-index:25}
+#scrim.on{opacity:1;pointer-events:auto}
+#sheet{
+  position:absolute;left:0;right:0;bottom:0;background:#121816;border-top:1px solid #2c3633;
+  border-radius:18px 18px 0 0;padding:8px 14px calc(14px + env(safe-area-inset-bottom));
+  transform:translateY(103%);transition:transform .24s cubic-bezier(.2,.8,.2,1);z-index:30;
+}
+#sheet.on{transform:translateY(0)}
+#sheet .grab{width:36px;height:4px;border-radius:2px;background:#333d39;margin:0 auto 8px}
+#sheet h2{margin:0 0 3px;font-size:1.0625rem}
+#sheet .meta{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+#sheet .chip{
+  font-size:.6875rem;color:var(--ink2);background:#1a221f;border:1px solid var(--line);
+  border-radius:999px;padding:2px 8px;
+}
+#sheet .chip.danger{color:var(--danger);border-color:#5a2b24}
+#sheet .row{display:flex;gap:8px;margin-bottom:8px}
+#sheet .row button{
+  flex:1;min-height:48px;border-radius:11px;border:1px solid var(--line);
+  background:#1b2320;color:var(--ink);font-weight:700;font-size:.875rem;font-family:inherit;
+}
+#sheet .row button.accent{
+  background:linear-gradient(180deg,#d8b23a,#a8851f);color:#1a1408;border-color:#e0bd4a;
+}
+#sheet .row button:disabled{opacity:.38}
+#sheet .close{
+  width:100%;min-height:44px;background:transparent;border:none;color:var(--ink2);
+  font-size:.875rem;font-family:inherit;
+}
+
+/* ---------------- Toast ---------------- */
+#toast{
+  position:absolute;left:50%;transform:translateX(-50%);bottom:104px;
+  background:rgba(10,14,12,.94);border:1px solid var(--line);border-radius:999px;
+  padding:6px 12px;font-size:.75rem;color:var(--ink);opacity:0;transition:opacity .2s;
+  pointer-events:none;z-index:22;white-space:nowrap;max-width:92%;
+}
+#toast.on{opacity:1}
+
+/* ---------------- 测量标注 ---------------- */
+#overlay{position:absolute;inset:0;pointer-events:none;z-index:35;display:none}
+#overlay.on{display:block}
+#overlay .box{position:absolute;border:1.5px solid;border-radius:3px}
+#overlay .tag{
+  position:absolute;font-size:10px;line-height:1.25;padding:1px 4px;border-radius:3px;
+  background:rgba(0,0,0,.88);white-space:nowrap;font-weight:600;
+}
+
+/* ---------------- 拇指热区 ---------------- */
+#zones{position:absolute;inset:0;pointer-events:none;z-index:34;display:none}
+#zones.on{display:block}
+#zones .band{position:absolute;left:0;right:0}
+#zones .band span{
+  position:absolute;left:8px;top:3px;font-size:10px;font-weight:800;letter-spacing:.5px;
+  text-shadow:0 1px 2px #000;
+}
+#zones svg{position:absolute;inset:0;width:100%;height:100%}
+
+/* ---------------- 检测报告 ---------------- */
+#report{
+  position:absolute;inset:0;background:rgba(6,9,8,.97);z-index:40;
+  display:none;flex-direction:column;
+}
+#report.on{display:flex}
+#report header{
+  display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);
+  flex:0 0 auto;
+}
+#report h3{margin:0;font-size:.9375rem;flex:1}
+#report header button{
+  font-size:.75rem;font-weight:700;color:var(--amber);background:#1c1a10;
+  border:1px solid #4a3f18;border-radius:999px;padding:5px 12px;font-family:inherit;
+}
+#report .body{overflow:auto;padding:10px 12px 20px;font-size:.75rem;-webkit-overflow-scrolling:touch}
+#report h4{margin:14px 0 6px;font-size:.8125rem;color:var(--amber)}
+#report table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+#report th,#report td{text-align:left;padding:4px 5px;border-bottom:1px solid #1c2422;vertical-align:top}
+#report th{color:var(--ink3);font-weight:600;font-size:.6875rem}
+#report td.ok{color:var(--phos)}
+#report td.bad{color:var(--danger)}
+#report .note{color:var(--ink3);line-height:1.6;margin:6px 0 0}
+#report label{display:flex;align-items:center;gap:7px;margin:7px 0;color:var(--ink2)}
+#report select{
+  background:#1a221f;color:var(--ink);border:1px solid var(--line);border-radius:8px;
+  padding:4px 8px;font-family:inherit;font-size:.8125rem;
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{transition:none !important;animation:none !important}
+}
+</style>
+</head>
+<body>
+<div id="phone">
+  <!-- 顶栏：只读信息 + 检测入口 -->
+  <header id="topbar">
+    <div class="brand">废土大亨</div>
+    <div class="stats">
+      <span class="stat" id="statPos">第 1/44 格</span>
+      <span class="stat" id="statCash">1500 盖</span>
+      <span class="stat" id="statTurn">回合 1</span>
+    </div>
+    <button id="btnTest" type="button">检测</button>
+  </header>
+
+  <!-- 路径视口：只存在 7 张卡片（当前位置 ±3） -->
+  <main id="viewport">
+    <div id="strip"></div>
+    <div id="focusMark"></div>
+    <div id="hint">上滑看前方 · 下滑看后方 · 点当前格操作</div>
+    <div id="camPill" role="button" tabindex="0">回到当前位置</div>
+    <div id="rail"><div id="railCam"></div><div id="railPos"></div></div>
+  </main>
+
+  <!-- 底栏：主操作，全部落在拇指自然区 -->
+  <footer id="bar">
+    <button id="btnCenter" type="button">回中</button>
+    <button id="btnRoll" type="button" class="primary">掷骰前进</button>
+    <button id="btnBuy" type="button">购买</button>
+    <button id="btnUp" type="button">升级</button>
+  </footer>
+
+  <!-- 落地面板 -->
+  <div id="scrim"></div>
+  <section id="sheet" aria-label="落地面板">
+    <div class="grab"></div>
+    <h2 id="shName"></h2>
+    <div class="meta" id="shMeta"></div>
+    <div class="row">
+      <button id="shBuy" type="button" class="accent">购买</button>
+      <button id="shUp" type="button">升级</button>
+      <button id="shMort" type="button">抵押</button>
+    </div>
+    <button id="shClose" class="close" type="button">关闭</button>
+  </section>
+
+  <div id="toast"></div>
+
+  <!-- 测量标注层 -->
+  <div id="overlay"></div>
+
+  <!-- 拇指热区层 -->
+  <div id="zones">
+    <svg viewBox="0 0 390 844" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0,0 L390,0 L390,430 A420,420 0 0 0 -30,844 L0,844 Z" fill="rgba(208,90,74,.07)"/>
+      <path d="M390,430 A420,420 0 0 0 -30,844" fill="none" stroke="rgba(208,90,74,.45)" stroke-width="1.5" stroke-dasharray="5 4"/>
+    </svg>
+    <div class="band" style="top:0;height:35%;background:rgba(208,90,74,.10)">
+      <span style="color:#d05a4a">红区 · 需换握姿</span>
+    </div>
+    <div class="band" style="top:35%;height:25%;background:rgba(201,162,39,.09)">
+      <span style="color:#c9a227">黄区 · 需微调握姿</span>
+    </div>
+    <div class="band" style="top:60%;height:40%;background:rgba(127,174,110,.09)">
+      <span style="color:#7fae6e">绿区 · 拇指自然触及</span>
+    </div>
+  </div>
+
+  <!-- 检测报告 -->
+  <section id="report" aria-label="可读性与单手操作检测">
+    <header>
+      <h3>可读性 / 单手操作检测</h3>
+      <button id="btnRerun" type="button">重新测量</button>
+      <button id="btnCloseReport" type="button" style="color:var(--ink2);background:#1a221f;border-color:var(--line)">关闭</button>
+    </header>
+    <div class="body">
+      <h4>结论</h4>
+      <table id="sumTable">
+        <thead><tr><th>指标</th><th>实测</th><th>目标</th><th>结论</th></tr></thead>
+        <tbody></tbody>
+      </table>
+
+      <h4>逐元素测量</h4>
+      <table id="detailTable">
+        <thead><tr><th>元素</th><th>字号</th><th>对比度</th><th>点击区</th><th>拇指区</th></tr></thead>
+        <tbody></tbody>
+      </table>
+
+      <h4>操作路径</h4>
+      <table id="pathTable">
+        <tbody></tbody>
+      </table>
+
+      <h4>视图设置</h4>
+      <label><input type="checkbox" id="optAnnotate" checked> 在页面上标注测量点</label>
+      <label><input type="checkbox" id="optZones"> 显示拇指热区（右手持机）</label>
+      <label><input type="checkbox" id="optAutoPanel" checked> 落地可操作时自动弹出面板</label>
+      <label><input type="checkbox" id="optWrap" checked> 环形绕卷（关掉则线性截断，对比两种拓扑）</label>
+      <label style="align-items:center">
+        文字档位
+        <select id="optScale">
+          <option value="1">标准 100%</option>
+          <option value="1.125">大 112.5%</option>
+          <option value="1.25">特大 125%</option>
+          <option value="1.5">超大 150%</option>
+        </select>
+      </label>
+
+      <p class="note" id="reportNote"></p>
+
+      <h4>本次原型验证到的边界（客观记录，非目标）</h4>
+      <p class="note">
+        1. 顶栏信息 chip 在 ≥150% 字号档下会宽度不足，已用省略号降级，不遮挡「检测」入口；<br>
+        2. 邻格 / 边缘格落在红区（14%–27% 屏高），只承担「浏览预览」，不承担主操作；主操作在绿区、当前格在黄区；<br>
+        3. 卡片名的自适应字号在 390px 宽卡上从未被触发（最宽名字也放得下），说明路径视图的文字瓶颈不在卡片宽度；<br>
+        4. 环形绕卷与线性截断都能保持 7 张卡片的渲染上限，前者更贴合 44 格环形棋盘的拓扑。
+      </p>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ==========================================================================
+     1. 数据层：content/tiles.json 快照（2026-11-12）+ config.js 显示口径
+     —— 只读复制，不 import 游戏模块，不写回任何全局状态。
+     ========================================================================== */
+  var TILES = [
+    { "t": "start", "name": "避难所出口" },
+    { "t": "prop", "group": "rust", "name": "摩根镇废场", "price": 60, "rent": 4 },
+    { "t": "prop", "group": "rust", "name": "森林断墙", "price": 60, "rent": 4 },
+    { "t": "radiation", "name": "莫诺加矿洞" },
+    { "t": "prop", "group": "rust", "name": "锈蚀管道", "price": 80, "rent": 6 },
+    { "t": "tax", "tax": 50 },
+    { "t": "prop", "group": "rust", "name": "断裂天桥", "price": 90, "rent": 7 },
+    { "t": "prop", "group": "rust", "name": "旧警备所", "price": 100, "rent": 8, "subType": "shack" },
+    { "t": "event" },
+    { "t": "prop", "group": "market", "name": "响应者摊位", "price": 120, "rent": 10 },
+    { "t": "prop", "group": "market", "name": "毒谷枪铺", "price": 140, "rent": 12 },
+    { "t": "quarantine" },
+    { "t": "prop", "group": "market", "name": "格拉夫顿补给", "price": 160, "rent": 14 },
+    { "t": "prop", "group": "market", "name": "改装工坊", "price": 180, "rent": 16, "subType": "cursed" },
+    { "t": "rail", "name": "阿尔法哨", "price": 200 },
+    { "t": "event" },
+    { "t": "prop", "group": "gang", "name": "灰堆掠夺堡", "price": 220, "rent": 22 },
+    { "t": "tax", "tax": 100 },
+    { "t": "prop", "group": "gang", "name": "掠夺者军阀", "price": 260, "rent": 26, "subType": "landmark" },
+    { "t": "rail", "name": "布拉沃哨", "price": 200 },
+    { "t": "prop", "group": "rust", "name": "森林加油站", "price": 70, "rent": 5 },
+    { "t": "util", "name": "裂谷电站", "price": 150 },
+    { "t": "safe" },
+    { "t": "event" },
+    { "t": "prop", "group": "gang", "name": "灰堆毒巢", "price": 240, "rent": 24 },
+    { "t": "prop", "group": "market", "name": "毒谷情报商", "price": 170, "rent": 15, "subType": "volatile" },
+    { "t": "tax", "tax": 75 },
+    { "t": "prop", "group": "tech", "name": "裂谷数据塔", "price": 130, "rent": 11 },
+    { "t": "prop", "group": "tech", "name": "隔离电台阵列", "price": 150, "rent": 13 },
+    { "t": "blackmarket" },
+    { "t": "bunker", "name": "国会掩体" },
+    { "t": "prop", "group": "bio", "name": "裂隙培养池", "price": 140, "rent": 12 },
+    { "t": "prop", "group": "bio", "name": "沼泽样本库", "price": 160, "rent": 14 },
+    { "t": "rail", "name": "查理哨", "price": 200 },
+    { "t": "safe" },
+    { "t": "util", "name": "沼泽净水站", "price": 160 },
+    { "t": "wormhole" },
+    { "t": "bounty" },
+    { "t": "oasis" },
+    { "t": "event" },
+    { "t": "prop", "group": "tech", "name": "裂谷量子站", "price": 190, "rent": 16 },
+    { "t": "prop", "group": "bio", "name": "蔓越莓基因场", "price": 180, "rent": 15 },
+    { "t": "event" },
+    { "t": "event" }
+  ];
+
+  var TYPE_LABEL = {
+    start: '避难所', event: '事件', tax: '税收', quarantine: '隔离区', safe: '安全地带',
+    rail: '哨站', util: '设施', wormhole: '虫洞', blackmarket: '黑市', bounty: '赏金',
+    oasis: '绿洲', radiation: '矿坑', bunker: '掩体'
+  };
+  var GROUPS = {
+    rust: { name: '森林区' }, market: { name: '毒谷区' }, gang: { name: '灰堆区' },
+    tech: { name: '裂谷区' }, bio: { name: '沼泽区' }
+  };
+  var GROUP_COLOR = { rust: '#b5651d', market: '#c9a227', gang: '#a31515', tech: '#3fb6c4', bio: '#b06ad8' };
+  var TYPE_COLOR = {
+    start: '#7fae6e', event: '#6a5acd', tax: '#6f7d76', quarantine: '#d05a4a', safe: '#7fa6a0',
+    rail: '#9aa6ad', util: '#4aa3c9', wormhole: '#9a7bff', blackmarket: '#c97f2a',
+    bounty: '#d8b13a', oasis: '#4aa3c9', radiation: '#b8d84a', bunker: '#9aa3ad'
+  };
+  var ART = {
+    rust: ['#3a2415', '#1a120c'], market: ['#3a2f10', '#171208'], gang: ['#3a1515', '#170808'],
+    tech: ['#12333a', '#081417'], bio: ['#2c1240', '#12081c'], start: ['#1c3320', '#0a140d'],
+    event: ['#221d3a', '#0e0b18'], tax: ['#2b2f2c', '#111311'], quarantine: ['#3a1a16', '#170a08'],
+    safe: ['#14302c', '#08120f'], rail: ['#2b3236', '#101315'], util: ['#12303f', '#081117'],
+    wormhole: ['#2a1f4d', '#0f0a1e'], blackmarket: ['#3d2812', '#171008'], bounty: ['#3d3312', '#171308'],
+    oasis: ['#12303f', '#081117'], radiation: ['#3d4012', '#171808'], bunker: ['#2b3033', '#101214']
+  };
+  var GLYPHS = {
+    start: '始', prop: '产', tax: '税', quarantine: '离', safe: '安', rail: '铁', util: '设',
+    wormhole: '洞', blackmarket: '黑', bounty: '赏', oasis: '洲', radiation: '辐', bunker: '掩', event: '？'
+  };
+  var PCOLORS = ['#e84c3d', '#3498db', '#2ecc71', '#f1c40f'];
+  var PSHORT = ['甲', '乙', '丙', '丁'];
+
+  var N = TILES.length;          // 44
+  var HALF = 3;                  // 只渲染当前位置 ±3 格 → 7 张卡片
+  var FONT_STACK = '"PingFang SC","Microsoft YaHei UI","Noto Sans CJK SC",sans-serif';
+
+  /* ==========================================================================
+     2. DOM
+     ========================================================================== */
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+
+  var phone = $('#phone'), viewport = $('#viewport'), strip = $('#strip');
+  var railCam = $('#railCam'), railPos = $('#railPos'), camPill = $('#camPill'), hint = $('#hint');
+  var statPos = $('#statPos'), statCash = $('#statCash'), statTurn = $('#statTurn');
+  var toastEl = $('#toast'), overlay = $('#overlay'), zones = $('#zones');
+  var scrim = $('#scrim'), sheet = $('#sheet'), shName = $('#shName'), shMeta = $('#shMeta');
+  var shBuy = $('#shBuy'), shUp = $('#shUp'), shMort = $('#shMort'), shClose = $('#shClose');
+  var report = $('#report');
+
+  /* ==========================================================================
+     3. 状态（全部为演示内存状态，与 G / TILES / 存档无关）
+     ========================================================================== */
+  var cameraPos = 0;        // 相机所在的格子（浮点，拖动时连续）
+  var playerPos = 0;        // 玩家所在格子（整数，0..N-1）
+  var turn = 1;
+  var demo = {
+    cash: 1500,
+    owners: { 1: 0, 2: 0, 9: 1, 10: 1, 27: 0 },
+    levels: { 1: 2, 2: 1, 9: 1, 27: 2 },
+    mortgaged: {}
+  };
+
+  var animRaf = 0, snapTimer = 0, toastTimer = 0;
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ==========================================================================
+     4. 卡片：固定 7 个 DOM 节点，内容按位置复用（虚拟列表）
+     ========================================================================== */
+  var cards = [];
+  for (var i = 0; i < HALF * 2 + 1; i++) {
+    var el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML =
+      '<div class="art"></div>' +
+      '<div class="glyph"></div>' +
+      '<div class="idxTag"></div>' +
+      '<div class="body"><div class="nm"></div><div class="meta"></div></div>' +
+      '<div class="hud"></div>' +
+      '<div class="token">甲</div>';
+    strip.appendChild(el);
+    cards.push({ el: el, idx: null });
+  }
+
+  var mctx = document.createElement('canvas').getContext('2d');
+  function wrapText(ctx, text, maxW) {
+    var lines = [], line = '';
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      if (line && ctx.measureText(line + ch).width > maxW) { lines.push(line); line = ch; }
+      else line += ch;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+  /* 与 board-canvas.js 的 fitFontSizeToCell 同一思路：字号递减直到放得下 */
+  function fitText(el, text, maxW, maxLines, baseFs, minFs) {
+    if (!maxW || maxW <= 0) return;
+    var fs = baseFs;
+    while (fs > minFs) {
+      mctx.font = '700 ' + fs + 'px ' + FONT_STACK;
+      if (wrapText(mctx, text, maxW).length <= maxLines) break;
+      fs -= 0.5;
+    }
+    el.style.fontSize = fs + 'px';
+  }
+
+  function tName(t) { return t.name || TYPE_LABEL[t.t] || t.t; }
+  function tColor(t) { return (t.t === 'prop' && t.group) ? GROUP_COLOR[t.group] : (TYPE_COLOR[t.t] || '#6f7d76'); }
+  function artFor(t) {
+    var k = (t.t === 'prop' && t.group) ? t.group : t.t;
+    return ART[k] || ['#222a26', '#0e1311'];
+  }
+  function tMeta(t, idx) {
+    var s = '';
+    if (t.t === 'prop') s = GROUPS[t.group].name + ' · ' + t.price + ' 盖 · 租 ' + t.rent + ' 盖';
+    else if (t.t === 'rail' || t.t === 'util') s = TYPE_LABEL[t.t] + ' · ' + t.price + ' 盖';
+    else if (t.t === 'tax') s = '缴税 ' + t.tax + ' 盖';
+    else s = TYPE_LABEL[t.t] || '';
+    return s + ' · #' + (idx + 1);
+  }
+
+  function hexToRgb(h) {
+    h = h.replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+  /* 颜色混合：入参可以是 #hex / rgb() / rgba()（嵌套调用时内部结果是 rgb()） */
+  function mix(a, b, t) {
+    var A = parseColor(a), B = parseColor(b);
+    return 'rgb(' + Math.round(A[0] + (B[0] - A[0]) * t) + ',' +
+                     Math.round(A[1] + (B[1] - A[1]) * t) + ',' +
+                     Math.round(A[2] + (B[2] - A[2]) * t) + ')';
+  }
+
+  function fillCard(c, idx) {
+    var t = TILES[idx], el = c.el;
+    c.idx = idx;
+    el.dataset.i = idx;
+    var art = artFor(t);
+    el.style.setProperty('--g1', art[0]);
+    el.style.setProperty('--g2', art[1]);
+    el.querySelector('.glyph').textContent = GLYPHS[t.t] || '';
+    el.querySelector('.idxTag').textContent = '#' + (idx + 1);
+
+    var nm = el.querySelector('.nm');
+    nm.textContent = tName(t);
+    nm.style.fontSize = '';                       // 交回 CSS（rem 随字号档位变化）
+    fitText(nm, tName(t), el.clientWidth - 20, 2, parseFloat(getComputedStyle(nm).fontSize), 9);
+    var meta = el.querySelector('.meta');
+    meta.textContent = tMeta(t, idx);
+
+    // 文字实际压在的底色（业务上=艺术图中层与遮罩的混合），用于对比度测量
+    el.querySelector('.body').dataset.bg = mix(mix(art[0], art[1], 0.5), '#060908', 0.90);
+
+    var owner = demo.owners[idx];
+    var hud = el.querySelector('.hud'), h = '';
+    if (owner != null) {
+      h += '<i class="dot" style="background:' + PCOLORS[owner] + '"></i>';
+      var lv = demo.levels[idx] || 0;
+      if (lv > 0) h += '<b class="lv' + (lv >= 2 ? ' lv2' : '') + '">' + lv + '</b>';
+      if (demo.mortgaged[idx]) h += '<s class="m">押</s>';
+    }
+    hud.innerHTML = h;
+  }
+
+  /* 字号档位变化后，重新按新基准自适应（不冻结在旧 px 上） */
+  function refitAll() {
+    cards.forEach(function (c) {
+      if (c.idx == null) return;
+      var nm = c.el.querySelector('.nm');
+      nm.style.fontSize = '';
+      fitText(nm, tName(TILES[c.idx]), c.el.clientWidth - 20, 2, parseFloat(getComputedStyle(nm).fontSize), 9);
+    });
+  }
+
+  function metrics() {
+    var vh = Math.max(320, viewport.clientHeight);
+    return {
+      stride: Math.round(vh * 0.132),   // 卡片中心间距
+      cardH: Math.round(vh * 0.127),    // 所有卡片同一布局高度（避免相互遮挡）
+      focusY: Math.round(vh * 0.46)
+    };
+  }
+
+  function normIdx(i) { return ((i % N) + N) % N; }
+
+  function render() {
+    var m = metrics();
+    var center = Math.round(cameraPos);
+    var wrap = $('#optWrap').checked;
+    for (var s = 0; s < cards.length; s++) {
+      var off = s - HALF, raw = center + off, c = cards[s];
+      var el = c.el;
+      // 环形绕卷 vs 线性截断：两种拓扑都摆出来供对比
+      var idx = wrap ? normIdx(raw) : raw;
+      if (!wrap && (idx < 0 || idx >= N)) { el.style.display = 'none'; c.idx = null; continue; }
+      el.style.display = 'block';
+      if (c.idx !== idx) fillCard(c, idx);
+      var isCur = idx === playerPos;
+      var y = m.focusY + off * m.stride - m.cardH / 2;
+      var scale = isCur ? 1.05 : (Math.abs(off) === 3 ? 0.92 : 0.96);
+      el.style.height = m.cardH + 'px';
+      el.style.transform = 'translateY(' + y.toFixed(1) + 'px) scale(' + scale + ')';
+      el.style.zIndex = isCur ? 10 : (10 - Math.abs(off));
+      el.classList.toggle('focus', isCur);
+      el.classList.toggle('centered', off === 0);
+      el.classList.toggle('dim', Math.abs(off) >= 1 && Math.abs(off) <= 2);
+      el.classList.toggle('far', Math.abs(off) === 3);
+    }
+    // 进度轨
+    var camN = normIdx(Math.round(cameraPos));
+    railCam.style.height = (camN / (N - 1) * 100) + '%';
+    railPos.style.top = (playerPos / (N - 1) * 100) + '%';
+    // 回中提示（取环绕最短距离）
+    var d = ((Math.round(cameraPos) - playerPos) % N + N) % N;
+    if (d > N / 2) d -= N;
+    camPill.classList.toggle('on', d !== 0);
+    // 顶栏
+    statPos.textContent = '第 ' + (playerPos + 1) + '/' + N + ' 格';
+    statCash.textContent = demo.cash + ' 盖';
+    statTurn.textContent = '回合 ' + turn;
+    // 底栏按钮可用性
+    var ct = TILES[playerPos], co = demo.owners[playerPos];
+    var canBuy = (ct.t === 'prop' || ct.t === 'rail' || ct.t === 'util') && co == null && demo.cash >= ct.price;
+    var canUp = co === 0 && ct.t === 'prop' && (demo.levels[playerPos] || 0) < 2 && demo.cash >= ct.price;
+    btnBuy.disabled = !canBuy;
+    btnUp.disabled = !canUp;
+  }
+
+  /* ==========================================================================
+     5. 相机动画 / 吸附
+     ========================================================================== */
+  function cancelAnim() { if (animRaf) { cancelAnimationFrame(animRaf); animRaf = 0; } }
+
+  function animateCameraTo(target, dur, done, clamp) {
+    if (clamp !== false) target = Math.max(0, Math.min(N - 1, target));
+    cancelAnim();
+    if (reduced) { cameraPos = target; render(); if (done) done(); return; }
+    var from = cameraPos, t0 = performance.now();
+    function step(now) {
+      var k = Math.min(1, (now - t0) / dur);
+      var e = 1 - Math.pow(1 - k, 3);
+      cameraPos = from + (target - from) * e;
+      render();
+      if (k < 1) animRaf = requestAnimationFrame(step);
+      else { animRaf = 0; if (done) done(); }
+    }
+    animRaf = requestAnimationFrame(step);
+  }
+
+  function snapCamera() { animateCameraTo(Math.round(cameraPos), 220); }
+
+  /* ==========================================================================
+     6. 交互：拖动 / 滚轮 / 键盘 / 点按
+     ========================================================================== */
+  var dragging = false, dragStartY = 0, dragStartCam = 0, dragMoved = 0;
+
+  viewport.addEventListener('pointerdown', function (e) {
+    dragging = true; dragStartY = e.clientY; dragStartCam = cameraPos; dragMoved = 0;
+    cancelAnim();
+    try { viewport.setPointerCapture(e.pointerId); } catch (err) {}
+    viewport.classList.add('dragging');
+  });
+  viewport.addEventListener('pointermove', function (e) {
+    if (!dragging) return;
+    var dy = e.clientY - dragStartY;
+    dragMoved = Math.max(dragMoved, Math.abs(dy));
+    var cam = dragStartCam - dy / metrics().stride;
+    if (cam < 0) cam = cam * 0.35;                       // 端部阻尼
+    if (cam > N - 1) cam = (N - 1) + (cam - (N - 1)) * 0.35;
+    cameraPos = cam;
+    render();
+  });
+  function endDrag(e) {
+    if (!dragging) return;
+    dragging = false;
+    viewport.classList.remove('dragging');
+    if (dragMoved < 8) handleTap(e);
+    else snapCamera();
+  }
+  viewport.addEventListener('pointerup', endDrag);
+  viewport.addEventListener('pointercancel', function () { dragging = false; snapCamera(); });
+
+  viewport.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    cancelAnim();
+    cameraPos = Math.max(0, Math.min(N - 1, cameraPos + e.deltaY / metrics().stride));
+    render();
+    clearTimeout(snapTimer);
+    snapTimer = setTimeout(snapCamera, 140);
+  }, { passive: false });
+
+  document.addEventListener('keydown', function (e) {
+    if (report.classList.contains('on')) return;
+    var k = e.key;
+    if (k === 'ArrowDown' || k === 'ArrowRight') { cancelAnim(); cameraPos = Math.min(N - 1, Math.round(cameraPos) + 1); render(); }
+    else if (k === 'ArrowUp' || k === 'ArrowLeft') { cancelAnim(); cameraPos = Math.max(0, Math.round(cameraPos) - 1); render(); }
+    else if (k === 'Home') { cancelAnim(); animateCameraTo(0, 260); }
+    else if (k === 'End') { cancelAnim(); animateCameraTo(N - 1, 260); }
+    else return;
+    e.preventDefault();
+  });
+
+  function handleTap(e) {
+    var cardEl = e.target.closest ? e.target.closest('.card') : null;
+    if (!cardEl) { closeSheet(); return; }
+    var idx = normIdx(parseInt(cardEl.dataset.i || '0', 10));
+    if (idx === playerPos) openSheet(idx);
+    else animateCameraTo(idx, 260);      // 浏览：把目标格移到视口中心
+  }
+  camPill.addEventListener('click', function () { animateCameraTo(playerPos, 300); });
+  camPill.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); animateCameraTo(playerPos, 300); } });
+
+  /* ==========================================================================
+     7. 演示操作：购买 / 升级 / 抵押（数值仅演示，不接入规则层）
+     ========================================================================== */
+  function redeemCost(t) { return Math.ceil(t.price * 0.6); }
+
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('on'); }, 1600);
+  }
+
+  function canBuyIdx(idx) {
+    var t = TILES[idx];
+    return (t.t === 'prop' || t.t === 'rail' || t.t === 'util') && demo.owners[idx] == null && demo.cash >= t.price;
+  }
+  function canUpIdx(idx) {
+    var t = TILES[idx];
+    return demo.owners[idx] === 0 && t.t === 'prop' && (demo.levels[idx] || 0) < 2 && demo.cash >= t.price;
+  }
+  function landingActionable(idx) {
+    var t = TILES[idx];
+    return (t.t === 'prop' || t.t === 'rail' || t.t === 'util') &&
+           (demo.owners[idx] == null || canUpIdx(idx));
+  }
+
+  function doBuy() {
+    var idx = playerPos, t = TILES[idx];
+    if (!canBuyIdx(idx)) return;
+    demo.cash -= t.price; demo.owners[idx] = 0; demo.levels[idx] = 0; delete demo.mortgaged[idx];
+    toast('购入 ' + tName(t) + ' · -' + t.price + ' 盖');
+    render(); if (sheet.classList.contains('on')) openSheet(idx);
+  }
+  function doUpgrade() {
+    var idx = playerPos, t = TILES[idx];
+    if (!canUpIdx(idx)) return;
+    demo.cash -= t.price;
+    demo.levels[idx] = (demo.levels[idx] || 0) + 1;
+    toast('升级 ' + tName(t) + ' → Lv' + demo.levels[idx] + ' · -' + t.price + ' 盖');
+    render(); if (sheet.classList.contains('on')) openSheet(idx);
+  }
+  function doMort() {
+    var idx = playerPos, t = TILES[idx];
+    if (demo.owners[idx] !== 0) return;
+    if (demo.mortgaged[idx]) {
+      var c = redeemCost(t);
+      if (demo.cash < c) { toast('赎回资金不足 · 需要 ' + c + ' 盖'); return; }
+      demo.cash -= c; delete demo.mortgaged[idx];
+      toast('赎回 ' + tName(t) + ' · -' + c + ' 盖');
+    } else {
+      var g = Math.floor(t.price / 2);
+      demo.cash += g; demo.mortgaged[idx] = true;
+      toast('抵押 ' + tName(t) + ' · +' + g + ' 盖');
+    }
+    render(); if (sheet.classList.contains('on')) openSheet(idx);
+  }
+
+  function openSheet(idx) {
+    var t = TILES[idx], owner = demo.owners[idx];
+    shName.textContent = tName(t);
+    var chips = [];
+    chips.push('<span class="chip">' + (GROUPS[t.group] ? GROUPS[t.group].name : (TYPE_LABEL[t.t] || '')) + '</span>');
+    if (t.t === 'prop') chips.push('<span class="chip">' + t.price + ' 盖</span><span class="chip">租 ' + t.rent + ' 盖</span>');
+    if (t.t === 'rail' || t.t === 'util') chips.push('<span class="chip">' + t.price + ' 盖</span>');
+    if (t.t === 'tax') chips.push('<span class="chip">缴税 ' + t.tax + ' 盖</span>');
+    if (owner != null) {
+      chips.push('<span class="chip" style="border-color:' + PCOLORS[owner] + ';color:' + PCOLORS[owner] + '">' +
+        (owner === 0 ? '我方产权' : PSHORT[owner] + ' 方产权') + '</span>');
+    }
+    var lv = demo.levels[idx] || 0;
+    if (lv > 0) chips.push('<span class="chip">等级 ' + lv + '</span>');
+    if (demo.mortgaged[idx]) chips.push('<span class="chip danger">已抵押 · 本次免租</span>');
+    shMeta.innerHTML = chips.join('');
+
+    shBuy.textContent = '购买 · ' + t.price + ' 盖';
+    shBuy.disabled = !canBuyIdx(idx);
+    shUp.textContent = '升级 · ' + t.price + ' 盖';
+    shUp.disabled = !canUpIdx(idx);
+    var redeem = owner === 0 && !!demo.mortgaged[idx];
+    shMort.textContent = redeem ? '赎回 · ' + redeemCost(t) + ' 盖' : '抵押 · +' + Math.floor(t.price / 2) + ' 盖';
+    shMort.disabled = !(owner === 0 && (redeem || !demo.mortgaged[idx]));
+
+    sheet.classList.add('on');
+    scrim.classList.add('on');
+  }
+  function closeSheet() { sheet.classList.remove('on'); scrim.classList.remove('on'); }
+
+  shBuy.addEventListener('click', doBuy);
+  shUp.addEventListener('click', doUpgrade);
+  shMort.addEventListener('click', doMort);
+  shClose.addEventListener('click', closeSheet);
+  scrim.addEventListener('click', closeSheet);
+
+  btnBuy.addEventListener('click', doBuy);
+  btnUp.addEventListener('click', doUpgrade);
+  btnRoll.addEventListener('click', function () {
+    var steps = 1 + Math.floor(Math.random() * 6);
+    var from = playerPos;
+    playerPos = (playerPos + steps) % N;
+    turn++;
+    toast('掷出 ' + steps + ' 点 → ' + tName(TILES[playerPos]));
+    animateCameraTo(from + steps, 420 + steps * 70, function () {
+      cameraPos = playerPos;                 // 归一化（渲染侧用模运算，视觉连续）
+      render();
+      if ($('#optAutoPanel').checked && landingActionable(playerPos)) openSheet(playerPos);
+    }, false);
+    render();
+  });
+  btnCenter.addEventListener('click', function () { animateCameraTo(playerPos, 300); });
+
+  /* ==========================================================================
+     8. 测量：字号 / 对比度 / 点击区 / 拇指区
+     ========================================================================== */
+  function parseColor(s) {
+    if (!s) return [0, 0, 0];
+    s = String(s).trim();
+    if (s.charAt(0) === '#') return hexToRgb(s);
+    var m = s.match(/rgba?\(([^)]+)\)/);
+    if (m) { var p = m[1].split(',').map(Number); return [p[0], p[1], p[2]]; }
+    return [0, 0, 0];
+  }
+  function relLum(c) {
+    function f(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+  }
+  function contrast(fg, bg) {
+    var a = relLum(parseColor(fg)), b = relLum(parseColor(bg));
+    var hi = Math.max(a, b), lo = Math.min(a, b);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+  /* 渐变背景取首尾色中点，再与下层已解析底色混合，近似实际叠色 */
+  function gradStops(el) {
+    var bi = getComputedStyle(el).backgroundImage;
+    if (!bi || bi === 'none') return null;
+    var stops = [], re = /(#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\))/g, m;
+    while ((m = re.exec(bi)) !== null) stops.push(m[1]);
+    return stops.length >= 2 ? stops : null;
+  }
+  function bgOf(n) {
+    while (n && n !== document.documentElement) {
+      var stops = gradStops(n);
+      if (stops) {
+        var lower = n.parentElement ? bgOf(n.parentElement) : '#0b0f0e';
+        return mix(lower, mix(stops[0], stops[stops.length - 1], 0.5), 0.9);
+      }
+      var c = getComputedStyle(n).backgroundColor;
+      if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c;
+      n = n.parentElement;
+    }
+    return '#0b0f0e';
+  }
+  function effBg(el) {
+    var tagged = el.closest('[data-bg]');
+    if (tagged) return tagged.dataset.bg;
+    return bgOf(el);
+  }
+  function zoneOf(cy) { return cy > 0.6 ? 'green' : (cy > 0.35 ? 'yellow' : 'red'); }
+  var ZONE_LABEL = { green: '绿区', yellow: '黄区', red: '红区' };
+  var ZONE_COLOR = { green: '#7fae6e', yellow: '#c9a227', red: '#d05a4a' };
+
+  function collectTargets() {
+    var out = [], seen = {};
+    function add(label, el) {
+      if (!el || el.offsetParent === null) return;
+      var key = label + '|' + (el.className || '') + '|' + (el.textContent || '').slice(0, 12);
+      if (seen[key]) return; seen[key] = 1;
+      out.push({ label: label, el: el });
+    }
+    $$('#topbar .stat').forEach(function (el) { add('顶栏 · ' + el.textContent.trim(), el); });
+    add('顶栏 · 检测按钮', $('#btnTest'));
+    $$('#bar button').forEach(function (el) { add('底栏 · ' + el.textContent.trim(), el); });
+    add('回中提示', camPill);
+    add('操作提示', hint);
+    var f = $('.card.focus');
+    if (f) { add('当前格 · 名字', f.querySelector('.nm')); add('当前格 · 信息', f.querySelector('.meta')); }
+    var d = $('.card.dim');
+    if (d) { add('邻格 · 名字', d.querySelector('.nm')); add('邻格 · 信息', d.querySelector('.meta')); }
+    var far = $('.card.far');
+    if (far) add('边缘格 · 名字', far.querySelector('.nm'));
+    if (sheet.classList.contains('on')) {
+      add('面板 · 标题', shName);
+      $$('#sheet button').forEach(function (el) { add('面板 · ' + el.textContent.trim(), el); });
+    }
+    return out;
+  }
+
+  function measure() {
+    var pr = phone.getBoundingClientRect();
+    var rows = collectTargets().map(function (t) {
+      var el = t.el, cs = getComputedStyle(el), r = el.getBoundingClientRect();
+      var cy = (r.top + r.height / 2 - pr.top) / pr.height;
+      return {
+        label: t.label,
+        fs: parseFloat(cs.fontSize),
+        cr: contrast(cs.color, effBg(el)),
+        w: r.width, h: r.height,
+        cy: cy, zone: zoneOf(cy),
+        el: el
+      };
+    });
+
+    /* ---- 汇总 ---- */
+    var isBtn = function (r) { return r.el.tagName === 'BUTTON' || r.el.getAttribute('role') === 'button'; };
+    var textRows = rows.filter(function (r) { return !isBtn(r); });
+    var btnRows = rows.filter(isBtn);
+    var minFs = Math.min.apply(null, textRows.map(function (r) { return r.fs; }).concat([99]));
+    var minCr = Math.min.apply(null, textRows.map(function (r) { return r.cr; }).concat([99]));
+    var minBtn = Math.min.apply(null, btnRows.map(function (r) { return Math.min(r.w, r.h); }).concat([99]));
+    var rollRow = null;
+    rows.forEach(function (r) { if (r.label.indexOf('掷骰') >= 0) rollRow = r; });
+    var curRow = null;
+    rows.forEach(function (r) { if (r.label.indexOf('当前格 · 名字') >= 0) curRow = r; });
+
+    var sum = [];
+    function verdict(ok) { return ok ? '<td class="ok">通过</td>' : '<td class="bad">不通过</td>'; }
+    sum.push('<tr><td>正文字号最小值</td><td>' + minFs.toFixed(1) + ' px</td><td>≥ 11 px</td>' + verdict(minFs >= 11) + '</tr>');
+    sum.push('<tr><td>文字对比度最小值</td><td>' + minCr.toFixed(2) + ' : 1</td><td>≥ 4.5 : 1</td>' + verdict(minCr >= 4.5) + '</tr>');
+    sum.push('<tr><td>点击目标最小边</td><td>' + Math.round(minBtn) + ' px</td><td>≥ 44 px</td>' + verdict(minBtn >= 44) + '</tr>');
+    sum.push('<tr><td>主操作（掷骰）中心高度</td><td>' + (rollRow ? (rollRow.cy * 100).toFixed(0) : '-') + ' %</td><td>≥ 60 %（绿区）</td>' +
+             verdict(rollRow && rollRow.cy > 0.6) + '</tr>');
+    sum.push('<tr><td>当前格中心高度</td><td>' + (curRow ? (curRow.cy * 100).toFixed(0) : '-') + ' %</td><td>≥ 35 %（黄区以上）</td>' +
+             verdict(curRow && curRow.cy > 0.35) + '</tr>');
+    sum.push('<tr><td>渲染卡片数</td><td>' + $$('.card').filter(function (c) { return c.offsetParent !== null; }).length + ' 张</td><td>≤ 7 张（±3）</td>' +
+             verdict($$('.card').filter(function (c) { return c.offsetParent !== null; }).length <= 7) + '</tr>');
+    $('#sumTable tbody').innerHTML = sum.join('');
+
+    /* ---- 明细 ---- */
+    var det = rows.map(function (r) {
+      var zc = ZONE_COLOR[r.zone];
+      var passive = getComputedStyle(r.el).pointerEvents === 'none';
+      var zoneCell = passive ? '<td style="color:var(--ink3)">只读</td>'
+                             : '<td style="color:' + zc + '">' + ZONE_LABEL[r.zone] + ' ' + (r.cy * 100).toFixed(0) + '%</td>';
+      return '<tr>' +
+        '<td>' + r.label + '</td>' +
+        '<td>' + r.fs.toFixed(1) + ' px</td>' +
+        '<td class="' + (r.cr >= 4.5 ? 'ok' : 'bad') + '">' + r.cr.toFixed(2) + ' : 1</td>' +
+        '<td>' + Math.round(r.w) + '×' + Math.round(r.h) + '</td>' +
+        zoneCell +
+      '</tr>';
+    });
+    $('#detailTable tbody').innerHTML = det.join('');
+
+    /* ---- 操作路径 ---- */
+    var pathRows = [
+      '<tr><td>路径 A（推荐）</td><td>掷骰 → 落地自动弹出面板 → 购买</td><td>2 次点击</td></tr>',
+      '<tr><td>路径 B（手动）</td><td>掷骰 → 点当前格 → 购买</td><td>3 次点击</td></tr>',
+      '<tr><td>浏览→操作</td><td>滑动到目标格 → 点该格 → 购买</td><td>2 次点击（不含滑动）</td></tr>'
+    ];
+    $('#pathTable tbody').innerHTML = pathRows.join('');
+
+    $('#reportNote').textContent =
+      '测量口径：字号取计算后 font-size；对比度按文字实际压住的底色计算（卡片文字按「艺术图中层 × 底部遮罩 90%」混合后的合成色，' +
+      '见卡片 .body 的 data-bg）；点击区取元素外接矩形最小边；拇指区以机身高度百分比划分（绿 >60%，黄 35–60%，红 <35%，右手持机）。' +
+      '面板内按钮在打开落地面板后重新测量即可覆盖。数据为 content/tiles.json 快照，规则与存档未接入。';
+
+    /* ---- 页面标注 ---- */
+    overlay.innerHTML = '';
+    if ($('#optAnnotate').checked) {
+      rows.forEach(function (r) {
+        var pr2 = phone.getBoundingClientRect();
+        var b = document.createElement('div');
+        b.className = 'box';
+        var rc = r.el.getBoundingClientRect();
+        b.style.left = (rc.left - pr2.left - 2) + 'px';
+        b.style.top = (rc.top - pr2.top - 2) + 'px';
+        b.style.width = (rc.width + 4) + 'px';
+        b.style.height = (rc.height + 4) + 'px';
+        b.style.borderColor = ZONE_COLOR[r.zone];
+        overlay.appendChild(b);
+        var tag = document.createElement('div');
+        tag.className = 'tag';
+        tag.style.left = (rc.left - pr2.left) + 'px';
+        tag.style.top = (rc.top - pr2.top - 16) + 'px';
+        tag.style.color = ZONE_COLOR[r.zone];
+        tag.textContent = r.fs.toFixed(1) + 'px · ' + r.cr.toFixed(1) + ':1';
+        overlay.appendChild(tag);
+      });
+    }
+    overlay.classList.toggle('on', $('#optAnnotate').checked);
+    zones.classList.toggle('on', $('#optZones').checked);
+  }
+
+  /* ==========================================================================
+     9. 报告开关 / 视图设置
+     ========================================================================== */
+  $('#btnTest').addEventListener('click', function () { report.classList.add('on'); measure(); });
+  $('#btnCloseReport').addEventListener('click', function () { report.classList.remove('on'); });
+  $('#btnRerun').addEventListener('click', measure);
+  $('#optAnnotate').addEventListener('change', measure);
+  $('#optZones').addEventListener('change', measure);
+  $('#optWrap').addEventListener('change', function () { render(); });
+  $('#optScale').addEventListener('change', function () {
+    document.documentElement.style.setProperty('--ui-scale', this.value);
+    render(); refitAll(); measure();
+  });
+
+  window.addEventListener('resize', function () { render(); if (report.classList.contains('on')) measure(); });
+
+  /* ==========================================================================
+     10. 启动
+     ========================================================================== */
+  render();
+  requestAnimationFrame(render);
+})();
+</script>
+</body>
+</html>
