@@ -202,3 +202,103 @@ M1.1/M1.2 完全不触碰 DOM 层）。
 
 - `npm test`：**通过**（M1.1、M1.2 各自改完都跑过）。
 - 尚未做：`scripts/render-parity.mjs`（方案红线 R7，Canvas / DOM 双路径语义一致性）——留到 M1.3。
+
+---
+
+## 8. M1.3-A：静态烘焙层（实测）
+
+> 日期：2026-11-17。对应 `docs/remaster-plan.md` §2.2 / §3.2 的「静态底板烘焙」。
+> 探针：`scripts/perf-probe.mjs --repeats 3 --rounds 5`，A0 = 当前分支（M1.1+M1.2 后），A2 = 加静态层后。
+
+### 8.1 做法
+
+`js/board-canvas.js` 新增**离屏静态层**（`document.createElement('canvas')`，不进 DOM），
+把「不随对局状态变」的部分（底色 / 贴图 cover / 底部渐变 / 区域纹理 / 内壁高光 / 顶边色条 / 边框）
+烘焙进去；每帧只把静态层**逐格**回填到主画布，再画名称 / 角标 / HUD / 光效。
+
+失效条件（惰性，重烘焙在 `renderAll()` 里做，rAF 合帧自动合并）：
+
+1. `TILES` 数组**身份**变化（`shuffleBoard` / `restoreBoardOrder` / `loadContent` 会整体重建数组）；
+2. `resizeBoardCanvas()` 真正重分配位图（布局 / DPR 变）；
+3. 静态贴图 `img.onload`（地块插画 / 区域纹理）。
+
+### 8.2 性能（A0 vs A2，摘要中位数）
+
+| 档 | 指标 | A0（无静态层） | A2（静态层） | 结论 |
+|---|---|---|---|---|
+| 1080p@100% | 脉冲 canvas P50 / P95 | 0.6 / 1.2 ms | **0.4 / 0.6 ms** | ✅ 约 -35% / -50% |
+| 1080p@100% | 每帧渐变 | 88 | **0** | ✅ 静态渐变不再每帧重建 |
+| 1080p@100% | 每帧 drawImage | 64 | 44 | ✅ |
+| 1080p@100% | 回合 canvas P95 | 1.1 ms | 0.7 ms | ✅ |
+| 4K@150% | 脉冲 canvas P50 / P95 | 1.2 / 1.8 ms | **0.9 / 1.8 ms** | ✅ P50 改善，P95 持平 |
+| 4K@150% | 每帧渐变 | 88 | **0** | ✅ |
+| 4K@150% | 回合 canvas P95 | 1.6 ms | 3.3 ms | ⚠️ 见下「噪声说明」 |
+
+- 开局位图分配从 2 次（6MB / 61.3MB）变成 4 次（12.1MB / 122.6MB）——**多出的是离屏层那次**，
+  只在布局变化时发生，不是每帧。
+- **4K 档回合 P95 从 1.6 → 3.3ms 是噪声**：A0 的三次重复里有一次 `drawImage` 耗时 126.6ms（其余 3.5 / 19.8ms），
+  A2 三次稳定在 11.6 / 15.5 / 13.3ms。脉冲口径（真正的热点）A2 不劣于 A0。
+
+### 8.3 画面一致性：逐格回填是必须的
+
+验收脚本 `scripts/shot-baseline.mjs --mode shoot`（同一份状态）+ `scripts/shot-diff.mjs`。
+**只比较棋盘画布环带**（`#boardInner` 内、中央 DOM 预览区外），因为 DOM 侧（右侧幸存者面板、
+中央预览）本身存在**逐次跑不定的重栅格化噪声**（旧代码自己两次跑也差 0.09%–0.54%，全在画布外）。
+
+- 整幅拷贝（先画完整张静态层，再画所有动态）→ 画布环带 **122–144 像素、通道差 ≤2**。
+  根因：**砖块名的阴影（`shadowBlur=3`）会越过砖块下缘 1–2px**；旧顺序里邻格静态会盖住它，
+  整幅拷贝顺序则让它渗进下一格。差异全部落在**最右列**（c11）。
+- **逐格回填**（每格先回填静态，再画该格名称/角标/HUD）→ 画布环带 **0 像素、通道差 0**（6/6 张）。
+
+判定：**像素级一致**。
+
+### 8.4 三个已踩的坑（记录备查）
+
+1. **`#boardInner` 计算宽高带小数**（实测 920.994px）。若按 CSS 尺寸 `drawImage` 整幅静态层，
+   会做亚像素缩放，整层轻微发虚（首次实测差异 0.43%–0.80%）。→ 改为**设备空间 1:1**：
+   源用 `x*dpr, y*dpr, w*dpr, h*dpr`，目标用 CSS 坐标（主画布已是 dpr 变换）。
+2. **逐格回填不要 `save()/setTransform(1,0,0,1,0,0)/restore()`**：4K 下每帧多出 44 次
+   `setTransform`（探针记到 5588 次），脉冲 P50 从 0.9 反弹到 2.0ms。→ 直接用主画布的 dpr 变换，
+   不要改变换矩阵。
+3. **画布→画布 1:1 拷贝本身是逐位的**（微测试验证，含 DOM 挂载画布）。曾怀疑是拷贝发虚，
+   实际不是；真正的差异来自绘制顺序（见 8.3）。
+
+### 8.5 B（脏标记动态层）决策：**不做**
+
+方案 §2.2 要求「净收益需实测确认」。实测：脉冲帧时间 1080p 0.6ms、4K 1.8ms，
+相对本机 164Hz 的 6.1ms 预算余量充足；剩下的每帧成本主要是**逐格静态回填**（44 次 drawImage），
+脏标记只能省掉动态重绘（名称/HUD），省不到静态回填。故 **M1.3 不做脏标记动态层**，
+把预算留给 C（全局帧调度器）与 D（render-parity）。若日后 4K 高画质档吃紧，再重估。
+
+### 8.6 全局帧调度器（M1.3-C）
+
+新增 `js/render-scheduler.js`：把原本两条并存的 rAF 链（`drawBoard` 的合帧重绘、`pulseTile` 的脉冲
+逐帧）合并到**同一条循环**。`drawBoard()` 与 `pulseTile()` 现在都只调 `scheduleFrameDraw()`，
+由调度器决定何时渲染；后台节流兜底（100ms 定时器）沿用原语义。
+
+- 验证：`npm test` 通过；脉冲路径实测仍在（1080p 单 repeat：P50/P95 = 0.4/0.6ms，连续重绘段 123 帧，
+  每帧渐变 0）；截图 diff 画布环带仍 0 差异。
+- 未改渲染语义，只合并调度。
+
+### 8.7 render-parity（M1.3-D，红线 R7）
+
+新增 `scripts/render-parity.mjs`（轻量版）：CDP 起两个真实 Electron 会话，载入**同一份存档**
+（并做「稳定化」：强制人类当前玩家 + `awaitingRoll`，否则 AI 当前玩家读档后会立刻 `takeTurn()`，
+两条路径的会面会随时间漂移）：
+
+- **DOM 路径**：注入 `HTMLCanvasElement.prototype.getContext → null`，让 `initBoardCanvas` 探测失败，
+  自动回退 `#tiles`；解析每格 `.tile` 的 class / 内联样式 / 文本。
+- **Canvas 路径**：注入 recording 2D context，记录主画布最后一帧的 `fillText` / `fillRect` /
+  `strokeRect` / `arc` / `drawImage`，按格几何归位。
+- 逐格比对 **名称 / 抵押 / 主人颜色 / 等级 / 当前格 / 垄断**。
+
+结果：`docs/shots/states` 的 5 个局面 **全部 0 语义差异**（`docs/parity/render-parity.json`）。
+
+### 8.8 回归
+
+- `npm test`：**通过**；`scripts/subtype-test.mjs`：51/51；`scripts/balance-probe.mjs`：平衡锚点无偏移。
+- 红线：未改 `rules.js` / `rules-core.js` / `game.js`；渲染层未写 `G` / `TILES`；
+  地块 `id` / `artIndex` / 顺序未动；`SAVE_VERSION=4` 未动；DOM 降级路径保留（无 DOM 时 `useStatic=false`，
+  `npm test` 的 dom-stub 覆盖）。
+- **既有 flaky（非本次引入）**：`smoke.test.mjs` 的「人类起始道德应为 2」断言约 5% 概率偶发失败
+  （原始代码 20 次跑也出现 2 次，同一条断言）。与 M1.3 无关，留待后续单独排查。

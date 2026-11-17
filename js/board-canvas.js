@@ -8,6 +8,7 @@ import { tileIcon, buildingSVG, iconColor } from './icons.js';
 import { tileArtUrl, zoneTexUrl } from './assets-art.js';
 import { getCellMetrics } from './board-metrics.js';
 import { tileDisplayName } from './config.js';
+import { initFrameScheduler, scheduleFrameDraw } from './render-scheduler.js';
 
 const ENABLED = typeof document !== 'undefined' && !!document.documentElement;
 const N = 12;
@@ -32,9 +33,16 @@ let cellW = 0, cellH = 0, gap = 3;
 let hoverIdx = -1;
 let onHover = null;
 let monopolySet = new Set();   // 垄断组地块 idx 集合（view-core 注入）
-let redrawScheduled = false;
 let tilePulse = null;
-let tilePulseRaf = 0;
+
+// 静态烘焙层（离屏 canvas）：底色 / 贴图 / 渐变 / 区域纹理 / 内壁高光 / 顶边色条 / 边框。
+// 只在「布局（cellW/cellH/gap/boardW/boardH/DPR）变」「TILES 整体重建」「静态贴图加载完成」
+// 时重烘焙；其余每帧由 renderAll() 逐格 drawImage 回填（保持与重构前一致的逐格绘制顺序，
+// 否则砖块名的阴影会渗进下一格）。名称 / 角标 / HUD / 光效仍在主画布逐帧绘制
+// （它们随 owner / level / mortgaged / 垄断 / 当前 / 悬停变）。
+let staticCanvas = null, staticCtx = null;
+let staticDirty = true;
+let staticTilesRef = null;     // 烘焙时的 TILES 数组身份（shuffleBoard / restoreBoardOrder 会整体重建）
 
 const imgCache = new Map();    // 贴图 url -> Image
 const svgCache = new Map();    // svg+color -> Image（图标按色缓存）
@@ -70,6 +78,8 @@ export function initBoardCanvas(hoverCb) {
     canvas.addEventListener('pointerdown', onPointer);
     canvas.addEventListener('pointerleave', onLeave);
   }
+  // 重绘合帧与脉冲动画共用同一条 rAF 循环（见 render-scheduler.js）
+  initFrameScheduler(frameTick, () => !!tilePulse);
   return true;
 }
 
@@ -104,6 +114,7 @@ export function resizeBoardCanvas() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   canvas.style.width = w + 'px';
   canvas.style.height = h + 'px';
+  staticDirty = true;   // 位图尺寸 / DPR 变了，静态层必须重烘焙
   return true;
 }
 
@@ -111,20 +122,10 @@ export function setMonopolySet(set) {
   monopolySet = set instanceof Set ? set : new Set();
 }
 
-/** 合帧重绘：同一帧内多次调用只画一次；rAF 被节流（后台页签）时用 setTimeout 兜底 */
+/** 合帧重绘：同一帧内多次调用只画一次；后台节流兜底见 render-scheduler.js */
 export function drawBoard() {
   if (!isCanvasMode()) return false;
-  if (redrawScheduled) return true;
-  redrawScheduled = true;
-  let ran = false;
-  const run = () => {
-    if (ran) return;
-    ran = true;
-    redrawScheduled = false;
-    if (isCanvasMode()) renderAll();
-  };
-  requestAnimationFrame(run);
-  setTimeout(run, 100);
+  scheduleFrameDraw();
   return true;
 }
 
@@ -140,7 +141,7 @@ export function pulseTile(tileId, color = '#d18b4b', mode = 'claim', accentColor
     progress: 0,
     duration: 620,
   };
-  if (!tilePulseRaf) tilePulseRaf = requestAnimationFrame(tickTilePulse);
+  scheduleFrameDraw();
   return true;
 }
 
@@ -149,20 +150,13 @@ function nowMs() {
     ? performance.now() : Date.now();
 }
 
-function tickTilePulse(now) {
-  if (!tilePulse || !isCanvasMode()) {
-    tilePulseRaf = 0;
-    if (isCanvasMode()) renderAll();
-    return;
+/** 调度器的每帧回调：推进脉冲进度后重绘。脉冲结束时会多画一帧干净画面。 */
+function frameTick(now) {
+  if (tilePulse) {
+    tilePulse.progress = Math.min(1, Math.max(0, (now - tilePulse.started) / tilePulse.duration));
+    if (tilePulse.progress >= 1) tilePulse = null;
   }
-  tilePulse.progress = Math.min(1, Math.max(0, (now - tilePulse.started) / tilePulse.duration));
   renderAll();
-  if (tilePulse.progress < 1) tilePulseRaf = requestAnimationFrame(tickTilePulse);
-  else {
-    tilePulse = null;
-    tilePulseRaf = 0;
-    renderAll();
-  }
 }
 
 // ---------------- 交互：命中检测 ----------------
@@ -199,7 +193,8 @@ function getImg(url) {
   if (!url) return null;
   if (imgCache.has(url)) return imgCache.get(url);
   const img = new Image();
-  img.onload = () => drawBoard();
+  // 地块插画 / 区域纹理属于静态层：加载完成后标记失效，下一帧重烘焙
+  img.onload = () => { staticDirty = true; drawBoard(); };
   img.src = url;
   imgCache.set(url, img);
   return img;
@@ -218,14 +213,69 @@ function svgImage(svg, color) {
 function tileReady(img) { return img && img.complete && img.naturalWidth > 0; }
 
 // ---------------- 绘制 ----------------
+/** 离屏静态层：尺寸跟随主画布位图；创建失败返回 false（回退整格重绘） */
+function ensureStaticLayer() {
+  if (!staticCtx) {
+    if (typeof document === 'undefined' || !document.createElement) return false;
+    staticCanvas = document.createElement('canvas');
+    if (!staticCanvas) return false;
+    staticCtx = staticCanvas.getContext ? staticCanvas.getContext('2d') : null;
+    if (!staticCtx) return false;
+  }
+  const pw = Math.max(1, Math.round(boardW * dpr));
+  const ph = Math.max(1, Math.round(boardH * dpr));
+  if (staticCanvas.width !== pw || staticCanvas.height !== ph) {
+    staticCanvas.width = pw;
+    staticCanvas.height = ph;
+    staticDirty = true;
+  }
+  return true;
+}
+
+/**
+ * 把静态部分画到离屏 canvas。这里临时切换模块级 ctx 而不是给每个绘制函数加参数，
+ * 保持既有绘制代码不变（切换是同步的，渲染期不会交错）。
+ */
+function bakeStatic() {
+  const prev = ctx;
+  ctx = staticCtx;
+  try {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, boardW, boardH);
+    for (let i = 0; i < TILES.length; i++) {
+      const [r, c] = positions[i] || [];
+      if (r == null) continue;
+      drawTileStatic(TILES[i], i, r, c);
+    }
+    staticTilesRef = TILES;
+    staticDirty = false;
+  } finally {
+    ctx = prev;
+  }
+}
+
 function renderAll() {
+  const useStatic = ensureStaticLayer();
+  if (useStatic && (staticDirty || staticTilesRef !== TILES)) bakeStatic();
   ctx.clearRect(0, 0, boardW, boardH);
   const activeIdx = (!G.gameOver && G.players && G.players[G.current])
     ? G.players[G.current].pos : -1;
   for (let i = 0; i < TILES.length; i++) {
     const [r, c] = positions[i] || [];
     if (r == null) continue;
-    drawTile(TILES[i], i, r, c);
+    if (useStatic) {
+      const { x, y, w, h } = tileXY(r, c);
+      const side = sideOf(r, c);
+      // 逐格从离屏缓存拷贝静态部分，保持与重构前「逐格静态 → 名称/角标/HUD」的绘制顺序。
+      // 整幅先画静态再画动态会让砖块名的阴影渗进下一格（旧顺序里会被邻格静态盖住）。
+      // 源用设备坐标、目标用 CSS 坐标（主画布已是 dpr 变换），1:1 且无需额外 setTransform。
+      ctx.drawImage(staticCanvas, x * dpr, y * dpr, w * dpr, h * dpr, x, y, w, h);
+      drawTileName(TILES[i], x, y, w, h, side);
+      drawTileIcon(TILES[i], x, y, w, h, side);
+      drawTileHud(TILES[i], x, y, w, h);
+    } else {
+      drawTile(TILES[i], i, r, c);
+    }
   }
   for (let i = 0; i < TILES.length; i++) {
     const [r, c] = positions[i] || [];
@@ -243,7 +293,8 @@ function sideOf(r, c) {
   return r === 0 ? 'top' : r === N - 1 ? 'bot' : c === 0 ? 'left' : c === N - 1 ? 'right' : '';
 }
 
-function drawTile(t, i, r, c) {
+/** 静态部分（步骤 1–7）：不随对局状态变，可烘焙到离屏层 */
+function drawTileStatic(t, i, r, c) {
   const { x, y, w, h } = tileXY(r, c);
   const side = sideOf(r, c);
   // 1) 底色
@@ -286,6 +337,13 @@ function drawTile(t, i, r, c) {
   ctx.lineWidth = 1;
   ctx.strokeStyle = t.type === 'start' ? '#7fae6e' : '#2a3133';
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+}
+
+/** 整格绘制（离屏静态层不可用时的回退路径） */
+function drawTile(t, i, r, c) {
+  drawTileStatic(t, i, r, c);
+  const { x, y, w, h } = tileXY(r, c);
+  const side = sideOf(r, c);
   // 8) 名称（底部对齐、自动换行截断）
   drawTileName(t, x, y, w, h, side);
   // 9) 角标图标（长名隐藏）

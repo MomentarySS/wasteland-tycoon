@@ -73,3 +73,10 @@ test/acceptance-*/
 docs/shots/**/*.png
 docs/shots/baseline/
 docs/shots/current/
+
+# 性能/截图探针的本地临时产物（.tmpcheck 在 docs/perf-baseline.md 中作为输出目录引用）
+.tmpcheck/
+.tmp-*-profile*/
+
+# render-parity 结果（可再生）
+docs/parity/
