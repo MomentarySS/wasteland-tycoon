@@ -71,3 +71,5 @@ test/acceptance-*/
 
 # 视觉基线截图：可由 docs/shots/states + scripts/shot-baseline.mjs 确定性再生成（约 20MB），不入库
 docs/shots/**/*.png
+docs/shots/baseline/
+docs/shots/current/
