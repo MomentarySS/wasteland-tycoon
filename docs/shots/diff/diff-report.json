@@ -1,0 +1,82 @@
+{
+  "a": "D:\\AI\\work\\wasteland-tycoon\\wasteland-tycoon_2D_new\\docs\\shots\\baseline",
+  "b": "D:\\AI\\work\\wasteland-tycoon\\wasteland-tycoon_2D_new\\docs\\shots\\current",
+  "tolerance": 0,
+  "total": 6,
+  "identical": 1,
+  "different": 5,
+  "rows": [
+    {
+      "name": "00-start",
+      "width": 1600,
+      "height": 900,
+      "diffChannels": 3432,
+      "diffPixels": 2680,
+      "totalPixels": 1440000,
+      "diffPixelPct": 0.1861,
+      "maxDelta": 1,
+      "avgDelta": 1,
+      "identical": false
+    },
+    {
+      "name": "01-round-2",
+      "width": 1600,
+      "height": 900,
+      "diffChannels": 5579,
+      "diffPixels": 4157,
+      "totalPixels": 1440000,
+      "diffPixelPct": 0.2887,
+      "maxDelta": 2,
+      "avgDelta": 1.07,
+      "identical": false
+    },
+    {
+      "name": "02-round-4",
+      "width": 1600,
+      "height": 900,
+      "diffChannels": 3075,
+      "diffPixels": 2625,
+      "totalPixels": 1440000,
+      "diffPixelPct": 0.1823,
+      "maxDelta": 1,
+      "avgDelta": 1,
+      "identical": false
+    },
+    {
+      "name": "03-round-6",
+      "width": 1600,
+      "height": 900,
+      "diffChannels": 5209,
+      "diffPixels": 4389,
+      "totalPixels": 1440000,
+      "diffPixelPct": 0.3048,
+      "maxDelta": 2,
+      "avgDelta": 1.02,
+      "identical": false
+    },
+    {
+      "name": "09-pending-buy",
+      "width": 1600,
+      "height": 900,
+      "diffChannels": 0,
+      "diffPixels": 0,
+      "totalPixels": 1440000,
+      "diffPixelPct": 0,
+      "maxDelta": 0,
+      "avgDelta": 0,
+      "identical": true
+    },
+    {
+      "name": "09-pending-buy-after-buy",
+      "width": 1600,
+      "height": 900,
+      "diffChannels": 3380,
+      "diffPixels": 3269,
+      "totalPixels": 1440000,
+      "diffPixelPct": 0.227,
+      "maxDelta": 2,
+      "avgDelta": 1.01,
+      "identical": false
+    }
+  ]
+}

@@ -68,3 +68,6 @@ screen_*.png
 
 # 验收产物：内含整份打包后的 app.asar（约 28 MB），不可复现、禁止入库
 test/acceptance-*/
+
+# 视觉基线截图：可由 docs/shots/states + scripts/shot-baseline.mjs 确定性再生成（约 20MB），不入库
+docs/shots/**/*.png

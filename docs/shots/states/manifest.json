@@ -1,0 +1,41 @@
+{
+  "mode": "states",
+  "out": "docs\\shots\\states",
+  "viewport": {
+    "width": 1600,
+    "height": 900,
+    "dpr": 1
+  },
+  "shots": [
+    {
+      "name": "00-start",
+      "what": "开局",
+      "pendingPanel": false,
+      "stateFile": "00-start.state.json"
+    },
+    {
+      "name": "01-round-2",
+      "what": "第 2 回合后",
+      "pendingPanel": false,
+      "stateFile": "01-round-2.state.json"
+    },
+    {
+      "name": "02-round-4",
+      "what": "第 4 回合后",
+      "pendingPanel": false,
+      "stateFile": "02-round-4.state.json"
+    },
+    {
+      "name": "03-round-6",
+      "what": "第 6 回合后",
+      "pendingPanel": false,
+      "stateFile": "03-round-6.state.json"
+    },
+    {
+      "name": "09-pending-buy",
+      "what": "落地面板（未购买）",
+      "pendingPanel": true,
+      "stateFile": "09-pending-buy.state.json"
+    }
+  ]
+}
