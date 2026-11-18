@@ -438,6 +438,9 @@ const INSTRUMENT = String.raw`
     return {
       players: document.querySelectorAll('#players .pl').length,
       logEntries: document.querySelectorAll('#log .logEntry').length,
+      logSummary: document.querySelectorAll('#log .logSummary').length,
+      logSummaryText: (document.querySelector('#log .logSummary') || {}).textContent || '',
+      fxNodes: document.querySelectorAll('#fxLayer > *').length,
       actions: (document.querySelector('#actions') || {}).textContent || '',
       hasRoll: !!document.querySelector('#rollBtn'),
       gameOver: G_gameOver(),
@@ -541,6 +544,9 @@ async function pageState(cdp) {
     panel: !!document.querySelector('#buyBtn'), up: !!document.querySelector('#upBtn'), end: !!document.querySelector('#endBtn'),
     players: document.querySelectorAll('#players .pl').length,
     log: document.querySelectorAll('#log .logEntry').length,
+    logSummary: document.querySelectorAll('#log .logSummary').length,
+    logSummaryText: (document.querySelector('#log .logSummary')||{}).textContent || '',
+    fxNodes: document.querySelectorAll('#fxLayer > *').length,
     logText: Array.from(document.querySelectorAll('#log .logEntry')).slice(0, 5).map(e => e.textContent),
     turn: (document.querySelector('#ccTurn')||{}).textContent || '',
   }))()`, { awaitPromise: false });

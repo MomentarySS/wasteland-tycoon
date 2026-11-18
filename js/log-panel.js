@@ -31,7 +31,12 @@ export function makeLogTag(kind) {
 
 /** 按当前过滤条件显隐单条战报（log() 追加时同步调用） */
 export function applyEntryFilter(d) {
+  // 只处理战报节点：底部的折叠摘要行（data-role=summary）不参与类别过滤与搜索。
+  // 用 className 字符串判断，兼容 dom-stub（其 className 与 classList 不同步）。
   if (!isEl(d)) return;
+  const cn = typeof d.className === 'string' ? d.className : '';
+  const isEntry = cn ? cn.indexOf('logEntry') >= 0 : d.classList.contains('logEntry');
+  if (!isEntry) return;
   const kind = (d.dataset && d.dataset.kind) || 'sys';
   const okKind = !mutedKinds.has(kind);      // chip 语义：点亮=显示，点掉=屏蔽该类别
   const text = String((d.dataset && d.dataset.text) || '').toLowerCase();
@@ -108,6 +113,8 @@ export function initLogPanel() {
   if (typeof search.addEventListener === 'function') {
     search.addEventListener('input', () => {
       searchText = String(search.value || '').trim().toLowerCase();
+      // 搜索只覆盖保留下来的最近条目，折叠摘要此时隐藏，避免混在空结果里
+      logEl.classList.toggle('logSearching', !!searchText);
       refilterAll();
     });
   }

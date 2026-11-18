@@ -951,6 +951,28 @@ if (mutRuleSnapshot !== mutRuleAfter) throw new Error('mutator 视觉族改动�
 
 console.log(`mutator 视觉族校验通过（映射 ${mapped} 个，其余 ${mutMod.MUTATOR_POOL.length - mapped} 个保持安静）`);
 
+// ---------------- 回归：战报折叠（M2.1） ----------------
+// 战报只保留最近 40 条完整节点，更早的折叠成底部一条摘要；裁剪逻辑要真正生效。
+{
+  const logEl = getEl('log');
+  const cnOf = c => (c && typeof c.className === 'string' ? c.className : '');
+  const isEntry = c => cnOf(c).indexOf('logEntry') >= 0;
+  const isSummary = c => cnOf(c).indexOf('logSummary') >= 0;
+  logEl.innerHTML = '';
+  for (let i = 0; i < 50; i++) view.log('测试战报 ' + i);
+  const entryCount = logEl.children.filter(isEntry).length;
+  const summaryCount = logEl.children.filter(isSummary).length;
+  if (entryCount !== 40) throw new Error('战报应只保留最近 40 条，实际 ' + entryCount);
+  if (summaryCount !== 1) throw new Error('应恰有 1 条折叠摘要，实际 ' + summaryCount);
+  if (logEl.children.length !== 41) throw new Error('战报 + 摘要应共 41 个子节点，实际 ' + logEl.children.length);
+  const summary = logEl.children.find(isSummary);
+  if (!summary || !/已省略 10 条/.test(summary.textContent)) {
+    throw new Error('摘要文案应报告被折叠条数，实际 ' + JSON.stringify(summary && summary.textContent));
+  }
+  logEl.innerHTML = '';   // 清掉测试数据，不影响后续
+  console.log('战报折叠校验通过（40 条 + 1 条摘要）');
+}
+
 if (errors.length) { console.error('运行期错误:\n' + errors.join('\n')); process.exit(1); }
 console.log('\n✅ SMOKE TEST PASSED');
 // buildSetup() 会注册 setInterval（TTS 状态轮询），必须显式退出，否则进程永不结束、CI 挂死。

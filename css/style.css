@@ -240,8 +240,13 @@ body.bad-lightning .amb-lightning{animation:ambBolt .5s ease-out;}
 .aiTag{font-size:10px;color:#9fb0a6;background:#1d2426;border:1px solid #2a3630;border-radius:2px;padding:0 4px;margin-left:4px;line-height:1.4;letter-spacing:1px;}
 .swatch{width:11px;height:11px;border-radius:2px;display:inline-block;margin-right:6px;vertical-align:middle;box-shadow:0 0 5px currentColor;}
 #dice{font-size:22px;letter-spacing:4px;color:var(--phos);min-height:30px;text-shadow:0 0 6px #7fae6e55;}
-#log div,#log .logEntry{border-bottom:1px dotted #1d2426;padding:3px 0;font-size:13px;}
-#log div::before,#log .logEntry::before{content:"> ";color:var(--phos);}
+#log .logEntry{border-bottom:1px dotted #1d2426;padding:3px 0;font-size:13px;}
+#log .logEntry::before{content:"> ";color:var(--phos);}
+/* 折叠摘要行：不是战报，去掉 "> " 前缀与点边框，弱化为提示文字 */
+#log .logSummary{color:#5f6b64;font-size:12px;padding:3px 0;border-bottom:none;text-align:center;letter-spacing:1px;}
+#log .logSummary::before{content:none;}
+/* 搜索只覆盖保留的最近条目，摘要行此时隐藏，避免混进空搜索结果 */
+#log.logSearching .logSummary{display:none;}
 #log .logEntry{opacity:0;transform:translateX(-8px);transition:opacity .32s ease,transform .32s ease;}
 #log .logEntry.in{opacity:1;transform:translateX(0);}
 #log .logEntry.log-money::before{content:"💰 ";color:var(--amber);}

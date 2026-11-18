@@ -24,16 +24,28 @@ export function initFx() {
   buildDice();
 }
 
-/** 限制装饰特效节点数量，优先淘汰粒子/环，不挤掉结果标签和数值反馈。 */
+/**
+ * 限制装饰特效节点数量，优先淘汰粒子/环，不挤掉结果标签和数值反馈。
+ * - 常规：只淘汰装饰节点（fxLabel / fxFloat 受保护），把总数压到 limit 以下。
+ * - 兜底：若整层只剩受保护节点（极端并发），超过硬顶 FX_HARD_LIMIT 时仍淘汰最旧的，
+ *   保证层体积有界（旧实现 `|| nodes[0]` 无脑淘汰受保护节点，会丢结果信息）。
+ */
+const FX_HARD_LIMIT = FX_NODE_LIMIT + 60;
+
 export function trimFxLayer(limit = FX_NODE_LIMIT) {
   const layer = fxLayer || (ENABLED ? document.getElementById('fxLayer') : null);
   if (!layer || !layer.children) return;
+  const hard = Math.max(FX_HARD_LIMIT, limit + 60);
   while (layer.children.length >= limit) {
-    const nodes = Array.from(layer.children);
-    const candidate = nodes.find(el => {
+    let candidate = null;
+    for (let i = 0; i < layer.children.length; i++) {
+      const el = layer.children[i];
       const cls = typeof el.className === 'string' ? el.className : '';
-      return !cls.includes('fxLabel') && !cls.includes('fxFloat');
-    }) || nodes[0];
+      if (!cls.includes('fxLabel') && !cls.includes('fxFloat')) { candidate = el; break; }
+    }
+    // 没有可淘汰的装饰节点：只在超过硬顶时才动受保护节点
+    if (!candidate && layer.children.length < hard) break;
+    if (!candidate) candidate = layer.children[0];
     if (!candidate || typeof candidate.remove !== 'function') break;
     candidate.remove();
   }

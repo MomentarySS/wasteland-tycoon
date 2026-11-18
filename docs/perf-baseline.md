@@ -302,3 +302,63 @@ M1.1/M1.2 完全不触碰 DOM 层）。
   `npm test` 的 dom-stub 覆盖）。
 - **既有 flaky（非本次引入）**：`smoke.test.mjs` 的「人类起始道德应为 2」断言约 5% 概率偶发失败
   （原始代码 20 次跑也出现 2 次，同一条断言）。与 M1.3 无关，留待后续单独排查。
+
+---
+
+## 9. M2.1 战报折叠 / M2.2 FX 淘汰修复（实测）
+
+> 日期：2026-11-18。对应 `docs/remaster-plan.md` M2。
+> 探针：`scripts/perf-probe.mjs --rounds 100`（1080p，n=1）。
+
+### 9.1 长局 DOM 对比
+
+| 指标 | 改造前 | 改造后 |
+|---|---|---|
+| 100 回合 DOM | **851** | **636 / 661**（两次跑） |
+| 战报条目（`#log .logEntry`） | 100（顶格） | **40** |
+| JS heap | 9.5MB | 9.5MB（恒定） |
+| long task | 1 次（68ms） | **0** |
+| 帧 canvas P95 | 0.5ms | 0.4ms |
+
+战报 DOM 从 ~300 节点降到 ~123（40 条 × 3 + 1 条摘要），是总 DOM 下降的全部来源。
+
+### 9.2 实现要点（`js/view-core.js` / `js/log-panel.js` / `css/style.css`）
+
+- `LOG_KEEP = 40`：`log()` 里 `prepend` 后按 `.logEntry` 计数，超过 40 就从底部淘汰最旧的，
+  被折叠条数累加到摘要行「已省略 N 条更早战报」。
+- 摘要行 `div.logSummary`（`data-role=summary`）**不参与类别过滤与搜索**（`applyEntryFilter` 只处理
+  `.logEntry`）；搜索时 `#log.logSearching .logSummary{display:none}`，避免混进空搜索结果。
+- `ensureLogSummary()` 用 `children` 成员判断存活，`innerHTML=''`（`clearLog` 与 `js/game.js` 各一处）
+  之后自检重建并把计数归零。
+- 摘要文案用 `className` 字符串判断条目归属，兼容 dom-stub（其 `className` 与 `classList` 不同步）。
+- CSS 把 `#log div` 收窄为 `#log .logEntry`，摘要行单独样式（去掉 `"> "` 前缀与点边框）。
+
+### 9.3 测试与保真度
+
+- `scripts/dom-stub.mjs` 补 `parentNode` / `removeChild` / `lastChild` / `remove()`（此前缺失，
+  导致裁剪逻辑在 `npm test` 里完全不执行）。
+- `smoke.test.mjs` 新增「战报折叠」断言：连写 50 条 → 40 条 + 1 条摘要，且摘要文案正确。
+- `scripts/perf-probe.mjs` 的 `pageState` / `__perfState` 增加 `logSummary` / `logSummaryText` / `fxNodes`，
+  供后续验收。
+
+### 9.4 M2.2 评估：池化收益≈0，改为修缺陷
+
+勘察（并行 Agent）+ 实测：`trimFxLayer()` 每次 append 前做 `Array.from(children).find()`，
+n 上限 120 时每次几 µs；长局 100 回合 long task 仅 1 次，**没有 FX 的痕迹**。故环形池化不做。
+
+改为修掉勘察发现的真实缺陷：旧实现 `... || nodes[0]` 兜底会在「整层都是受保护节点」时淘汰
+`fxLabel` / `fxFloat`（结果标签 / 数值反馈），与注释承诺矛盾。现在只淘汰装饰节点；
+再加 `FX_HARD_LIMIT = limit + 60` 硬顶——整层只剩受保护节点且超过硬顶时才动它，保证层体积有界。
+
+### 9.5 独立评审抓到的问题（已修）
+
+1. **HIGH**：dom-stub 缺 `parentNode`，`logSummaryEl.parentNode === logEl` 在桩里恒 false →
+   每次 `log()` 新建摘要行，`#log` 被摘要污染。→ 改用 `children` 成员判断（§9.2），并补桩方法。
+2. **MEDIUM**：`trimFxLayer` 去掉兜底后失去硬顶。→ 加 `FX_HARD_LIMIT` 两段式（§9.4）。
+3. **MEDIUM**：文档与实现不符（行号、上限 100、O(1) 承诺）→ 已同步 `remaster-plan.md`。
+4. **LOW**：摘要行每次 `log()` 都重写 `textContent` → 加变更判断；搜索时摘要残留 → 搜索时隐藏。
+
+### 9.6 验收口径修正
+
+方案原写「100 回合 DOM 与开局 ±5%」——开局 497 含大量固定 UI，而战报 40 条 + 摘要 ≈ 123 节点、
+FX 上限 120、玩家缩略条随地产数增长，**±5% 按字面不可达**。改为：**无界增长消失（平台化）+ 改造前后对比**。

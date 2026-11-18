@@ -404,6 +404,39 @@ export function fitBoard() {
   invalidateCellMetricsCache();
 }
 
+// 战报只保留最近 LOG_KEEP 条完整节点，更早的折叠成底部一条摘要：
+// 100 回合实测 DOM 497→851，其中战报 100 条 ≈ 300 个元素节点。降到 40 条 + 1 条摘要，
+// #log 的 DOM 从 ~300 压到 ~123。摘要行不参与类别过滤与搜索（见 log-panel.js）。
+const LOG_KEEP = 40;
+let logSummaryEl = null;
+let logDropped = 0;
+
+/**
+ * 摘要行常驻 #log 底部；`innerHTML=''` 清空后自检重建并把折叠计数归零。
+ * 用 children 里的成员判断而不是 `parentNode`——dom-stub 不实现 parentNode，
+ * 用它会导致桩环境每次 log 都新建一个摘要行。
+ */
+function ensureLogSummary() {
+  if (!logEl) return null;
+  if (logSummaryEl && logEl.children && Array.prototype.indexOf.call(logEl.children, logSummaryEl) >= 0) {
+    return logSummaryEl;
+  }
+  logSummaryEl = document.createElement('div');
+  logSummaryEl.className = 'logSummary';
+  logSummaryEl.dataset.role = 'summary';
+  logSummaryEl.style.display = 'none';
+  logEl.appendChild(logSummaryEl);
+  logDropped = 0;
+  return logSummaryEl;
+}
+
+// 用 className 字符串判断：真实 DOM 与 dom-stub 都成立（stub 的 className 与 classList 不同步）
+function isLogEntryEl(el) {
+  if (!el) return false;
+  if (typeof el.className === 'string') return el.className.indexOf('logEntry') >= 0;
+  return !!(el.classList && el.classList.contains('logEntry'));
+}
+
 export function log(msg, opts) {
   const d = document.createElement('div');
   d.className = 'logEntry';
@@ -419,9 +452,27 @@ export function log(msg, opts) {
   d.appendChild(tx);
   if (logEl) {
     logEl.prepend(d);
-    // 战报上限：生存模式无限回合下 DOM 无限增长会拖垮低端 WebView
+    const summary = ensureLogSummary();
+    // 裁剪只针对真正的战报节点（跳过摘要行）；新条目 prepend 到顶部，最旧的在底部
     if (typeof logEl.removeChild === 'function') {
-      while (logEl.children && logEl.children.length > 100) logEl.removeChild(logEl.lastChild);
+      let entries = 0;
+      for (let i = 0; i < logEl.children.length; i++) if (isLogEntryEl(logEl.children[i])) entries++;
+      while (entries > LOG_KEEP) {
+        let idx = -1;
+        for (let i = logEl.children.length - 1; i >= 0; i--) {
+          if (isLogEntryEl(logEl.children[i])) { idx = i; break; }
+        }
+        if (idx < 0) break;
+        logEl.removeChild(logEl.children[idx]);
+        entries--;
+        logDropped++;
+      }
+    }
+    if (summary) {
+      const text = '已省略 ' + logDropped + ' 条更早战报';
+      if (summary.textContent !== text) summary.textContent = text;   // 计数没变就不重写文本节点
+      const show = logDropped > 0 ? '' : 'none';
+      if (summary.style.display !== show) summary.style.display = show;
     }
     applyEntryFilter(d);
   }

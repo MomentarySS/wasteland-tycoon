@@ -47,19 +47,37 @@ export function installDomStub(opts = {}) {
   function mkEl(id) {
     return {
       id, _html: '', textContent: '', value: '', style: mkStyle(), dataset: {}, children: [],
+      parentNode: null,
       classList: { s: new Set(), add(c) { this.s.add(c); }, remove(c) { this.s.delete(c); }, toggle(c, on) { on ? this.s.add(c) : this.s.delete(c); }, contains(c) { return this.s.has(c); } },
       // 与真实 DOM 一致：设置 innerHTML 清空子节点（棋盘 / 玩家列表等渲染结构可计数断言）
-      set innerHTML(v) { this._html = String(v); this.children.length = 0; }, get innerHTML() { return this._html; },
-      appendChild(c) { this.children.push(c); return c; },
-      prepend(c) { this.children.unshift(c); if (this.children.length > 400) this.children.length = 400; return c; },
+      set innerHTML(v) {
+        this._html = String(v);
+        for (const c of this.children) c.parentNode = null;
+        this.children.length = 0;
+      },
+      get innerHTML() { return this._html; },
+      appendChild(c) { this.children.push(c); if (c) c.parentNode = this; return c; },
+      prepend(c) {
+        this.children.unshift(c); if (c) c.parentNode = this;
+        if (this.children.length > 400) { const dropped = this.children.splice(400); for (const d of dropped) d.parentNode = null; }
+        return c;
+      },
       insertBefore(c, ref) {
-        if (!ref) { this.children.push(c); return c; }
+        if (!ref) { this.children.push(c); if (c) c.parentNode = this; return c; }
         const i = this.children.indexOf(ref);
         if (i < 0) this.children.push(c); else this.children.splice(i, 0, c);
+        if (c) c.parentNode = this;
         return c;
       },
       get firstChild() { return this.children[0] || null; },
-      remove() { }, addEventListener() { }, removeEventListener() { },
+      get lastChild() { return this.children[this.children.length - 1] || null; },
+      removeChild(c) {
+        const i = this.children.indexOf(c);
+        if (i >= 0) { this.children.splice(i, 1); if (c) c.parentNode = null; }
+        return c;
+      },
+      remove() { if (this.parentNode) this.parentNode.removeChild(this); },
+      addEventListener() { }, removeEventListener() { },
       setAttribute(k, v) { if (String(k).startsWith('data-')) this.dataset[dataKey(k)] = String(v); else this[k] = String(v); },
       getAttribute(k) { const v = attrOf(this, k); return v === undefined ? null : v; },
       removeAttribute(k) { if (String(k).startsWith('data-')) delete this.dataset[dataKey(k)]; else delete this[k]; },
