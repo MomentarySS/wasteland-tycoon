@@ -293,11 +293,63 @@ function sideOf(r, c) {
   return r === 0 ? 'top' : r === N - 1 ? 'bot' : c === 0 ? 'left' : c === N - 1 ? 'right' : '';
 }
 
-/** 静态部分（步骤 1–7）：不随对局状态变，可烘焙到离屏层 */
+/**
+ * M3a 统一光照（主光源固定左上 315°）。
+ *
+ * 每格读作一块有厚度的板：顶 / 左边受光，底 / 右边背光，墙角自然出现
+ * 「左上最亮、右下最暗」的收敛。只画在静态层（烘焙时一次），不参与每帧重绘。
+ *
+ * 色值口径与 DOM 降级路径的 `.tile-v2` box-shadow 同源（top 高光 / bottom 压暗 /
+ * 右下外投影），保证 Canvas 与 DOM 两条路径的光照方向一致（R5 / R7）。
+ */
+const LIGHT = {
+  hiTop: 0.17,   // 顶边受光（左强右弱，纯提亮）
+  hiLeft: 0.14,  // 左边受光（上强下弱，纯提亮）
+  shBottom: 0.30, // 底边背光（左略弱、右最强）
+  shRight: 0.28,  // 右边背光（上略弱、下最强）
+  castX: 1.5,     // 外投影（落向右下，与光源方向相反）
+  castY: 2,
+  castAlpha: 0.30,
+  textBackdrop: 0.84, // 文字底板不透明度（M3a：逐行窄条，把对比度拉到 WCAG 4.5:1 以上）
+  textStroke: 0.85,   // 字形描边（深色 halo，属于字形本身，不像底板那样盖住整格贴图）
+};
+
+function drawSlabLight(x, y, w, h) {
+  const band = Math.max(1.5, Math.min(w, h) * 0.05);
+  // 每条边非亮即暗，不混用：顶 / 左受光，底 / 右背光。
+  // 这样「左上最亮、右下最暗」的收敛由墙角自然叠加产生，也便于逐边量化验收。
+  let g = ctx.createLinearGradient(x, 0, x + w, 0);
+  g.addColorStop(0, `rgba(255,255,255,${LIGHT.hiTop})`);
+  g.addColorStop(0.6, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(x, y, w, band);
+
+  g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, `rgba(255,255,255,${LIGHT.hiLeft})`);
+  g.addColorStop(0.6, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(x, y, band, h);
+
+  g = ctx.createLinearGradient(x, 0, x + w, 0);
+  g.addColorStop(0, `rgba(0,0,0,${LIGHT.shBottom * 0.7})`);
+  g.addColorStop(1, `rgba(0,0,0,${LIGHT.shBottom})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(x, y + h - band, w, band);
+
+  g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, `rgba(0,0,0,${LIGHT.shRight * 0.7})`);
+  g.addColorStop(1, `rgba(0,0,0,${LIGHT.shRight})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(x + w - band, y, band, h);
+}
+
+/** 静态部分（步骤 1–8）：不随对局状态变，可烘焙到离屏层 */
 function drawTileStatic(t, i, r, c) {
   const { x, y, w, h } = tileXY(r, c);
   const side = sideOf(r, c);
-  // 1) 底色
+  // 1) 底色 + 外投影（格间接触阴影：投影落向右下，与 315° 光源相反）
+  ctx.fillStyle = `rgba(0,0,0,${LIGHT.castAlpha})`;
+  ctx.fillRect(x + LIGHT.castX, y + LIGHT.castY, w, h);
   ctx.fillStyle = '#121816';
   ctx.fillRect(x, y, w, h);
   // 2) 顶面贴图（cover + 焦点偏移，对齐 CSS background-position）
@@ -321,9 +373,7 @@ function drawTileStatic(t, i, r, c) {
       ctx.restore();
     }
   }
-  // 5) 内壁高光 / 底部内阴影
-  ctx.fillStyle = 'rgba(255,255,255,0.06)';
-  ctx.fillRect(x, y, w, 1);
+  // 5) 底部内阴影（文字可读性用；方向光见步骤 8）
   const shade = ctx.createLinearGradient(0, y + h - 8, 0, y + h);
   shade.addColorStop(0, 'rgba(0,0,0,0)');
   shade.addColorStop(1, 'rgba(0,0,0,0.35)');
@@ -337,6 +387,8 @@ function drawTileStatic(t, i, r, c) {
   ctx.lineWidth = 1;
   ctx.strokeStyle = t.type === 'start' ? '#7fae6e' : '#2a3133';
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  // 8) M3a 方向光：顶边色条一并按朝向打亮/压暗（带宽≈色条高度）
+  drawSlabLight(x, y, w, h);
 }
 
 /** 整格绘制（离屏静态层不可用时的回退路径） */
@@ -416,6 +468,23 @@ function fitFontSizeToCell(name, maxW, maxH, maxLines, fontFamily, hardMaxFs) {
   return best;
 }
 
+/**
+ * 文字宽度缓存（M3a）：底板要按行宽铺条，若每帧 measureText 会把 M1.2 的
+ * 「每帧 measureText 868 → 0」重新破坏。键含 font，换字号/字体自然分流。
+ */
+const textWidthCache = new Map();
+const TEXT_W_CACHE_MAX = 512;
+function measureCached(text) {
+  const key = ctx.font + '|' + text;
+  let v = textWidthCache.get(key);
+  if (v == null) {
+    v = ctx.measureText(text).width;
+    if (textWidthCache.size >= TEXT_W_CACHE_MAX) textWidthCache.clear();
+    textWidthCache.set(key, v);
+  }
+  return v;
+}
+
 function drawTileName(t, x, y, w, h, side) {
   const plain = tileDisplayName(t);
   const name = plain + (t.mortgaged ? ' [押]' : '');
@@ -434,30 +503,42 @@ function drawTileName(t, x, y, w, h, side) {
   ctx.textBaseline = 'alphabetic';
   const lh = fs * 1.12;
   const y0 = y + h - 2 - (lines.length - 1) * lh;
-  ctx.shadowColor = 'rgba(0,0,0,0.9)';
-  ctx.shadowBlur = 3;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 1;
+  // M3a：贴图里常有高光亮斑，白字直接压上去实测只有 ~1.3:1。
+  // ① 逐行窄底板（随该行字形宽度，行间留出贴图，避免两行名变成大块黑箱）；
+  // ② 字形描边（深色 halo，随字形走）。两者叠加把字形紧邻背景压到足够暗。
+  const padX = 2;
+  ctx.fillStyle = `rgba(4,8,7,${LIGHT.textBackdrop})`;
+  lines.forEach((ln, k) => {
+    const wln = measureCached(ln);
+    ctx.fillRect(x + w / 2 - wln / 2 - padX, y0 + k * lh - fs * 0.86, wln + padX * 2, fs * 1.12);
+  });
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = `rgba(2,6,5,${LIGHT.textStroke})`;
+  ctx.lineWidth = Math.max(1.5, fs * 0.16);
   ctx.fillStyle = '#f8fbf9';
-  lines.forEach((ln, k) => ctx.fillText(ln, x + w / 2, y0 + k * lh));
+  lines.forEach((ln, k) => {
+    const yy = y0 + k * lh;
+    ctx.strokeText(ln, x + w / 2, yy);
+    ctx.fillText(ln, x + w / 2, yy);
+  });
   // [押] 标红（DOM 版 .mort 色）
   if (t.mortgaged) {
     const last = lines[lines.length - 1];
     const mark = ' [押]';
     if (last.endsWith(mark)) {
       const head = last.slice(0, -mark.length);
-      const fullW = ctx.measureText(last).width;
-      const headW = ctx.measureText(head).width;
+      const fullW = measureCached(last);
+      const headW = measureCached(head);
       const lx = x + w / 2 - fullW / 2;
+      ctx.strokeStyle = `rgba(2,6,5,${LIGHT.textStroke})`;
       ctx.fillStyle = '#d05a4a';
       ctx.textAlign = 'left';
-      ctx.fillText(mark, lx + headW, y0 + (lines.length - 1) * lh);
+      const my = y0 + (lines.length - 1) * lh;
+      ctx.strokeText(mark, lx + headW, my);
+      ctx.fillText(mark, lx + headW, my);
       ctx.textAlign = 'center';
     }
   }
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetY = 0;
 }
 
 function drawTileIcon(t, x, y, w, h, side) {
