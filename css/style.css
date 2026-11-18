@@ -13,9 +13,9 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:"Courier New",Co
 body.amb-on{
   background:linear-gradient(125deg,#0c0e0d 0%,#101512 38%,#0e1210 72%,#0c0e0d 100%);
   background-size:240% 240%;
-  animation:ambGradShift 96s ease-in-out infinite;
+  /* D6：原 96s 的 background-position 漂移改为静态中间相位（background-position 每帧整层重绘）。 */
+  background-position:50% 50%;
 }
-@keyframes ambGradShift{0%,100%{background-position:0% 42%;}50%{background-position:100% 58%;}}
 body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:5;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.65) 100%);}
 body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:6;opacity:.35;background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,.45) 3px,rgba(0,0,0,0) 4px);}
 h1{font-size:18px;letter-spacing:3px;margin:0;color:var(--amber);text-transform:uppercase;display:flex;align-items:center;gap:10px;}
@@ -234,8 +234,9 @@ body.bad-lightning .amb-lightning{animation:ambBolt .5s ease-out;}
 #players .pl>span:first-child{display:flex;align-items:center;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
 #players .pl>span:nth-child(2){white-space:nowrap;text-align:right;}
 #players .pl>div{grid-column:1 / -1;width:100%;min-width:0;}
-@keyframes playerPulse{0%,100%{border-color:var(--amber);box-shadow:0 0 6px #c9a22733;}50%{border-color:#f0c137;box-shadow:0 0 14px #c9a22766,0 0 4px #c9a22788;}}
-#players .pl.cur{border-color:var(--amber);box-shadow:0 0 8px #c9a22733;animation:playerPulse 1.8s ease-in-out infinite;}
+/* D6：原 1.8s 的 border-color + box-shadow 脉冲（非合成器属性，每帧重绘）。
+   降级为静态辉光（取原 0%/100% 相位），当前玩家行不再有呼吸脉冲。 */
+#players .pl.cur{border-color:var(--amber);box-shadow:0 0 6px #c9a22733;}
 #players .pl.bk{opacity:.4;text-decoration:line-through;}
 .aiTag{font-size:10px;color:#9fb0a6;background:#1d2426;border:1px solid #2a3630;border-radius:2px;padding:0 4px;margin-left:4px;line-height:1.4;letter-spacing:1px;}
 .swatch{width:11px;height:11px;border-radius:2px;display:inline-block;margin-right:6px;vertical-align:middle;box-shadow:0 0 5px currentColor;}

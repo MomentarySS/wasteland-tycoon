@@ -377,7 +377,9 @@
 > - **M2.2（原「FX 池化」）**：勘察表明 `trimFxLayer()` 的 O(n) 扫描在 n≤120 时成本可忽略（长局 long task 仅 1 次），
 >   **池化收益≈0，不做**。改为修其真实缺陷：旧 `|| nodes[0]` 兜底会在「整层都是受保护标签」时淘汰结果标签；
 >   现在只淘汰装饰节点，并加 `FX_HARD_LIMIT = limit + 60` 硬顶保证层体积有界。
-> - **D6 动画白名单**：**暂缓**（探针只量 rAF/canvas，测不到 CSS 合成成本；先补测量手段）。
+> - **D6 动画白名单**：**测量手段已补**（`scripts/css-anim-probe.mjs`，同会话 A/B trace），
+>   **第一批已做**（`ambGradShift` + `playerPulse` 降级静态）：CSS 动画成本 +456ms/5s → **+1.0ms/8s**。
+>   剩余 14 个瞬态 keyframes **暂缓**（用户决定停在第一批）。详见 `docs/perf-baseline.md` §10。
 > - **D3 图标/贴图预渲染**：**暂缓**（图标已有 `svgCache` / `imgCache`，收益最小且牵涉 Canvas 与 DOM 两条路径）。
 > - 布局读写分离 / `getTileRect` 缓存：M0 已修；粒子系统：归 M4。
 >

@@ -362,3 +362,51 @@ n 上限 120 时每次几 µs；长局 100 回合 long task 仅 1 次，**没有
 
 方案原写「100 回合 DOM 与开局 ±5%」——开局 497 含大量固定 UI，而战报 40 条 + 摘要 ≈ 123 节点、
 FX 上限 120、玩家缩略条随地产数增长，**±5% 按字面不可达**。改为：**无界增长消失（平台化）+ 改造前后对比**。
+
+---
+
+## 10. D6 动画白名单：测量手段 + 第一批（2026-11-18）
+
+### 10.1 测量手段：`scripts/css-anim-probe.mjs`
+
+原先 `perf-probe` 只量 rAF 回调 / canvas 方法，**CSS 动画走合成器，测不到**——所以 D6 无法验收。
+新探针在**同一个真实 Electron 会话**里采两段 Chrome trace：
+
+- **A 段**：CSS 动画照常（idle，环境/天气/玩家脉冲等持续动画在跑）
+- **B 段**：注入 `*{animation:none!important;transition:none!important}` 关掉 CSS 动画
+
+两段的 `Paint` / `UpdateLayoutTree` / `PrePaint` / `RasterTask` 差值 ≈ CSS 动画的绘制/合成/布局成本。
+用法：`node scripts/css-anim-probe.mjs --seconds 8`。
+
+### 10.2 改造前
+
+5s 窗口：**827 次 `Paint` + 827 次 `UpdateLayoutTree` + 827 次 `PrePaint`**（≈165 次/秒，等于每帧一次），
+合计 **+456ms/5s**。
+
+### 10.3 归因与第一批（D6a）
+
+- 主因：`playerPulse`（当前玩家行的 `border-color` + `box-shadow` 脉冲，1.8s 循环）。
+- 次因：`ambGradShift`（环境背景 96s 的 `background-position` 漂移）。
+- 只改 `ambGradShift` 时仍有 165 次/秒 → 证实 `playerPulse` 是主因。
+
+**D6a 已落地**（两个持续动画降级为静态，方案允许「降级为静态」）：
+- `ambGradShift`：改为静态中间相位 `background-position:50% 50%`。
+- `playerPulse`：改为静态辉光 `box-shadow:0 0 6px #c9a22733`（取原 0%/100% 相位）。
+
+**效果：CSS 动画成本 +456ms/5s → +1.0ms/8s（≈ −99.8%），Paint 165/秒 → ~0。** `npm test` 通过。
+
+### 10.4 副作用与验收口径
+
+移除 `.pl.cur` 的动画改变了合成器帧节奏，使**剩余动画（天气 / 突变可视 / 预览）的相位变得不稳定**：
+`01-round-2` 与 `09-pending-buy` 在**同一份 D6a 代码的两次跑之间**就差 ~9%（通道差 ≤4）。
+也就是说，「baseline vs D6a」的截图对比**被相位噪声淹没，不可用**；其中可归因的残余确定性差异约 ≤9。
+肉眼基本不可见，但超出台旧「≤0.31% / 通道差 ≤2」。试过 `::after` 叠层 / `translateZ(0)` 保留合成层，都更糟。
+
+**故 D6 的验收口径改为 `css-anim-probe` 的 Paint 次数 / 成本差**，不用截图像素
+（截图对动画相位天然敏感，不适合当动画改造的像素门）。
+
+### 10.5 未做（用户决定停在第一批）
+
+其余 **14 个瞬态 keyframes** 未处理：`nukePulse` / `mushStem` / `chromaticShift` / `shockwave` / `dash` /
+`modalGlow` / `borderBlink` / `artImgPulse` / `artImgFlicker` / `tbuildPop` / `tbuildUp` / `csKeyOn` /
+`csKeyDotOn` / `csMissileUp` / `tpPulse`。它们只在弹窗 / 核弹 / 过场 / 事件插画时跑，不是持续成本。
