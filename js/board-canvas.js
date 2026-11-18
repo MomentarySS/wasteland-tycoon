@@ -303,19 +303,20 @@ function sideOf(r, c) {
  * 右下外投影），保证 Canvas 与 DOM 两条路径的光照方向一致（R5 / R7）。
  */
 const LIGHT = {
-  hiTop: 0.17,   // 顶边受光（左强右弱，纯提亮）
-  hiLeft: 0.14,  // 左边受光（上强下弱，纯提亮）
-  shBottom: 0.30, // 底边背光（左略弱、右最强）
-  shRight: 0.28,  // 右边背光（上略弱、下最强）
+  hiTop: 0.26,   // 顶边受光（左强右弱，纯提亮）
+  hiLeft: 0.22,  // 左边受光（上强下弱，纯提亮）
+  shBottom: 0.42, // 底边背光（左略弱、右最强）
+  shRight: 0.40,  // 右边背光（上略弱、下最强）
+  bandRatio: 0.065, // 受光/背光带宽 = 格短边 × 此值（≈4px @ 60px 格）
   castX: 1.5,     // 外投影（落向右下，与光源方向相反）
   castY: 2,
-  castAlpha: 0.30,
+  castAlpha: 0.42,
   textBackdrop: 0.84, // 文字底板不透明度（M3a：逐行窄条，把对比度拉到 WCAG 4.5:1 以上）
   textStroke: 0.85,   // 字形描边（深色 halo，属于字形本身，不像底板那样盖住整格贴图）
 };
 
 function drawSlabLight(x, y, w, h) {
-  const band = Math.max(1.5, Math.min(w, h) * 0.05);
+  const band = Math.max(1.5, Math.min(w, h) * LIGHT.bandRatio);
   // 每条边非亮即暗，不混用：顶 / 左受光，底 / 右背光。
   // 这样「左上最亮、右下最暗」的收敛由墙角自然叠加产生，也便于逐边量化验收。
   let g = ctx.createLinearGradient(x, 0, x + w, 0);
