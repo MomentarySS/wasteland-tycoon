@@ -379,7 +379,11 @@
 >   现在只淘汰装饰节点，并加 `FX_HARD_LIMIT = limit + 60` 硬顶保证层体积有界。
 > - **D6 动画白名单**：**测量手段已补**（`scripts/css-anim-probe.mjs`，同会话 A/B trace），
 >   **第一批已做**（`ambGradShift` + `playerPulse` 降级静态）：CSS 动画成本 +456ms/5s → **+1.0ms/8s**。
->   剩余 14 个瞬态 keyframes **暂缓**（用户决定停在第一批）。详见 `docs/perf-baseline.md` §10。
+>   **第二批（D6b）已完成**（2026-11-18）：剩余 15 个 keyframes 全部合规——能换 transform/opacity 的换
+>   （`mushStem` / `csMissileUp` 由 `height` 改 `scaleY`，`shockwave` WAAPI 去 `strokeWidth` +
+>   `vector-effect="non-scaling-stroke"`），其余按方案允许降级为静态。顺带发现 `@keyframes shockwave`
+>   是死代码、`.csMissile` 的 RM 分支需要同步修。新增 `scripts/css-anim-audit.mjs` 作静态门禁：
+>   **48 个 @keyframes 违规 0**。详见 `docs/perf-baseline.md` §10–§11。
 > - **D3 图标/贴图预渲染**：**暂缓**（图标已有 `svgCache` / `imgCache`，收益最小且牵涉 Canvas 与 DOM 两条路径）。
 > - 布局读写分离 / `getTileRect` 缓存：M0 已修；粒子系统：归 M4。
 >
@@ -388,8 +392,8 @@
 
 | 项 | 内容 |
 |---|---|
-| 产出 | 战报折叠（40 条 + 摘要）；FX 淘汰策略修复 + 硬顶；~~FX 池化~~（收益≈0，不做）；~~图标预渲染~~（暂缓）；~~`ImageBitmap` 预解码~~（暂缓）；~~布局读写分离 / `getTileRect` 缓存~~（已修）；~~动画白名单~~（暂缓）；~~粒子系统~~（归 M4） |
-| 验收 | 内存：30 分钟对局 heap 无持续增长（✅ 9.5MB 恒定）；Detached DOM = 0（未测）；**战报 DOM 有界（40 条 + 摘要）**（✅ 851→636）；脉冲 P95 ≤ 16.7ms（✅ 长局 0.5ms）；`@keyframes` 白名单（D6，暂缓） |
+| 产出 | 战报折叠（40 条 + 摘要）；FX 淘汰策略修复 + 硬顶；**D6 动画白名单两批全做完**（持续项降级 + 剩余 15 项清理 + `css-anim-audit.mjs` 门禁）；~~FX 池化~~（收益≈0，不做）；~~图标预渲染~~（暂缓）；~~`ImageBitmap` 预解码~~（暂缓）；~~布局读写分离 / `getTileRect` 缓存~~（已修）；~~粒子系统~~（归 M4） |
+| 验收 | 内存：30 分钟对局 heap 无持续增长（✅ 9.5MB 恒定）；Detached DOM = 0（未测）；**战报 DOM 有界（40 条 + 摘要）**（✅ 851→636）；脉冲 P95 ≤ 16.7ms（✅ 长局 0.5ms）；`@keyframes` 白名单（✅ `css-anim-audit` 48/48，idle Paint 0 次） |
 | 风险 | 中低。改的是视图层；截图基线 + `npm test`（含新增「战报折叠」断言）兜底 |
 
 ### M3 · 视觉第一波：光照 + 程序化材质（**原 8–12 人天，含美术 3–5 天**）

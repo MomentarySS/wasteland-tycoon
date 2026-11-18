@@ -488,14 +488,17 @@ export async function playNukeStrike() {
     circle.setAttribute('fill', 'none');
     circle.setAttribute('stroke', '#ffe9a3');
     circle.setAttribute('stroke-dasharray', '12 8');
+    /* D6b：描边宽度改由属性固定，且不受整体 scale 影响（配合下方 WAAPI）。 */
+    circle.setAttribute('stroke-width', '3');
+    circle.setAttribute('vector-effect', 'non-scaling-stroke');
     shockwave.appendChild(circle);
     trimFxLayer();
     layer.appendChild(shockwave);
     if (shockwave.animate) {
       shockwave.animate(
-        [{ transform: 'translate(-50%,-50%) scale(0)', opacity: 0.9, strokeWidth: 18 },
-         { transform: 'translate(-50%,-50%) scale(4)', opacity: 0.5, strokeWidth: 4, offset: 0.5 },
-         { transform: 'translate(-50%,-50%) scale(22)', opacity: 0, strokeWidth: 0 }],
+        [{ transform: 'translate(-50%,-50%) scale(0)', opacity: 0.9 },
+         { transform: 'translate(-50%,-50%) scale(4)', opacity: 0.5, offset: 0.5 },
+         { transform: 'translate(-50%,-50%) scale(22)', opacity: 0 }],
         { duration: 1400, easing: 'cubic-bezier(.2,.6,.4,1)', fill: 'forwards' }
       ).onfinish = () => shockwave.remove();
     } else setTimeout(() => shockwave.remove(), 1500);

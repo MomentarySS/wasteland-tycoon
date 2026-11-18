@@ -146,14 +146,16 @@ body.board-v2 .tilePreview .tpMeta {
   letter-spacing: 0.5px;
 }
 
+/* D6b：预览金光改静态（类存活期间常驻），脉冲只动 transform。 */
 body.board-v2 .tilePreview.tpPulse .tpBody {
   animation: tpPulse 0.55s ease-out;
+  box-shadow: 0 0 18px rgba(201, 162, 39, 0.45);
 }
 
 @keyframes tpPulse {
-  0% { box-shadow: 0 0 0 rgba(201, 162, 39, 0); transform: scale(1); }
-  35% { box-shadow: 0 0 18px rgba(201, 162, 39, 0.45); transform: scale(1.02); }
-  100% { box-shadow: 0 0 20px rgba(0, 0, 0, 0.45); transform: scale(1); }
+  0% { transform: scale(1); }
+  35% { transform: scale(1.02); }
+  100% { transform: scale(1); }
 }
 
 body.board-v2 .tilePreview[data-group="rust"] .tpBody { border-color: rgba(181, 101, 29, 0.45); }

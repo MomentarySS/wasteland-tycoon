@@ -405,8 +405,72 @@ FX 上限 120、玩家缩略条随地产数增长，**±5% 按字面不可达**�
 **故 D6 的验收口径改为 `css-anim-probe` 的 Paint 次数 / 成本差**，不用截图像素
 （截图对动画相位天然敏感，不适合当动画改造的像素门）。
 
-### 10.5 未做（用户决定停在第一批）
+### 10.5 未做（用户决定停在第一批；已在 §10.6 清理完毕）
 
-其余 **14 个瞬态 keyframes** 未处理：`nukePulse` / `mushStem` / `chromaticShift` / `shockwave` / `dash` /
+其余瞬态 keyframes 未处理：`nukePulse` / `mushStem` / `chromaticShift` / `shockwave` / `dash` /
 `modalGlow` / `borderBlink` / `artImgPulse` / `artImgFlicker` / `tbuildPop` / `tbuildUp` / `csKeyOn` /
-`csKeyDotOn` / `csMissileUp` / `tpPulse`。它们只在弹窗 / 核弹 / 过场 / 事件插画时跑，不是持续成本。
+`csKeyDotOn` / `csMissileUp` / `tpPulse`。（标题写「14 个」，实际名单 15 个名字。）
+其中 `nukePulse`（`button.nuke`）/ `chromaticShift` / `dash` / `modalGlow` / `borderBlink` / `artImg*`
+其实是 **infinite**，并非纯瞬态——只是宿主（弹窗 / 核弹 / 过场 / 事件插画）不常开。
+
+---
+
+## 11. D6b：剩余 keyframes 清理（2026-11-18）
+
+对应 `docs/remaster-plan.md` §2.7-4 的白名单规则。原则：**能换等价 transform/opacity 就换，换不了就降级为静态**。
+
+| # | 项 | 原动画属性 | 处理 |
+|---|---|---|---|
+| 1 | `nukePulse`（`button.nuke` + `.nukeKeys.nukeReady`） | `box-shadow` infinite | 静态中点辉光 `0 0 14px #ff6b0077` |
+| 2 | `mushStem` | **`height`** 0→`min(42vh,140px)` | 高度写死 + `scaleY(0→1)`、`transform-origin:50% 100%`（从底部向上长，视觉等价） |
+| 3 | `chromaticShift` | `filter` infinite alternate | 静态中点 filter（仅核弹后 3.2s 内） |
+| 4 | `shockwave` | —— | **CSS keyframes 是死代码**（`.fxShockwave` 无 animation 引用），实际走 `fx-events.js` 的 WAAPI。删 CSS；WAAPI 去掉 `strokeWidth`，圆环加 `stroke-width="3"` + `vector-effect="non-scaling-stroke"` 抵消整体缩放 |
+| 5 | `dash` | `stroke-dashoffset` infinite | 删动画，保留 `stroke-dasharray` 静态虚线（无 transform 等价） |
+| 6 | `modalGlow` | `box-shadow` infinite | 静态相位 |
+| 7 | `borderBlink` | `border-color` infinite | 静态 `var(--amber)` |
+| 8 | `artImgPulse` | `filter` infinite | 静态 `brightness(1.09) saturate(1.05)` |
+| 9 | `artImgFlicker` | `filter` infinite | 静态 `brightness(1.1)` |
+| 10 | `tbuildPop` | `transform` + `filter` | 只留 `transform` |
+| 11 | `tbuildUp` | `transform` + `box-shadow` | 金光改**静态**（类存活期常驻），动画只留 `transform` |
+| 12 | `csKeyOn` | `opacity/transform/border-color/box-shadow` | 终态颜色与辉光写入 `.csKey` 基础样式，动画只留 `opacity/transform` |
+| 13 | `csKeyDotOn` | `background` + `box-shadow` | 基础样式即终态，动画改为 `opacity` |
+| 14 | `csMissileUp` | **`height`** + `filter` | `scaleY(0→1)`；RM 分支补 `transform:none`（否则导弹永久不可见） |
+| 15 | `tpPulse`（board-v2.css） | `transform` + `box-shadow` | 金光改**静态**，动画只留 `transform` |
+
+### 11.1 新增测量手段：`scripts/css-anim-audit.mjs`
+
+`css-anim-probe` 只能测「跑起来多贵」，**测不出「是否合规」**；而本轮清掉的项都 host-gated，idle 探针根本采不到。
+故补一个确定性静态门：解析 `css/*.css` 的全部 `@keyframes`，凡出现 `transform`/`opacity` 之外的属性即报错、退出码 1。
+
+```
+node scripts/css-anim-audit.mjs          # 门禁
+node scripts/css-anim-audit.mjs --list     # 列出全部 keyframes 及属性
+```
+
+结果：**2 个样式文件、48 个 @keyframes、违规 0**（不止那 15 项，全仓已无例外）。
+
+### 11.2 验收
+
+| 门 | 结果 |
+|---|---|
+| keyframes 白名单（静态审计） | ✅ 48/48 仅含 transform/opacity |
+| `css-anim-probe --seconds 8`（idle） | **Paint 0 次**；合计 +3.61ms/8s（D6a 后基线 +1.0ms/8s，同量级；差值来自 TimerFire/HitTest/UpdateLayoutTree 的个位数次数） |
+| 截图像素（棋盘环带，D6b 前=HEAD `c6cf369` vs 后=工作区，同一份 states） | 6 张中 5 张 **0 差异**；`09-pending-buy-after-buy` 0.2798% / 通道差 ≤1 —— 与「同代码跑两次」对照（0.3027% / 通道差 ≤2）一致，属跑动噪声 |
+| 差异定位 | 所有通道差 >2 的像素包围盒 **x 413–790 / y 351–609**，全在中央 DOM 预览区，来源是 `tpPulse` 金光由「动画结束回到无辉光」改为「静态常驻」——**有意的观感变更，非回归** |
+| `npm test` / `subtype-test.mjs` | ✅ 通过（51/51） |
+| `scripts/render-parity.mjs`（R7） | ✅ 语义差异 0 |
+
+> 口径说明：本轮改动**没有移除任何持续动画**（剩下的都是 host-gated / 一次性），所以截图相位噪声理论上不变；
+> 实测也确实如此（差异全部落在唯一被有意改观的预览区）。截图像素在这里只用于确认「棋盘环带未受影响」，
+> 不作为动画本身的成本证据。
+
+### 11.3 诚实清单
+
+1. `js/fx.js` `pulseRow()` 用 WAAPI 动 `background`（700ms，金钱变动时）。**不在方案 D6 名单内**（该条针对 `@keyframes`），本次未改；
+   属同类成本，建议后续一并处理或明确豁免。
+2. 其余 WAAPI 调用未逐条审计，只粗查了 `boxShadow` / `strokeWidth` / `filter` / `background` 关键字（现仅 `pulseRow` 一处）。
+3. `docs/shots/baseline` 的 PNG 是当天 10:09 从**旧 states** 渲染的，与当前 states（14:06 重生成）不匹配：
+   直接拿它当基准会得出无意义的巨差（本次首次 diff 报 66.67% 即是此因，棋盘布局与骰子都不同）。
+   **states 变更后必须重渲染基准**，或改用「同一提交跑两次」对照（本次即用后者）。
+4. `csMissile` 改 `scaleY` 后，其 `::after` 弹头圆点在动画中会随父级一起被纵向压缩（原 `height` 动画不会）。
+   末态一致，过程中圆点略扁——过场一次性 1.5s，判定可接受。
